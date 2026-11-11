@@ -78,16 +78,36 @@ describe("SearchIndex", () => {
     expect(idx.query("[foo] bar").groups).toEqual([]); // literal, no crash
   });
 
-  test("generating/failed excluded; completes appear after refresh", () => {
+  test("generating excluded; failed is terminal and searchable", () => {
     const { convs, store } = makeStore();
     const m = msg("m1", "assistant", "partial draft", "generating");
-    convs.set("c1", conv("c1", "Chat", "2026-01-02", [m]));
+    const f = msg("m2", "assistant", "draft before abort", "failed");
+    convs.set("c1", conv("c1", "Chat", "2026-01-02", [m, f]));
     const idx = new SearchIndex(store);
-    expect(idx.query("draft").groups).toEqual([]);
+    const g = idx.query("draft").groups[0];
+    // in-flight excluded; failed (terminal) included (FR-009)
+    expect(g.hits.map((h) => h.messageId)).toEqual(["m2"]);
     // simulate completion: status flips AND updatedAt bumps (T006 fix)
     m.status = "complete";
     convs.get("c1")!.updatedAt = "2026-01-03";
-    expect(idx.query("draft").groups[0].hits[0].messageId).toBe("m1");
+    expect(idx.query("draft").groups[0].hits.map((h) => h.messageId)).toEqual([
+      "m1",
+      "m2",
+    ]);
+  });
+
+  test("SC-001: 1,000 messages query in under 300 ms", () => {
+    const { convs, store } = makeStore();
+    const msgs = Array.from({ length: 1000 }, (_, i) =>
+      msg(`m${i}`, i % 2 ? "assistant" : "user", `filler text ${i}`),
+    );
+    msgs[999].content = "the rare needle appears here";
+    convs.set("c1", conv("c1", "Big", "2026-01-02", msgs));
+    const idx = new SearchIndex(store);
+    const t0 = performance.now();
+    const r = idx.query("needle");
+    expect(performance.now() - t0).toBeLessThan(300);
+    expect(r.groups[0].hits[0].messageId).toBe("m999");
   });
 
   test("plan-phase content is searchable (FR-007)", () => {

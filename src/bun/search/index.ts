@@ -44,7 +44,7 @@ const SNIPPET_PAD = 40; // chars of context each side of the first match
 function entriesOf(conv: Conversation): Entry[] {
   const out: Entry[] = [];
   for (const m of conv.messages) {
-    if (m.status !== "complete" && m.status !== "partial") continue;
+    if (m.status === "generating") continue; // FR-009: exclude in-flight only
     const source = m.phases?.plan?.content
       ? `${m.content}\n${m.phases.plan.content}`
       : m.content;

@@ -185,15 +185,20 @@ export function Sidebar({
                 {g.hits.map((h) => (
                   <button
                     key={h.messageId}
-                    className="block w-full truncate rounded px-4 py-0.5 text-left text-[11px] text-muted-foreground hover:bg-muted"
+                    className="flex w-full items-baseline rounded px-4 py-0.5 text-left text-[11px] text-muted-foreground hover:bg-muted"
                     onClick={() => onSelectHit(g.conversationId, h.messageId)}
                     title={h.snippet}
                   >
-                    {h.snippet.slice(0, h.matchStart)}
-                    <mark className="rounded-sm bg-amber-500/40 text-inherit">
-                      {h.snippet.slice(h.matchStart, h.matchEnd)}
-                    </mark>
-                    {h.snippet.slice(h.matchEnd)}
+                    <span className="min-w-0 flex-1 truncate">
+                      {h.snippet.slice(0, h.matchStart)}
+                      <mark className="rounded-sm bg-amber-500/40 text-inherit">
+                        {h.snippet.slice(h.matchStart, h.matchEnd)}
+                      </mark>
+                      {h.snippet.slice(h.matchEnd)}
+                    </span>
+                    <span className="ml-1.5 shrink-0 text-[10px] text-muted-foreground/60">
+                      {new Date(h.timestamp).toLocaleDateString()}
+                    </span>
                   </button>
                 ))}
               </div>

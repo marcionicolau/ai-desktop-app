@@ -7,11 +7,11 @@
 | Search titles + message bodies, case-insensitive literal | `tests/bun/search.test.ts` |
 | Multi-word AND matching | `tests/bun/search.test.ts` ("c++ template" both msgs) |
 | Grouped by conversation, `updatedAt` desc, ≤20 groups / ≤3 hits | `tests/bun/search.test.ts` ordering+caps |
-| Contextual snippet + `matchStart/End` highlight offsets | `tests/bun/search.test.ts` snippet test; `<mark>` in Sidebar |
+| Contextual snippet + `matchStart/End` highlight + message timestamp | `tests/bun/search.test.ts` snippet test; `<mark>` in Sidebar |
 | Jump to matching message | `use-chat.selectConversation(id, msgId)` → `scrollTarget` → MessageList `scrollIntoView` + ring flash |
 | Index updates on add/edit/regenerate/delete | lazy `updatedAt`-keyed refresh; edit/regen/delete bump `updatedAt` in store |
 | Plan-phase fusion content searchable | message `role:"plan"` indexed like any terminal message |
-| In-flight `generating` excluded, terminal included | `STATUS` filter in `index.ts`; `updatedAt` bumped at `chat.done`/`chat.error` persist |
+| In-flight `generating` excluded; `failed` (terminal) searchable | `status === "generating"` skip in `index.ts`; `updatedAt` bumped at `chat.done`/`chat.error` persist |
 | No syntax; specials literal (`C++`, `[foo]`) | `tests/bun/search.test.ts` literal cases |
 | Fully local, no persistence needed | in-memory `SearchIndex` rebuilt from JSON conversations per query |
 | Min 3 chars, empty → no results | `query()` early-return + Sidebar `searchMode` gate |
@@ -19,7 +19,7 @@
 
 ## Gates
 
-- `bun test` — 217 pass / 0 fail (32 files)
+- `bun test` — 219 pass / 0 fail (32 files), incl. SC-001 perf smoke (1,000 msgs < 300 ms)
 - `tsc --noEmit` — clean
 - `oxlint` — clean
 - `hutch run build` — `build/canary-linux-x64`
