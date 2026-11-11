@@ -57,7 +57,9 @@ export interface ChatRpcSchema extends ElectrobunRPCSchema {
     requests: {
       "model.load": {
         params: { path: string };
-        response: { status: "ready"; name: string };
+        // ack only — completion arrives via model.progress; a big FFI
+        // load must not hold the request open (bridge timeout)
+        response: { status: ModelStatus; name?: string; error?: string };
       };
       "model.unload": { params: Record<string, never>; response: Record<string, never> };
       "model.pick": {

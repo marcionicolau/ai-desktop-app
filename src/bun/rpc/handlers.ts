@@ -179,6 +179,10 @@ const preview = (t: string) => t.replace(/\s+/g, " ").slice(0, 120);
 
 export function createRequestHandlers(deps: HandlerDeps) {
   let activeMessageId: string | null = null;
+  // a stop that lands before the engine starts (run() yields first so
+  // chat.send can answer, then load+prefill block the loop) — honored
+  // at the earliest moment generation can observe it
+  let pendingStop: string | null = null;
   // feature 010: absent dep → snapshot layer off (tests); prod injects
   // the module singleton via createRpc
   const snap = deps.snapshots ?? null;
@@ -335,6 +339,15 @@ export function createRequestHandlers(deps: HandlerDeps) {
       });
     };
     const run = async () => {
+      // yield once up front: the request that spawned this run (send /
+      // regenerate / edit) must respond before the synchronous FFI
+      // prefix — model load + prompt prefill — blocks the event loop,
+      // otherwise callers hit the bridge's RPC-request timeout
+      await new Promise((r) => setTimeout(r, 0));
+      if (pendingStop === messageId) {
+        pendingStop = null;
+        return { status: "partial" as const, tokens: 0, elapsedMs: 0 };
+      }
       // fusion mode: two-phase planner -> executor via the orchestrator
       if (conv.mode === "fusion" && deps.roles && deps.registry) {
         // FR-009: persona params go to the executor only; the planner
@@ -489,6 +502,8 @@ export function createRequestHandlers(deps: HandlerDeps) {
                   attemptText += delta;
                   dirty = true;
                   deps.emit("chat.token", { messageId, delta });
+                  // a stop queued during load/prefill lands on first token
+                  if (pendingStop === messageId) deps.engine.stop();
                 },
                 genParams,
                 { conversationId: conv.id, snapshot: snapSync() ?? undefined },
@@ -588,6 +603,7 @@ export function createRequestHandlers(deps: HandlerDeps) {
       .finally(() => {
         clearInterval(flushTimer);
         if (activeMessageId === messageId) activeMessageId = null;
+        if (pendingStop === messageId) pendingStop = null;
       });
   };
 
@@ -606,27 +622,30 @@ export function createRequestHandlers(deps: HandlerDeps) {
   };
 
   return {
-    "model.load": async ({ path }: { path: string }) => {
+    // fire-and-forget: the FFI load blocks the loop for seconds on big
+    // models — respond now and drive completion via model.progress
+    "model.load": ({ path }: { path: string }) => {
       deps.emit("model.progress", { phase: "loading" });
-      try {
-        const res = await deps.engine.loadModel(path);
-        deps.emit("model.progress", { phase: "ready", detail: res.name });
-        if (deps.roles) {
-          // bind("default") also syncs activeModelPath (FR-010)
-          deps.roles.bind("default", path);
-          deps.emit("role.changed", { name: "default" });
-        } else {
-          const settings = deps.store.getSettings();
-          deps.store.saveSettings({ ...settings, activeModelPath: path });
+      void (async () => {
+        try {
+          const res = await deps.engine.loadModel(path);
+          deps.emit("model.progress", { phase: "ready", detail: res.name });
+          if (deps.roles) {
+            // bind("default") also syncs activeModelPath (FR-010)
+            deps.roles.bind("default", path);
+            deps.emit("role.changed", { name: "default" });
+          } else {
+            const settings = deps.store.getSettings();
+            deps.store.saveSettings({ ...settings, activeModelPath: path });
+          }
+        } catch (e) {
+          deps.emit("model.progress", {
+            phase: "error",
+            detail: e instanceof Error ? e.message : String(e),
+          });
         }
-        return res;
-      } catch (e) {
-        deps.emit("model.progress", {
-          phase: "error",
-          detail: e instanceof Error ? e.message : String(e),
-        });
-        throw e;
-      }
+      })();
+      return { status: "loading" as const };
     },
     "model.unload": () => {
       deps.engine.unloadModel();
@@ -1087,9 +1106,12 @@ export function createRequestHandlers(deps: HandlerDeps) {
       return { activeLeaf: conv.activeLeaf };
     },
     "chat.stop": ({ messageId }: { messageId: string }) => {
-      if (!deps.engine.isGenerating() || activeMessageId !== messageId) {
+      if (activeMessageId !== messageId) {
         fail("NOT_GENERATING", "no generation is active for that message");
       }
+      // engine may not have started yet (load/prefill) — flag it so the
+      // earliest observable point in run()/onToken turns it into partial
+      pendingStop = messageId;
       deps.engine.stop();
       return {};
     },

@@ -107,15 +107,12 @@ function makeDeps(outputPanel: boolean, engine = fakeEngine()) {
   return { call, emitted, metrics, settings };
 }
 
-const waitDone = async (emitted: { method: string }[]) => {
+const waitDone = async (emitted: { method: string }[], n = 1) => {
   for (let i = 0; i < 200; i++) {
-    if (
-      emitted.some(
-        (e) => e.method === "chat.done" || e.method === "chat.error",
-      )
-    ) {
-      return;
-    }
+    const done = emitted.filter(
+      (e) => e.method === "chat.done" || e.method === "chat.error",
+    ).length;
+    if (done >= n) return;
     await new Promise((r) => setTimeout(r, 5));
   }
   throw new Error("chat.done never arrived");
@@ -134,12 +131,12 @@ describe("metrics rpc", () => {
   test("toggle off records nothing; toggle on records one entry", async () => {
     const { call, metrics, emitted } = makeDeps(false);
     call("chat.send", { conversationId: "c1", content: "hi" });
-    await waitDone(emitted);
+    await waitDone(emitted, 1);
     expect(metrics.list()).toHaveLength(0);
 
     await call("settings.set", { outputPanel: true });
     call("chat.send", { conversationId: "c1", content: "hi again" });
-    await waitDone(emitted);
+    await waitDone(emitted, 2);
     const entries = metrics.list();
     expect(entries).toHaveLength(1);
     const e = entries[0];

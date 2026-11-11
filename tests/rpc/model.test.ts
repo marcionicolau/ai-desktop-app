@@ -75,35 +75,43 @@ function makeDeps(loadBehavior: "ok" | "not_found" | "invalid") {
 }
 
 describe("model.* contract", () => {
-  test("model.load missing path -> MODEL_NOT_FOUND + progress error", async () => {
+  // model.load ack is immediate ({status:"loading"}); the outcome lands
+  // as a model.progress event once the async load settles
+  const settle = () => new Promise((r) => setTimeout(r, 0));
+
+  test("model.load missing path -> progress error event", async () => {
     const { deps, emitted } = makeDeps("not_found");
     const h = createRequestHandlers(deps);
-    try {
-      await h["model.load"]({ path: "/nope.gguf" });
-      expect.unreachable();
-    } catch (e) {
-      expect((e as EngineError).code).toBe("MODEL_NOT_FOUND");
-    }
+    const res = h["model.load"]({ path: "/nope.gguf" }) as {
+      status: string;
+    };
+    expect(res.status).toBe("loading");
+    await settle();
     const phases = emitted.map((e) => (e.payload as { phase: string }).phase);
     expect(phases).toEqual(["loading", "error"]);
+    expect(
+      (emitted.at(-1)!.payload as { detail: string }).detail,
+    ).toContain("not found");
   });
 
-  test("model.load corrupt file -> MODEL_INVALID", async () => {
-    const { deps } = makeDeps("invalid");
+  test("model.load corrupt file -> progress error event", async () => {
+    const { deps, emitted } = makeDeps("invalid");
     const h = createRequestHandlers(deps);
-    try {
-      await h["model.load"]({ path: "/corrupt.gguf" });
-      expect.unreachable();
-    } catch (e) {
-      expect((e as EngineError).code).toBe("MODEL_INVALID");
-    }
+    h["model.load"]({ path: "/corrupt.gguf" });
+    await settle();
+    expect(
+      (emitted.at(-1)!.payload as { detail: string }).detail,
+    ).toContain("invalid");
   });
 
   test("model.load success emits loading -> ready and persists path", async () => {
     const { deps, emitted, savedSettings } = makeDeps("ok");
     const h = createRequestHandlers(deps);
-    const res = await h["model.load"]({ path: "/models/fake.gguf" });
-    expect(res.status).toBe("ready");
+    const res = h["model.load"]({ path: "/models/fake.gguf" }) as {
+      status: string;
+    };
+    expect(res.status).toBe("loading");
+    await settle();
     const phases = emitted.map((e) => (e.payload as { phase: string }).phase);
     expect(phases).toEqual(["loading", "ready"]);
     expect(savedSettings.at(-1)!.activeModelPath).toBe("/models/fake.gguf");
@@ -112,7 +120,8 @@ describe("model.* contract", () => {
   test("model.unload then chat.send -> NO_MODEL; unload clears activeModelPath", async () => {
     const { deps, savedSettings } = makeDeps("ok");
     const h = createRequestHandlers(deps);
-    await h["model.load"]({ path: "/models/fake.gguf" });
+    h["model.load"]({ path: "/models/fake.gguf" });
+    await settle();
     h["model.unload"]({});
     expect(savedSettings.at(-1)!.activeModelPath).toBeNull();
     try {
