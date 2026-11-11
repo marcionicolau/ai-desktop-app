@@ -57,10 +57,10 @@ features established test-first conventions.
 
 **Independent Test**: VS-3 — code block renders highlighted + copies raw; regenerate streams in place; edit deletes tail; filter narrows list.
 
-- [ ] T018 [P] [US3] Create `src/renderer/src/components/ai/`: `ai-message.tsx` (react-markdown + remark-gfm + rehype-highlight rendering `Message.content`), `code-block.tsx` (hljs styling + copy button per shadcn conventions), `message-actions.tsx` (copy / regenerate / edit icons via Radix `Tooltip`/`Popover` per existing component patterns)
-- [ ] T019 [US3] Implement `chat.regenerate` in `handlers.ts`: target last `complete|partial` assistant turn → reset `generating`, clear content, rerun generation with same `messageId`; invalidate KVSession; `NOT_FOUND`/`ENGINE_BUSY` semantics per contract
-- [ ] T020 [US3] Implement `chat.edit` in `handlers.ts`: validate non-empty (`EMPTY_MESSAGE`), update user msg content, `deleteMessagesFrom` the following turn onward, then run the normal send/generate flow; invalidate KVSession
-- [ ] T021 [US3] Wire renderer: `MessageList` → `ai-message`; actions call `chat.regenerate`/`chat.edit`; sidebar `Input` filter on conversation title substring (case-insensitive); stats line under finished replies
+- [x] T018 [P] [US3] Create `src/renderer/src/components/ai/`: `ai-message.tsx` (react-markdown + remark-gfm + rehype-highlight rendering `Message.content`), `code-block.tsx` (hljs styling + copy button per shadcn conventions), `message-actions.tsx` (copy / regenerate / edit icons via Radix `Tooltip`/`Popover` per existing component patterns)
+- [x] T019 [US3] Implement `chat.regenerate` in `handlers.ts`: target last `complete|partial` assistant turn → reset `generating`, clear content, rerun generation with same `messageId`; invalidate KVSession; `NOT_FOUND`/`ENGINE_BUSY` semantics per contract
+- [x] T020 [US3] Implement `chat.edit` in `handlers.ts`: validate non-empty (`EMPTY_MESSAGE`), update user msg content, `deleteMessagesFrom` the following turn onward, then run the normal send/generate flow; invalidate KVSession
+- [x] T021 [US3] Wire renderer: `MessageList` → `ai-message`; actions call `chat.regenerate`/`chat.edit`; sidebar `Input` filter on conversation title substring (case-insensitive); stats line under finished replies
 
 **Checkpoint**: US1–US3 functional; chat UX complete.
 

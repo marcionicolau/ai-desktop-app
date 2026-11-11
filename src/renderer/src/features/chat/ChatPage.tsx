@@ -19,6 +19,8 @@ export function ChatPage() {
     deleteConversation,
     pickModel,
     saveGeneration,
+    regenerate,
+    editMessage,
   } = useChat();
   const modelReady = state.modelStatus === "ready";
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -79,7 +81,12 @@ export function ChatPage() {
             {state.lastError.code}: {state.lastError.message}
           </div>
         )}
-        <MessageList messages={state.messages} />
+        <MessageList
+          messages={state.messages}
+          generating={state.generatingId !== null}
+          onRegenerate={(id) => void regenerate(id)}
+          onEdit={(id, c) => void editMessage(id, c)}
+        />
         <Composer
           generating={state.generatingId !== null}
           modelReady={modelReady}

@@ -38,7 +38,15 @@ type Action =
   | { type: "error"; messageId: string; code: RpcErrorCode; message: string }
   | { type: "model"; status: ModelStatus; name?: string; error?: string }
   | { type: "notice"; message: string }
-  | { type: "generation"; params: GenerationParams };
+  | { type: "generation"; params: GenerationParams }
+  | { type: "reset"; messageId: string }
+  | {
+      type: "editApplied";
+      messageId: string;
+      content: string;
+      assistantId: string;
+      conversationId: string;
+    };
 
 function reduce(state: ChatState, action: Action): ChatState {
   switch (action.type) {
@@ -104,6 +112,46 @@ function reduce(state: ChatState, action: Action): ChatState {
       return { ...state, notice: action.message };
     case "generation":
       return { ...state, generation: action.params };
+    case "reset":
+      return {
+        ...state,
+        generatingId: action.messageId,
+        lastError: null,
+        messages: state.messages.map((m) =>
+          m.id === action.messageId
+            ? {
+                ...m,
+                content: "",
+                status: "generating",
+                completedAt: null,
+                stats: null,
+              }
+            : m,
+        ),
+      };
+    case "editApplied": {
+      const idx = state.messages.findIndex((m) => m.id === action.messageId);
+      if (idx === -1) return state;
+      const kept = state.messages.slice(0, idx);
+      kept.push({ ...state.messages[idx], content: action.content });
+      return {
+        ...state,
+        generatingId: action.assistantId,
+        lastError: null,
+        messages: [
+          ...kept,
+          {
+            id: action.assistantId,
+            conversationId: action.conversationId,
+            role: "assistant",
+            content: "",
+            status: "generating",
+            createdAt: new Date().toISOString(),
+            completedAt: null,
+          },
+        ],
+      };
+    }
   }
 }
 
@@ -296,6 +344,45 @@ export function useChat() {
     }
   }, [state.generatingId]);
 
+  const regenerate = useCallback(
+    async (messageId: string) => {
+      if (!convRef.current) return;
+      dispatch({ type: "reset", messageId });
+      try {
+        await invoke("chat.regenerate", { messageId });
+      } catch (e) {
+        dispatch({
+          type: "error",
+          messageId,
+          code:
+            e && typeof e === "object" && "code" in e
+              ? (e.code as RpcErrorCode)
+              : "ENGINE_ERROR",
+          message: e instanceof Error ? e.message : String(e),
+        });
+      }
+    },
+    [],
+  );
+
+  const editMessage = useCallback(
+    async (messageId: string, content: string) => {
+      if (!convRef.current) return;
+      const { messageId: assistantId } = await invoke("chat.edit", {
+        messageId,
+        content,
+      });
+      dispatch({
+        type: "editApplied",
+        messageId,
+        content,
+        assistantId,
+        conversationId: convRef.current,
+      });
+    },
+    [],
+  );
+
   const loadModel = useCallback(async (path: string) => {
     await invoke("model.load", { path });
   }, []);
@@ -325,5 +412,7 @@ export function useChat() {
     newConversation,
     renameConversation,
     deleteConversation,
+    regenerate,
+    editMessage,
   };
 }

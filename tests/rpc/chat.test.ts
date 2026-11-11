@@ -188,6 +188,115 @@ describe("chat.send contract", () => {
   });
 });
 
+describe("chat.regenerate / chat.edit contract", () => {
+  const msg = (
+    id: string,
+    role: "user" | "assistant",
+    content: string,
+  ): Conversation["messages"][number] => ({
+    id,
+    conversationId: CONV,
+    role,
+    content,
+    status: "complete",
+    createdAt: "t",
+    completedAt: "t",
+  });
+
+  test("regenerate reuses the assistant messageId and re-streams", async () => {
+    const { deps, emitted, convs, getLastPrompt } = makeDeps({
+      tokens: ["new"],
+    });
+    convs.set(CONV, {
+      id: CONV,
+      title: "seed",
+      createdAt: "t",
+      updatedAt: "t",
+      messages: [msg("m1", "user", "hi"), msg("m2", "assistant", "old")],
+    });
+    const h = createRequestHandlers(deps);
+    const res = h["chat.regenerate"]({ messageId: "m2" });
+    expect(res.messageId).toBe("m2");
+    await flush();
+    const m2 = convs.get(CONV)!.messages[1];
+    expect(m2.content).toBe("new");
+    expect(m2.status).toBe("complete");
+    expect(getLastPrompt()).toContain("hi");
+    expect(emitted.at(-1)!.method).toBe("chat.done");
+  });
+
+  test("regenerate rejects non-assistant / non-last message", () => {
+    const { deps, convs } = makeDeps({});
+    convs.set(CONV, {
+      id: CONV,
+      title: "seed",
+      createdAt: "t",
+      updatedAt: "t",
+      messages: [msg("m1", "user", "hi"), msg("m2", "assistant", "a")],
+    });
+    const h = createRequestHandlers(deps);
+    try {
+      h["chat.regenerate"]({ messageId: "m1" });
+      expect.unreachable();
+    } catch (e) {
+      expect((e as EngineError).code).toBe("NOT_FOUND");
+    }
+  });
+
+  test("edit truncates the tail and creates a fresh assistant turn", async () => {
+    const { deps, convs, getLastPrompt } = makeDeps({ tokens: ["x"] });
+    convs.set(CONV, {
+      id: CONV,
+      title: "seed",
+      createdAt: "t",
+      updatedAt: "t",
+      messages: [
+        msg("m1", "user", "q1"),
+        msg("m2", "assistant", "a1"),
+        msg("m3", "user", "q2"),
+        msg("m4", "assistant", "a2"),
+      ],
+    });
+    const h = createRequestHandlers(deps);
+    const res = h["chat.edit"]({ messageId: "m3", content: "q2-edited" });
+    await flush();
+    const msgs = convs.get(CONV)!.messages;
+    expect(msgs.map((m) => m.id)).toEqual(["m1", "m2", "m3", res.messageId]);
+    expect(res.messageId).not.toBe("m4");
+    expect(msgs[2].content).toBe("q2-edited");
+    expect(msgs[3].role).toBe("assistant");
+    expect(msgs[3].status).toBe("complete");
+    // prompt rebuilds from the surviving history + edited text
+    expect(getLastPrompt()).toContain("q1");
+    expect(getLastPrompt()).toContain("q2-edited");
+    expect(getLastPrompt()).not.toContain("q2\n");
+  });
+
+  test("edit rejects assistant-role and empty content", () => {
+    const { deps, convs } = makeDeps({});
+    convs.set(CONV, {
+      id: CONV,
+      title: "seed",
+      createdAt: "t",
+      updatedAt: "t",
+      messages: [msg("m1", "user", "hi"), msg("m2", "assistant", "a")],
+    });
+    const h = createRequestHandlers(deps);
+    try {
+      h["chat.edit"]({ messageId: "m2", content: "x" });
+      expect.unreachable();
+    } catch (e) {
+      expect((e as EngineError).code).toBe("NOT_FOUND");
+    }
+    try {
+      h["chat.edit"]({ messageId: "m1", content: "  " });
+      expect.unreachable();
+    } catch (e) {
+      expect((e as EngineError).code).toBe("EMPTY_MESSAGE");
+    }
+  });
+});
+
 describe("chat.stop contract", () => {
   test("stop during generation resolves chat.done partial", async () => {
     const { deps, emitted } = makeDeps({ tokens: ["a", "b", "c", "d", "e"] });

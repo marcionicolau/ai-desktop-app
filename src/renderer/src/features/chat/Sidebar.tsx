@@ -35,6 +35,13 @@ export function Sidebar({
 }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
+  const [filter, setFilter] = useState("");
+
+  const visible = filter.trim()
+    ? conversations.filter((c) =>
+        c.title.toLowerCase().includes(filter.trim().toLowerCase()),
+      )
+    : conversations;
 
   const commitRename = (id: string) => {
     const t = editValue.trim();
@@ -44,7 +51,7 @@ export function Sidebar({
 
   return (
     <aside className="flex w-56 shrink-0 flex-col border-r border-border">
-      <div className="border-b border-border p-2">
+      <div className="border-b border-border space-y-2 p-2">
         <Button
           variant="secondary"
           size="sm"
@@ -53,9 +60,20 @@ export function Sidebar({
         >
           <MessageSquarePlus /> New chat
         </Button>
+        <Input
+          placeholder="Filter chats…"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          className="h-7 text-sm"
+        />
       </div>
       <div className="flex-1 overflow-y-auto">
-        {conversations.map((c) => (
+        {visible.length === 0 && conversations.length > 0 && (
+          <p className="px-3 py-2 text-xs text-muted-foreground">
+            No chats match "{filter.trim()}".
+          </p>
+        )}
+        {visible.map((c) => (
           <div
             key={c.id}
             className={cn(
