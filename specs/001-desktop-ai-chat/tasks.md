@@ -88,15 +88,15 @@ defines automated checks (typecheck, FFI lifecycle, vite build).
 
 ### Tests for User Story 2
 
-- [ ] T027 [P] [US2] Store test in `tests/store/json-store.test.ts`: write → read round-trip preserves message order and `status` fields; atomic write leaves no torn file on simulated failure
-- [ ] T028 [P] [US2] RPC test in `tests/rpc/conversations.test.ts`: `conversation.create/list/get/rename/delete` behaviors and error codes `NOT_FOUND`, `EMPTY_TITLE` per `contracts/rpc.md`
+- [x] T027 [P] [US2] Store test in `tests/store/json-store.test.ts`: write → read round-trip preserves message order and `status` fields; atomic write leaves no torn file on simulated failure
+- [x] T028 [P] [US2] RPC test in `tests/rpc/conversations.test.ts`: `conversation.create/list/get/rename/delete` behaviors and error codes `NOT_FOUND`, `EMPTY_TITLE` per `contracts/rpc.md`
 
 ### Implementation for User Story 2
 
-- [ ] T029 [US2] Implement `conversation.*` RPC handlers in `src/bun/rpc/handlers.ts` on `json-store.ts`: `Conversation {id, title, createdAt, updatedAt, messages}`; title defaults to first user message (truncated), non-empty enforced on rename (`EMPTY_TITLE`); `updatedAt` bumps on every message append (data-model.md rules)
-- [ ] T030 [US2] Auto-save message appends in `src/bun/rpc/handlers.ts`: every user send, a token-flush checkpoint on a ~500ms timer during generation, and `chat.done`/`chat.error` writes through `json-store.ts`; in-flight (`generating`) assistant messages persist as `status:"partial"` on unexpected exit (SC-004)
-- [ ] T031 [P] [US2] Build conversation sidebar in `src/renderer/src/features/chat/`: list via `conversation.list`, active highlight, new-conversation button, inline rename, delete with confirmation dialog (shadcn `AlertDialog`)
-- [ ] T032 [US2] Wire conversation switching in `src/renderer/src/features/chat/`: `conversation.get` loads full history into `MessageList`; first send auto-creates conversation (US2 acceptance 3)
+- [x] T029 [US2] Implement `conversation.*` RPC handlers in `src/bun/rpc/handlers.ts` on `json-store.ts`: `Conversation {id, title, createdAt, updatedAt, messages}`; title defaults to first user message (truncated), non-empty enforced on rename (`EMPTY_TITLE`); `updatedAt` bumps on every message append (data-model.md rules)
+- [x] T030 [US2] Auto-save message appends in `src/bun/rpc/handlers.ts`: every user send, a token-flush checkpoint on a ~500ms timer during generation, and `chat.done`/`chat.error` writes through `json-store.ts`; in-flight (`generating`) assistant messages persist as `status:"partial"` on unexpected exit (SC-004)
+- [x] T031 [P] [US2] Build conversation sidebar in `src/renderer/src/features/chat/`: list via `conversation.list`, active highlight, new-conversation button, inline rename, delete with confirmation dialog (shadcn `AlertDialog`)
+- [x] T032 [US2] Wire conversation switching in `src/renderer/src/features/chat/`: `conversation.get` loads full history into `MessageList`; first send auto-creates conversation (US2 acceptance 3)
 
 **Checkpoint**: US1 + US2 both work — conversations survive restart including partial responses
 

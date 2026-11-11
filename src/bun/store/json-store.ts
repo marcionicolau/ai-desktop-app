@@ -71,7 +71,15 @@ export function listConversations(): ConversationSummary[] {
 
 export function getConversation(id: string): Conversation | null {
   try {
-    return JSON.parse(readFileSync(conversationPath(id), "utf8")) as Conversation;
+    const conv = JSON.parse(
+      readFileSync(conversationPath(id), "utf8"),
+    ) as Conversation;
+    // crash recovery: messages still "generating" at last shutdown are
+    // restored as "partial" (data-model.md state transitions)
+    for (const m of conv.messages) {
+      if (m.status === "generating") m.status = "partial";
+    }
+    return conv;
   } catch {
     return null;
   }

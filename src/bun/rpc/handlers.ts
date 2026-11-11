@@ -125,9 +125,20 @@ export function createRequestHandlers(deps: HandlerDeps) {
       const messageId = assistantMsg.id;
       activeMessageId = messageId;
 
+      // token-flush checkpoint: persist accumulated content ~every 500ms
+      // during generation so a crash keeps near-complete state (T030)
+      let dirty = false;
+      const flushTimer = setInterval(() => {
+        if (dirty) {
+          dirty = false;
+          persist(conv);
+        }
+      }, 500);
+
       void deps.engine
         .generate(text, (delta) => {
           assistantMsg.content += delta;
+          dirty = true;
           deps.emit("chat.token", { messageId, delta });
         })
         .then((status) => {
@@ -147,6 +158,7 @@ export function createRequestHandlers(deps: HandlerDeps) {
           });
         })
         .finally(() => {
+          clearInterval(flushTimer);
           if (activeMessageId === messageId) activeMessageId = null;
         });
 

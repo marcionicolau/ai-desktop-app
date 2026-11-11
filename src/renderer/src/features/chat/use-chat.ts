@@ -1,11 +1,16 @@
 // Chat state: stream reducer accumulating chat.token deltas, conversation
-// bootstrap, model status tracking.
+// list + switching, model status tracking.
 import { useCallback, useEffect, useReducer, useRef } from "react";
-import type { Message, ModelStatus } from "@shared/types";
+import type {
+  ConversationSummary,
+  Message,
+  ModelStatus,
+} from "@shared/types";
 import type { RpcErrorCode } from "@shared/rpc-contract";
 import { invoke, on } from "@/lib/rpc";
 
 interface ChatState {
+  conversations: ConversationSummary[];
   conversationId: string | null;
   messages: Message[];
   generatingId: string | null;
@@ -15,7 +20,8 @@ interface ChatState {
 }
 
 type Action =
-  | { type: "hydrate"; conversationId: string; messages: Message[] }
+  | { type: "list"; conversations: ConversationSummary[] }
+  | { type: "hydrate"; conversationId: string | null; messages: Message[] }
   | { type: "append"; message: Message }
   | { type: "token"; messageId: string; delta: string }
   | { type: "done"; messageId: string; status: "complete" | "partial" }
@@ -24,11 +30,14 @@ type Action =
 
 function reduce(state: ChatState, action: Action): ChatState {
   switch (action.type) {
+    case "list":
+      return { ...state, conversations: action.conversations };
     case "hydrate":
       return {
         ...state,
         conversationId: action.conversationId,
         messages: action.messages,
+        generatingId: null,
       };
     case "append":
       return {
@@ -81,6 +90,7 @@ function reduce(state: ChatState, action: Action): ChatState {
 }
 
 const initial: ChatState = {
+  conversations: [],
   conversationId: null,
   messages: [],
   generatingId: null,
@@ -93,23 +103,68 @@ export function useChat() {
   const [state, dispatch] = useReducer(reduce, initial);
   const convRef = useRef<string | null>(null);
 
-  // bootstrap: conversation + model status, then subscribe to events
+  const refreshList = useCallback(async () => {
+    try {
+      const conversations = await invoke("conversation.list", {});
+      dispatch({ type: "list", conversations });
+    } catch {
+      // list is best-effort; keep current state
+    }
+  }, []);
+
+  const selectConversation = useCallback(async (id: string) => {
+    const conv = await invoke("conversation.get", { conversationId: id });
+    convRef.current = conv.id;
+    dispatch({ type: "hydrate", conversationId: conv.id, messages: conv.messages });
+  }, []);
+
+  const newConversation = useCallback(() => {
+    convRef.current = null; // draft: created on first send (T032)
+    dispatch({ type: "hydrate", conversationId: null, messages: [] });
+  }, []);
+
+  const renameConversation = useCallback(
+    async (id: string, title: string) => {
+      await invoke("conversation.rename", { conversationId: id, title });
+      await refreshList();
+    },
+    [refreshList],
+  );
+
+  const deleteConversation = useCallback(
+    async (id: string) => {
+      await invoke("conversation.delete", { conversationId: id });
+      await refreshList();
+      if (convRef.current === id) newConversation();
+    },
+    [refreshList, newConversation],
+  );
+
+  // bootstrap: restore latest conversation + model status, subscribe to events
   useEffect(() => {
     let cancelled = false;
     void (async () => {
       try {
-        const conv = await invoke("conversation.create", {});
-        if (!cancelled) {
-          convRef.current = conv.id;
-          dispatch({ type: "hydrate", conversationId: conv.id, messages: [] });
+        const list = await invoke("conversation.list", {});
+        if (cancelled) return;
+        dispatch({ type: "list", conversations: list });
+        const latest = list[0];
+        if (latest) {
+          const conv = await invoke("conversation.get", {
+            conversationId: latest.id,
+          });
+          if (!cancelled) {
+            convRef.current = conv.id;
+            dispatch({
+              type: "hydrate",
+              conversationId: conv.id,
+              messages: conv.messages,
+            });
+          }
         }
         const status = await invoke("model.status", {});
         if (!cancelled) {
-          dispatch({
-            type: "model",
-            status: status.status,
-            error: status.error,
-          });
+          dispatch({ type: "model", status: status.status, error: status.error });
         }
       } catch (e) {
         if (!cancelled) {
@@ -127,9 +182,10 @@ export function useChat() {
       on("chat.token", (p) =>
         dispatch({ type: "token", messageId: p.messageId, delta: p.delta }),
       ),
-      on("chat.done", (p) =>
-        dispatch({ type: "done", messageId: p.messageId, status: p.status }),
-      ),
+      on("chat.done", (p) => {
+        dispatch({ type: "done", messageId: p.messageId, status: p.status });
+        void refreshList(); // new/updated conversation appears in sidebar
+      }),
       on("chat.error", (p) =>
         dispatch({
           type: "error",
@@ -142,11 +198,7 @@ export function useChat() {
         dispatch({
           type: "model",
           status:
-            p.phase === "ready"
-              ? "ready"
-              : p.phase === "error"
-                ? "error"
-                : "loading",
+            p.phase === "ready" ? "ready" : p.phase === "error" ? "error" : "loading",
           error: p.detail,
         }),
       ),
@@ -155,41 +207,49 @@ export function useChat() {
       cancelled = true;
       unsubs.forEach((u) => u());
     };
-  }, []);
+  }, [refreshList]);
 
-  const send = useCallback(async (content: string) => {
-    const conversationId = convRef.current;
-    if (!conversationId) return;
-    const now = new Date().toISOString();
-    dispatch({
-      type: "append",
-      message: {
-        id: crypto.randomUUID(),
+  const send = useCallback(
+    async (content: string) => {
+      convRef.current ??= crypto.randomUUID();
+      const conversationId = convRef.current;
+      const now = new Date().toISOString();
+      dispatch({
+        type: "hydrate",
         conversationId,
-        role: "user",
+        messages: state.messages,
+      });
+      dispatch({
+        type: "append",
+        message: {
+          id: crypto.randomUUID(),
+          conversationId,
+          role: "user",
+          content,
+          status: "complete",
+          createdAt: now,
+          completedAt: now,
+        },
+      });
+      const { messageId } = await invoke("chat.send", {
+        conversationId,
         content,
-        status: "complete",
-        createdAt: now,
-        completedAt: now,
-      },
-    });
-    const { messageId } = await invoke("chat.send", {
-      conversationId,
-      content,
-    });
-    dispatch({
-      type: "append",
-      message: {
-        id: messageId,
-        conversationId,
-        role: "assistant",
-        content: "",
-        status: "generating",
-        createdAt: now,
-        completedAt: null,
-      },
-    });
-  }, []);
+      });
+      dispatch({
+        type: "append",
+        message: {
+          id: messageId,
+          conversationId,
+          role: "assistant",
+          content: "",
+          status: "generating",
+          createdAt: now,
+          completedAt: null,
+        },
+      });
+    },
+    [state.messages],
+  );
 
   const stop = useCallback(() => {
     if (state.generatingId) {
@@ -201,5 +261,14 @@ export function useChat() {
     await invoke("model.load", { path });
   }, []);
 
-  return { state, send, stop, loadModel };
+  return {
+    state,
+    send,
+    stop,
+    loadModel,
+    selectConversation,
+    newConversation,
+    renameConversation,
+    deleteConversation,
+  };
 }

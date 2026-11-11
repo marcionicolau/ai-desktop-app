@@ -19,6 +19,7 @@
     "react-dom": "^19.2.0"
   },
   "devDependencies": {
+    "@radix-ui/react-alert-dialog": "^1.2.1",
     "@radix-ui/react-scroll-area": "^1.4.0",
     "@radix-ui/react-slot": "^1.5.0",
     "@tailwindcss/vite": "^4.1.17",
