@@ -22,6 +22,8 @@ export const rpc = Electroview.defineRPC<ChatRpcSchema>({
       "model.progress": (p) => dispatch("model.progress", p),
       "model.download": (p) => dispatch("model.download", p),
       "chat.warning": (p) => dispatch("chat.warning", p),
+      "chat.phase": (p) => dispatch("chat.phase", p),
+      "role.changed": (p) => dispatch("role.changed", p),
     },
     requests: {},
   },

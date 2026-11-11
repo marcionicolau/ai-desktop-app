@@ -31,12 +31,12 @@ FFI/RPC boundary; each story gets a contract/unit suite.
 **Goal**: full tag CRUD + bind + states in UI; download→bind flow; single-mode chat works through tags.
 **Independent test**: VS-1 + VS-2 in quickstart.md — create/bind tag, restart persistence, broken-state display, download auto-bind.
 
-- [ ] T008 [P] [US1] `tests/roles/roles.test.ts`: CRUD, slug rejection (`INVALID_PARAMS`), duplicate (`ALREADY_EXISTS`), state derivation, resolve/fallback walk, `ROLE_UNBOUND`.
-- [ ] T009 [P] [US1] `tests/roles/registry.test.ts`: two acquires same path → one slot; `MAX_SLOTS=2` LRU eviction; busy slot never evicted; `stale` freed after release.
-- [ ] T010 [P] [US1] `tests/rpc/role.test.ts`: all `role.*` methods' params/responses/error codes vs `contracts/rpc.md`; `role.changed` emission.
-- [ ] T011 [US1] `src/renderer/src/features/roles/use-roles.ts`: hook wrapping `role.list/create/update/delete/bind/setFallback/resolve`, subscribes `role.changed`.
-- [ ] T012 [US1] `src/renderer/src/features/roles/RolesPanel.tsx` + `TagEditor.tsx`: tag list with `bound|unbound|broken` badges + bound-model metadata, create/rename/delete (with `ROLE_IN_USE` consumer naming), bind/unbind via library-model select, per-tag params editor reusing `GenerationSettings`, fallback chain editor. Entry point from `ChatPage`/`Sidebar`; when two fusion-bound models' combined file sizes exceed a documented threshold, show a memory-pressure hint (spec Assumptions).
-- [ ] T013 [US1] Download→bind: `model.download` handler accepts `tagName` (validated upfront → `NOT_FOUND`), binds post-`done`, emits `role.changed`; add tag select to `ModelLibrary.tsx` download form. `.part`/error paths never bind (FR-004).
+- [x] T008 [P] [US1] `tests/roles/roles.test.ts`: CRUD, slug rejection (`INVALID_PARAMS`), duplicate (`ALREADY_EXISTS`), state derivation, resolve/fallback walk, `ROLE_UNBOUND`.
+- [x] T009 [P] [US1] `tests/roles/registry.test.ts`: two acquires same path → one slot; `MAX_SLOTS=2` LRU eviction; busy slot never evicted; `stale` freed after release.
+- [x] T010 [P] [US1] `tests/rpc/role.test.ts`: all `role.*` methods' params/responses/error codes vs `contracts/rpc.md`; `role.changed` emission.
+- [x] T011 [US1] `src/renderer/src/features/roles/use-roles.ts`: hook wrapping `role.list/create/update/delete/bind/setFallback/resolve`, subscribes `role.changed`.
+- [x] T012 [US1] `src/renderer/src/features/roles/RolesPanel.tsx` + `TagEditor.tsx`: tag list with `bound|unbound|broken` badges + bound-model metadata, create/rename/delete (with `ROLE_IN_USE` consumer naming), bind/unbind via library-model select, per-tag params editor reusing `GenerationSettings`, fallback chain editor. Entry point from `ChatPage`/`Sidebar`; when two fusion-bound models' combined file sizes exceed a documented threshold, show a memory-pressure hint (spec Assumptions).
+- [x] T013 [US1] Download→bind: `model.download` handler accepts `tagName` (validated upfront → `NOT_FOUND`), binds post-`done`, emits `role.changed`; add tag select to `ModelLibrary.tsx` download form. `.part`/error paths never bind (FR-004).
 
 ## Phase 4: User Story 2 — Fusion Generation (P2)
 

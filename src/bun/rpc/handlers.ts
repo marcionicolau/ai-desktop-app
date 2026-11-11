@@ -291,9 +291,11 @@ export function createRequestHandlers(deps: HandlerDeps) {
     "model.download": ({
       url,
       fileName,
+      tagName,
     }: {
       url: string;
       fileName: string;
+      tagName?: string;
     }) => {
       // allowlist: huggingface.co/<org>/<repo>/resolve/<rev>/<file>.gguf
       const HF_RE =
@@ -307,6 +309,13 @@ export function createRequestHandlers(deps: HandlerDeps) {
       const safeName = basename(fileName.trim());
       if (!safeName.endsWith(".gguf") || safeName !== fileName.trim()) {
         fail("INVALID_URL", "fileName must be a plain .gguf basename");
+      }
+      // validate the tag exists before the download starts (FR-004)
+      if (tagName !== undefined) {
+        const known = rolesSvc()
+          .list()
+          .some((t) => t.name === tagName);
+        if (!known) fail("NOT_FOUND", `role tag not found: ${tagName}`);
       }
       const dir = modelsDir();
       mkdirSync(dir, { recursive: true });
@@ -352,6 +361,15 @@ export function createRequestHandlers(deps: HandlerDeps) {
             downloadedBytes: downloaded,
             totalBytes: downloaded,
           });
+          // FR-004: bind only after the file lands; .part/error never bind
+          if (tagName !== undefined) {
+            try {
+              rolesSvc().bind(tagName, safeName);
+              deps.emit("role.changed", { name: tagName });
+            } catch {
+              // file downloaded; binding failure surfaces on next role.list
+            }
+          }
         } catch (e) {
           try {
             writer?.end();

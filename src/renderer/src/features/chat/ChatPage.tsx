@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Library, Settings2 } from "lucide-react";
+import { Library, Settings2, Tags } from "lucide-react";
 import { useChat } from "./use-chat";
 import { MessageList } from "./MessageList";
 import { Composer } from "./Composer";
@@ -7,6 +7,7 @@ import { Sidebar } from "./Sidebar";
 import { ModelPicker } from "../models/ModelPicker";
 import { ModelLibrary } from "../models/ModelLibrary";
 import { GenerationSettings } from "../settings/GenerationSettings";
+import { RolesPanel } from "../roles/RolesPanel";
 import { Button } from "@/components/ui/button";
 
 export function ChatPage() {
@@ -27,6 +28,7 @@ export function ChatPage() {
   const modelReady = state.modelStatus === "ready";
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
+  const [rolesOpen, setRolesOpen] = useState(false);
 
   return (
     <main className="flex h-screen bg-background text-foreground">
@@ -53,6 +55,14 @@ export function ChatPage() {
             <Button
               variant="ghost"
               size="icon"
+              aria-label="Model roles"
+              onClick={() => setRolesOpen((v) => !v)}
+            >
+              <Tags className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
               aria-label="Generation settings"
               onClick={() => setSettingsOpen((v) => !v)}
             >
@@ -72,6 +82,7 @@ export function ChatPage() {
             onSave={saveGeneration}
           />
         )}
+        {rolesOpen && <RolesPanel />}
         {libraryOpen && (
           <ModelLibrary
             activeName={state.modelName}
