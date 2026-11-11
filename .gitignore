@@ -7,3 +7,4 @@ artifacts/
 native/out/
 *.log
 models/
+.cottontail-tmp/
