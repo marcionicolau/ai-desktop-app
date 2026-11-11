@@ -160,3 +160,29 @@ Main process (`src/bun/`):
 Renderer: `Sidebar` has an inline Download icon (format-choice dialog) +
 an Import button; `DataPanel` under settings does full backup export/
 restore.
+
+## Feature 009 — context file attachments
+
+- `attachments/store.ts` — `pickAndStore(paths)` validates (binary/UTF-8/≤2 MiB
+  read cap) + persists `{id, path, fileName, sizeBytes, content}` JSON under
+  `dataDir()/attachments/`; content NEVER crosses the RPC boundary (renderer
+  gets metadata only); `byPath` dedup on resolved path; `resolveMany` /
+  `readAttachment` / `gcFor` (unlink files whose ids a deleted conversation
+  was the last referrer of).
+- `attachments/inject.ts` — `buildBlocks` emits `<file name="…">…</file>`
+  appended to the current user turn (buildPrompt budgets it ahead of history
+  for free); `fitBudget` truncates at line boundaries + `… [truncated]`,
+  marks rest `excluded`; `plannerSummary` gives fusion planners names/sizes
+  only while the executor gets full blocks (`plannerText` on `runFusionTurn`).
+- `rpc/handlers.ts` — `attachment.pick` uses `dialogs.pickFiles` (multi-select
+  `Utils.openFileDialog`, falls back to `pickFile`); `chat.send` accepts
+  `attachmentIds` (unknown id → `INVALID_PARAMS`), stores status records on
+  the user message, emits `chat.warning` code `ATTACHMENTS_BUDGET`;
+  `chat.regenerate` re-resolves the original ids → identical reinjection;
+  `conversation.delete` → `gcFor`.
+- `store/paths.ts` — `APP_DATA_DIR` env is read live per call (tests set it
+  per-file); only the Electrobun/fallback resolution is cached.
+
+Renderer: `Composer` paperclip → `attachment.pick` → removable name/size chips
+draft-side; `MessageList` renders `Message.attachments` chips (`·trunc` /
+`·skipped` styling) on user messages.

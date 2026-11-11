@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Paperclip } from "lucide-react";
 import type { Message } from "@shared/types";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
@@ -67,6 +68,25 @@ export function MessageList({
                   : "mr-12 self-start bg-muted",
               )}
             >
+              {m.role === "user" && m.attachments && m.attachments.length > 0 && (
+                <div className="mb-1 flex flex-wrap gap-1">
+                  {m.attachments.map((a) => (
+                    <span
+                      key={a.id}
+                      className={cn(
+                        "inline-flex items-center gap-1 rounded bg-background/40 px-1.5 py-0.5 text-[11px]",
+                        a.status === "excluded" && "opacity-50 line-through",
+                      )}
+                      title={`${a.fileName} · ${a.status}`}
+                    >
+                      <Paperclip className="size-3" />
+                      <span className="max-w-28 truncate">{a.fileName}</span>
+                      {a.status === "truncated" && "·trunc"}
+                      {a.status === "excluded" && "·skipped"}
+                    </span>
+                  ))}
+                </div>
+              )}
               {m.role === "assistant" && m.phases?.plan && (
                 <details
                   className="mb-2 rounded border border-border bg-background/50 px-2 py-1 text-xs"

@@ -11,6 +11,17 @@ export interface MessageStats {
   tokensPerSec: number;
 }
 
+// feature 009: files attached to a user turn. Content lives on disk
+// (dataDir/attachments/<id>) — the record carries metadata + budget status.
+export type AttachmentStatus = "full" | "truncated" | "excluded";
+
+export interface MessageAttachment {
+  id: string;
+  fileName: string;
+  sizeBytes: number;
+  status: AttachmentStatus;
+}
+
 export interface Message {
   id: string;
   conversationId: string;
@@ -25,6 +36,8 @@ export interface Message {
   // feature 005: id of the preceding message on this branch; null/absent
   // = first message or legacy pre-005 message (linear backfill on load)
   parentId?: string | null;
+  // feature 009: attach-order file records; content resolvable by id
+  attachments?: MessageAttachment[] | null;
 }
 
 export type ConversationMode = "single" | "fusion";

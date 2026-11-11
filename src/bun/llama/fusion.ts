@@ -21,7 +21,10 @@ export interface FusionTurnOpts {
   registry: ModelRegistry;
   conversationId: string;
   history: PromptTurn[]; // newest-first, same convention as chat path
-  current: string; // the user's message text
+  current: string; // the user's message text (may carry injected file blocks)
+  // feature 009: planner sees the request + attachment summary instead of
+  // full file content; defaults to `current` when unset (FR-008/D4)
+  plannerText?: string;
   // events are re-emitted by the caller with messageId filled in
   onEvent: (method: "chat.phase" | "chat.token", payload: unknown) => void;
   onPlanDelta: (delta: string) => void;
@@ -160,7 +163,7 @@ export async function runFusionTurn(
     "planner",
     o.planner,
     [], // planner sees a fresh planning request (D5)
-    buildPlannerPrompt(o.current),
+    buildPlannerPrompt(o.plannerText ?? o.current),
     o.onPlanDelta,
     "plan",
   );

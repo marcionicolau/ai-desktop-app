@@ -6,11 +6,10 @@ import { join } from "node:path";
 let cached: string | null = null;
 
 export function dataDir(): string {
+  // env override is read live (tests set it per-file); only the
+  // Electrobun/fallback resolution is cached
+  if (process.env.APP_DATA_DIR) return process.env.APP_DATA_DIR;
   if (cached !== null) return cached;
-  if (process.env.APP_DATA_DIR) {
-    cached = process.env.APP_DATA_DIR;
-    return cached;
-  }
   try {
     // resolved lazily so this module stays importable outside Electrobun
     const { Utils } = require("electrobun/main") as typeof import("electrobun/main");

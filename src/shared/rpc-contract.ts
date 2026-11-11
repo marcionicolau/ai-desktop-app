@@ -71,6 +71,9 @@ export interface ChatRpcSchema extends ElectrobunRPCSchema {
           mode?: ConversationMode;
           plannerTag?: string;
           executorTag?: string;
+          // feature 009: ids from attachment.pick, resolved + injected
+          // main-side; unknown id -> INVALID_PARAMS
+          attachmentIds?: string[];
         };
         response: { messageId: string };
       };
@@ -164,6 +167,20 @@ export interface ChatRpcSchema extends ElectrobunRPCSchema {
         params: Record<string, never>;
         response: { imported: number | null };
       };
+      // feature 009: multi-select picker; content stays main-side.
+      // null = cancelled; rejected carries per-file reasons (binary/oversized)
+      "attachment.pick": {
+        params: Record<string, never>;
+        response: {
+          picked: Array<{
+            id: string;
+            path: string;
+            fileName: string;
+            sizeBytes: number;
+          }>;
+          rejected: Array<{ fileName: string; reason: string }>;
+        } | null;
+      };
       "conversation.setMode": {
         params: {
           conversationId: string;
@@ -234,7 +251,7 @@ export interface ChatRpcSchema extends ElectrobunRPCSchema {
       "model.download": DownloadState;
       "chat.warning": {
         messageId: string;
-        code: "CONTEXT_TRUNCATED";
+        code: "CONTEXT_TRUNCATED" | "ATTACHMENTS_BUDGET";
         message: string;
       };
     };

@@ -6,6 +6,7 @@ import type {
   FusionPhase,
   GenerationParams,
   Message,
+  MessageAttachment,
   ModelStatus,
 } from "@shared/types";
 import { DEFAULT_GENERATION } from "@shared/types";
@@ -503,7 +504,11 @@ export function useChat() {
   }, [refreshList]);
 
   const send = useCallback(
-    async (content: string) => {
+    async (
+      content: string,
+      attachmentIds: string[] = [],
+      attachmentChips: MessageAttachment[] = [],
+    ) => {
       convRef.current ??= crypto.randomUUID();
       const conversationId = convRef.current;
       const now = new Date().toISOString();
@@ -528,6 +533,7 @@ export function useChat() {
           createdAt: now,
           completedAt: now,
           parentId: parent?.id ?? null,
+          attachments: attachmentChips.length ? attachmentChips : null,
         },
       });
       const { messageId } = await invoke("chat.send", {
@@ -537,6 +543,7 @@ export function useChat() {
         mode: state.mode,
         plannerTag: state.plannerTag,
         executorTag: state.executorTag,
+        attachmentIds: attachmentIds.length ? attachmentIds : undefined,
       });
       dispatch({
         type: "append",
