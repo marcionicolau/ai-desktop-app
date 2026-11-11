@@ -13,6 +13,7 @@ import { RolesPanel } from "../roles/RolesPanel";
 import { FusionControls } from "../roles/FusionControls";
 import { PersonasPanel } from "../personas/PersonasPanel";
 import { usePersonas } from "../personas/use-personas";
+import { OutputPanel } from "../metrics/OutputPanel";
 import { invoke } from "@/lib/rpc";
 import { Button } from "@/components/ui/button";
 
@@ -252,6 +253,8 @@ export function ChatPage() {
           onSend={(c, ids, chips) => void send(c, ids, chips)}
           onStop={stop}
         />
+        {/* feature 016: bottom dock — sibling shrinks the message area */}
+        <OutputPanel />
       </div>
     </main>
   );

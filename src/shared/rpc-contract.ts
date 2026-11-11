@@ -18,6 +18,7 @@ import type {
   SnapshotClearResult,
   SnapshotStats,
   TurnStats,
+  MetricEntry,
   ModelStatus,
   Persona,
   Snippet,
@@ -110,6 +111,7 @@ export interface ChatRpcSchema extends ElectrobunRPCSchema {
         response: {
           generation: GenerationParams;
           modelOverrides: Record<string, Partial<GenerationParams>>;
+          outputPanel: boolean; // feature 016
         };
       };
       "settings.set": {
@@ -119,6 +121,7 @@ export interface ChatRpcSchema extends ElectrobunRPCSchema {
             fileName: string;
             params: Partial<GenerationParams> | null;
           };
+          outputPanel?: boolean; // feature 016
         };
         response: Record<string, never>;
       };
@@ -289,6 +292,15 @@ export interface ChatRpcSchema extends ElectrobunRPCSchema {
         params: Record<string, never>;
         response: SnapshotClearResult;
       };
+      // feature 016
+      "metrics.list": {
+        params: Record<string, never>;
+        response: { entries: MetricEntry[] };
+      };
+      "metrics.clear": {
+        params: Record<string, never>;
+        response: { removed: number };
+      };
     };
     messages: Record<string, never>;
   };
@@ -320,6 +332,8 @@ export interface ChatRpcSchema extends ElectrobunRPCSchema {
         code: "CONTEXT_TRUNCATED" | "ATTACHMENTS_BUDGET";
         message: string;
       };
+      // feature 016: emitted after each recorded call when enabled
+      "metrics.entry": MetricEntry;
     };
   };
 }

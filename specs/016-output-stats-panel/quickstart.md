@@ -1,6 +1,6 @@
 # Quickstart — 016-output-stats-panel
 
-1. Flip the Output switch in the header → bottom dock opens, message
+1. Flip the Metrics switch in the bottom bar → bottom dock opens, message
    list shifts up, `settings.outputPanel` persists.
 2. Send a message → a row lands under the serving model's tab:
    preview, sent/received tokens, ms, warm badge, persona subdivision.
