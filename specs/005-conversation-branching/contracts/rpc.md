@@ -21,9 +21,11 @@ Pure navigation — no message data changes.
   instead of resetting content in place. Response `{ messageId }` is the
   NEW assistant variant's id. Still restricted to the last assistant
   message on the active path (`NOT_FOUND` otherwise).
-- **`chat.edit { messageId, content }`** — creates a user-message
-  sibling plus a new assistant child; original subtree preserved.
-  Response `{ messageId }` is the new assistant message id (unchanged).
+- **`chat.edit { messageId, content, userMessageId? }`** — creates a
+  user-message sibling plus a new assistant child; original subtree
+  preserved. `userMessageId` is an optional client-assigned id for the
+  user variant (same pattern as `chat.send`). Response `{ messageId }`
+  is the new assistant message id (unchanged).
 - **`chat.send`** — internal: new messages chain onto `activeLeaf`
   (params/response unchanged).
 - **`conversation.delete`** — unchanged: removes the entire tree.
