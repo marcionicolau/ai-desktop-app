@@ -45,10 +45,13 @@ re-resolved to the same on-disk content (FR-009).
 
 ### `chat.warning` (existing event, new producer)
 
-Emitted once per send when the budget fit truncated or excluded files:
+Emitted once per send when the budget fit truncated or excluded files.
+Reuses the existing event shape; the `code` union gains
+`"ATTACHMENTS_BUDGET"`:
 
 ```ts
-{ conversationId: string; message: string }
+{ messageId: string; code: "CONTEXT_TRUNCATED" | "ATTACHMENTS_BUDGET"; message: string }
+// messageId = the user message being sent
 // e.g. "b.md truncated at line 412 to fit context; c.log excluded"
 ```
 

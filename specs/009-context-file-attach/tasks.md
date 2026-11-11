@@ -34,8 +34,10 @@
 
 ## Phase 2 — US1 (P1): attach → chips → send → record
 
-- [ ] T007 [US1] Extend the `dialogs` dep with a multi-select
-  `pickFiles()` and implement the `attachment.pick` handler in
+- [ ] T007 [US1] PREREQ: this branch predates the 008 merge — rebase
+  onto `main` first so `HandlerDeps.dialogs` exists. Then extend the
+  `dialogs` dep with a multi-select `pickFiles()` and implement the
+  `attachment.pick` handler in
   `src/bun/rpc/handlers.ts` returning `{picked, rejected} | null`;
   wire the real picker in `createRpc` (`canChooseFiles`,
   `allowsMultipleSelection`).
@@ -45,8 +47,8 @@
   records on the user message.
 - [ ] T009 [US1] Add `tests/rpc/attachments.test.ts`: pick → send →
   prompt contains file content (assert via lastPrompt capture like
-  chat tests); message record persisted; unknown id fails; dedup via
-  re-pick.
+  chat tests); message record persisted AND survives a getConversation
+  reload (SC-003); unknown id fails; dedup via re-pick.
 - [ ] T010 [US1] Composer: paperclip button + removable attachment
   chips (name · size, ×) in `src/renderer/src/features/chat/
   Composer.tsx`; draft attachment state + rejected-file notice in
@@ -71,7 +73,8 @@
 
 - [ ] T015 Wire attachments through fusion + regenerate in
   `src/bun/rpc/handlers.ts`/`src/bun/llama/fusion.ts`: planner prompt
-  gets `plannerSummary`, executor gets full blocks (FR-008);
+  gets `plannerSummary`, executor gets full blocks — inject at the call
+  site or via a `runFusionTurn` param, whichever is cleaner (FR-008);
   `chat.regenerate` re-resolves the user message's attachment ids to
   the same on-disk content (FR-009); `conversation.delete` calls
   `gcFor`.
