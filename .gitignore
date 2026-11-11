@@ -6,5 +6,5 @@ build/
 artifacts/
 native/out/
 *.log
-models/
+/models/
 .cottontail-tmp/

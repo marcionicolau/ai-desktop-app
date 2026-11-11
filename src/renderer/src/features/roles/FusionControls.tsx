@@ -3,7 +3,11 @@
 // fusion with an unbound role is rejected by the backend (ROLE_UNBOUND)
 // and surfaced here as an inline error.
 import { useEffect, useMemo, useState } from "react";
+import type { FusionAdvise } from "@shared/types";
+import { invoke } from "@/lib/rpc";
 import { useRoles } from "./use-roles";
+
+const fmtGb = (n: number) => `${(n / 1e9).toFixed(1)} GB`;
 
 interface Props {
   mode: "single" | "fusion";
@@ -34,6 +38,26 @@ export function FusionControls({
   const executorBound = bound.some((t) => t.name === executorTag);
 
   useEffect(() => setError(null), [mode, plannerTag, executorTag]);
+
+  // feature 011: live combined-fit verdict for the bound pair
+  const [fusion, setFusion] = useState<FusionAdvise | null>(null);
+  useEffect(() => {
+    if (mode !== "fusion" || !plannerBound || !executorBound) {
+      setFusion(null);
+      return;
+    }
+    let live = true;
+    void invoke("model.advise", { plannerTag, executorTag })
+      .then((r) => {
+        if (live) setFusion(r.fusion ?? null);
+      })
+      .catch(() => {
+        if (live) setFusion(null);
+      });
+    return () => {
+      live = false;
+    };
+  }, [mode, plannerTag, executorTag, plannerBound, executorBound]);
 
   const apply = async (
     nextMode: "single" | "fusion",
@@ -113,6 +137,24 @@ export function FusionControls({
           {(!plannerBound || !executorBound) && (
             <span className="text-amber-500">
               bind both roles in the Roles panel to enable fusion
+            </span>
+          )}
+          {fusion && (
+            <span
+              className={
+                fusion.verdict === "fits"
+                  ? "text-emerald-400"
+                  : fusion.verdict === "tight"
+                    ? "text-amber-400"
+                    : "text-red-400"
+              }
+              title={`sequential peak ${fmtGb(fusion.sequentialPeakBytes)} · both resident ${fmtGb(fusion.combinedBytes)}`}
+            >
+              pair: {fusion.verdict === "wontfit" ? "won't fit" : fusion.verdict}
+              {" · peak "}
+              {fmtGb(fusion.sequentialPeakBytes)}
+              {" · both "}
+              {fmtGb(fusion.combinedBytes)}
             </span>
           )}
         </>

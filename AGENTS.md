@@ -186,3 +186,19 @@ restore.
 Renderer: `Composer` paperclip → `attachment.pick` → removable name/size chips
 draft-side; `MessageList` renders `Message.attachments` chips (`·trunc` /
 `·skipped` styling) on user messages.
+
+## Feature 011 — model advisor
+
+- `advisor/benchmark.ts` — bounded run: fixed prompt, 128 tok / 25 s caps,
+  RSS sampled every 250 ms (`peakBytes` floored at file size); loads the
+  target via the single-flight engine and restores the previous model.
+- `advisor/verdicts.ts` — pure math, memory injected: `headroom` (max
+  1 GiB/15%), `fitVerdict` (fits/tight/wontfit), `kvPerToken` (measured
+  peak − file size, 256 KiB/tok fallback), `recommendedCtx` (pow2 floor,
+  contextTrain cap), `fusionFit` (seq peak = max, combined = sum).
+- `advisor/store.ts` — `benchmarks.json` in dataDir, fingerprint =
+  `fileName:sizeBytes`; tolerant load (corrupt → {}).
+- `model.benchmark` — `ENGINE_BUSY` while generating/benchmarking; emits
+  `model.progress` with `detail: "benchmarking"`. `model.advise` — pure
+  live call, `basis` is `measured` only with a fingerprinted record.
+- `models/library.ts` — `scanModels` tolerates a missing shim (null metas).
