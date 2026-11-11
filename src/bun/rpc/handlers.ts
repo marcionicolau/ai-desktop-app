@@ -4,9 +4,12 @@
 import { defineElectrobunRPC } from "electrobun/main/rpc";
 import type { ChatRpcSchema, RpcErrorCode } from "../../shared/rpc-contract";
 import type {
+  BenchmarkRecord,
   Conversation,
+  FusionAdvise,
   GenerationParams,
   Message,
+  ModelAdvise,
   ModelStatus,
   ResolvedRole,
   RoleRef,
@@ -16,6 +19,16 @@ import { EngineError } from "../llama/engine";
 import { mergeParams, validateParams } from "../llama/params";
 import { buildPrompt, type PromptTurn } from "../llama/prompt";
 import { modelsDir, scanModels } from "../models/library";
+import { runBenchmark } from "../advisor/benchmark";
+import { fingerprint, loadBenchmarks } from "../advisor/store";
+import {
+  fitVerdict,
+  fusionFit,
+  headroom,
+  kvPerToken,
+  recommendedCtx,
+} from "../advisor/verdicts";
+import { freemem, totalmem } from "node:os";
 import { ModelRegistry, createRegistryEngine } from "../models/registry";
 import { RolesService } from "../models/roles";
 import { runFusionTurn } from "../llama/fusion";
@@ -48,6 +61,7 @@ import {
 import {
   existsSync,
   mkdirSync,
+  statSync,
   readFileSync,
   renameSync,
   unlinkSync,
@@ -57,6 +71,16 @@ import { basename, join } from "node:path";
 
 type Events = ChatRpcSchema["webview"]["messages"];
 type Emit = <M extends keyof Events>(method: M, payload: Events[M]) => void;
+
+// feature 011: benchmarks run at the shim's default ctx (D3); unmeasured
+// models fall back to a conservative 256 KiB/token KV estimate over a 4 k
+// ctx (flagged basis: "estimated" — never presented as measured)
+const BENCH_CTX = 2048;
+const EST_KV = 256 * 1024;
+const EST_CTX = 4096;
+// module-level single-flight flag for benchmark runs (independent of
+// engine.isGenerating — a benchmark holds the engine itself)
+let benchmarking = false;
 
 export interface EngineLike {
   status(): { status: ModelStatus; name?: string; error?: string };
@@ -489,6 +513,108 @@ export function createRequestHandlers(deps: HandlerDeps) {
     },
     "model.status": () => deps.engine.status(),
     "model.list": () => ({ models: scanModels() }),
+    // feature 011: bounded benchmark — single-flight gated, swaps and
+    // restores the active model; record persists keyed by fingerprint
+    "model.benchmark": async ({ path }: { path: string }) => {
+      if (!existsSync(path)) {
+        fail("MODEL_NOT_FOUND", `model file not found: ${path}`);
+      }
+      if (benchmarking || deps.engine.isGenerating()) {
+        fail("ENGINE_BUSY", "a generation or benchmark is already active");
+      }
+      benchmarking = true;
+      deps.emit("model.progress", { phase: "loading", detail: "benchmarking" });
+      try {
+        const prev = deps.store.getSettings().activeModelPath;
+        const record = await runBenchmark(deps.engine, path, prev ?? null);
+        deps.emit("model.progress", {
+          phase: "ready",
+          detail: "benchmark complete",
+        });
+        return { record };
+      } catch (e) {
+        deps.emit("model.progress", {
+          phase: "error",
+          detail: e instanceof Error ? e.message : String(e),
+        });
+        throw e;
+      } finally {
+        benchmarking = false;
+      }
+    },
+    // feature 011: live verdicts — pure read; never loads a model
+    "model.advise": ({
+      plannerTag,
+      executorTag,
+    }: {
+      plannerTag?: string;
+      executorTag?: string;
+    }) => {
+      const free = freemem();
+      const hr = headroom(totalmem());
+      const benchmarks = loadBenchmarks();
+      const basisFor = (
+        fileName: string,
+        sizeBytes: number,
+      ): { bytes: number; measured: boolean; kv: number; rec?: BenchmarkRecord } => {
+        const rec = benchmarks[fingerprint(fileName, sizeBytes)];
+        if (rec) {
+          return {
+            bytes: rec.peakBytes,
+            measured: true,
+            kv: kvPerToken(sizeBytes, rec.peakBytes, BENCH_CTX),
+            rec,
+          };
+        }
+        return {
+          bytes: sizeBytes + EST_KV * EST_CTX,
+          measured: false,
+          kv: EST_KV,
+        };
+      };
+      const models: ModelAdvise[] = scanModels().map((m) => {
+        const b = basisFor(m.fileName, m.sizeBytes);
+        const row: ModelAdvise = {
+          path: m.path,
+          fileName: m.fileName,
+          verdict: fitVerdict(b.bytes, free, hr),
+          recommendedCtx: recommendedCtx(
+            m.sizeBytes,
+            b.kv,
+            free,
+            hr,
+            m.contextTrain,
+          ),
+          basis: b.measured ? "measured" : "estimated",
+          basisBytes: b.bytes,
+        };
+        if (b.rec) row.benchmark = b.rec;
+        return row;
+      });
+      let fusion: FusionAdvise | undefined;
+      if (plannerTag && executorTag) {
+        try {
+          const p = rolesSvc().resolve(plannerTag);
+          const e = rolesSvc().resolve(executorTag);
+          const pb = basisFor(basename(p.path), statSync(p.path).size);
+          const eb = basisFor(basename(e.path), statSync(e.path).size);
+          const { sequentialPeakBytes, combinedBytes } = fusionFit(
+            pb.bytes,
+            eb.bytes,
+          );
+          fusion = {
+            planner: p.fileName,
+            executor: e.fileName,
+            sequentialPeakBytes,
+            combinedBytes,
+            verdict: fitVerdict(sequentialPeakBytes, free, hr),
+          };
+        } catch {
+          // unbound/unresolvable tags -> omit the fusion block
+        }
+      }
+      return { models, ...(fusion ? { fusion } : {}) };
+    },
     "model.download": ({
       url,
       fileName,

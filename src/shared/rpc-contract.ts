@@ -1,11 +1,14 @@
 import type { ElectrobunRPCSchema } from "electrobun/main/rpc";
 import type {
+  BenchmarkRecord,
   Conversation,
   ConversationMode,
   ConversationSummary,
   DownloadState,
+  FusionAdvise,
   FusionPhase,
   GenerationParams,
+  ModelAdvise,
   ModelMeta,
   ModelTag,
   ResolvedRole,
@@ -117,6 +120,18 @@ export interface ChatRpcSchema extends ElectrobunRPCSchema {
       "model.list": {
         params: Record<string, never>;
         response: { models: ModelMeta[] };
+      };
+      // feature 011: bounded benchmark — ENGINE_BUSY while generating or
+      // a benchmark is already running; swaps + restores the active model
+      "model.benchmark": {
+        params: { path: string };
+        response: { record: BenchmarkRecord };
+      };
+      // feature 011: live verdicts — never loads a model; basis is
+      // "measured" when a fingerprinted benchmark exists else "estimated"
+      "model.advise": {
+        params: { plannerTag?: string; executorTag?: string };
+        response: { models: ModelAdvise[]; fusion?: FusionAdvise };
       };
       "model.download": {
         // tagName: bind the finished file to this tag (feature 004)

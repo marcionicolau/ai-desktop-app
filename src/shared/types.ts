@@ -182,3 +182,35 @@ export interface MessagePhases {
     servedBy?: "primary" | "fallback";
   };
 }
+
+// feature 011: measured benchmark + live fit verdict. Persisted in
+// dataDir()/benchmarks.json keyed by fingerprint ("fileName:sizeBytes").
+export interface BenchmarkRecord {
+  fingerprint: string;
+  tokensPerSec: number;
+  peakBytes: number;
+  measuredAt: string;
+  // wall-time cap cut the run short — still a real measurement
+  partial?: boolean;
+}
+
+export type FitVerdict = "fits" | "tight" | "wontfit";
+export type AdviseBasis = "measured" | "estimated";
+
+export interface ModelAdvise {
+  path: string;
+  fileName: string;
+  benchmark?: BenchmarkRecord;
+  verdict: FitVerdict;
+  recommendedCtx: number;
+  basis: AdviseBasis;
+  basisBytes: number;
+}
+
+export interface FusionAdvise {
+  planner: string;
+  executor: string;
+  sequentialPeakBytes: number; // max(a, b) — phases run serially
+  combinedBytes: number; // a + b — both weights resident
+  verdict: FitVerdict;
+}
