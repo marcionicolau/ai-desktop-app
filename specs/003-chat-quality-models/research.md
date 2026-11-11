@@ -20,19 +20,21 @@ existing lifecycle tests keep validating it.
 
 ## D2 — KV reuse via `lls_generate_continue`
 
-**Decision**: new symbol `lls_generate_continue(ctx, prompt_delta, params,
-err)` — identical to `begin` minus `llama_memory_clear` and minus BOS
-(`add_special=false` on tokenize). Decodes only the delta tokens; `c->pos`
-continues. The JS side decides reuse via a session fingerprint.
+**Decision (as implemented)**: `lls_generate_continue(ctx, prompt, params,
+err)` keeps a token mirror of everything in KV (`kv_tokens`, capacity =
+`n_ctx`). It tokenizes the full incoming prompt, computes the longest common
+token prefix vs the mirror, removes KV past it with `llama_memory_seq_rm`,
+decodes only the suffix, and returns `0` (reused) or `2` (full-decode
+fallback). JS passes `conversationId` as a hint only.
 
-**Rationale**: llama.cpp's KV is append-only; `memory_clear` is only needed
-when content diverges. Fingerprint = `(modelPath, conversationId,
-turnsHash)` where `turnsHash` hashes the rendered prefix turn list. Any
-mismatch → plain `generate_begin` (full decode). Correctness preserved by
-construction: we never resume after truncation/edit/regenerate/model reload.
+**Rationale**: the originally planned prompt-hash fingerprint cannot work —
+the previous assistant reply sits between the ChatML assistant opener and
+close, so the next prompt never literally begins with the prior rendered
+prompt. llama-server-style token-level LCP is the correct granularity and
+also yields partial reuse on divergent histories (edit/regenerate).
 
-**Alternatives**: `llama_memory_seq_rm` surgical trimming (complex, fragile);
-always full decode (status quo — slow).
+**Alternatives**: prompt-hash fingerprint (proven non-functional in live
+test); always full decode (status quo — slow).
 
 ## D3 — Real token counting
 
@@ -103,13 +105,16 @@ fixtures and lets US2's delta-prompt builder share the formatter.
 
 ## D8 — Session fingerprint & stats plumbing
 
-**Decision**: engine keeps `session: {modelPath, convId, turnsHash, pos}`
-as JS metadata (no native handle); `generate` returns
-`{status, tokens, elapsedMs}` → `chat.done` gains `{stats}`; Message gains
-optional `stats {tokens, tokensPerSec}` persisted with the turn.
+**Decision (as implemented)**: the reuse decision lives in the shim (see
+D2); the engine passes `{conversationId}` to `generate` and exposes the
+native return as a `warm` flag. `generate` returns
+`{status, tokens, elapsedMs, warm}` → `chat.done` gains `{stats}`; Message
+gains optional `stats {tokens, tokensPerSec}` persisted with the turn.
 
-**Rationale**: fingerprint invalidation is the only safe reuse rule;
-stats are display-only and ride existing events — no new transport.
+**Rationale**: token comparison inside the shim is the only safe reuse
+rule — a JS-side fingerprint can drift from actual KV contents; stats are
+display-only and ride existing events — no new transport.
 
-**Alternatives**: native-side session registry (more C state to manage);
-stats via a separate `chat.stats` event (unnecessary second round-trip).
+**Alternatives**: JS-side session registry/fingerprint (duplicates state the
+shim already owns); stats via a separate `chat.stats` event (unnecessary
+second round-trip).

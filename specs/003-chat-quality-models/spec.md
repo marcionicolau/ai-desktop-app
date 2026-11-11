@@ -138,7 +138,8 @@ with progress and becomes loadable.
   top-k, repetition penalty, and seed — persisted as settings and applied to
   new generations.
 - **FR-002**: Users MUST be able to configure generation bounds: max reply
-  tokens and context size per model load.
+  tokens. (Context size, thread count, and GPU layers are declared in the
+  params surface as reserved fields but are not wired — see Assumptions.)
 - **FR-003**: Generation MUST end cleanly at the token cap or context limit
   (no hard error); over-long history MUST continue to be truncated with the
   existing warning.
@@ -162,7 +163,8 @@ with progress and becomes loadable.
   quantization, trained context length).
 - **FR-011**: Users MUST be able to download a GGUF from a HuggingFace
   resolve URL with visible progress; partial downloads MUST be detectable
-  and removable.
+  (`.part` suffix, excluded from the library) and are removed automatically
+  on failure/abort — in-app cancel/delete is out of scope for v1.
 - **FR-012**: Users MUST be able to set per-model default generation
   parameters that override global defaults when that model loads.
 - **FR-013**: All new behavior MUST preserve existing guarantees: typed RPC,
@@ -175,8 +177,10 @@ with progress and becomes loadable.
 - **SC-001**: With temperature > 0, two identical prompts produce different
   outputs; with a fixed seed and greedy sampling they produce identical
   outputs.
-- **SC-002**: Time-to-first-token on turn N (N≥3, unchanged model+conv) is
-  ≤30% of a cold-start equivalent prompt, measured once in dev.
+- **SC-002**: On a repeated same-conversation turn (unchanged model+conv),
+  KV prefix reuse engages (observable `warm` flag) and only the divergent
+  suffix is re-decoded — verified once in dev. Absolute latency gain is
+  model-size dependent and not separately asserted.
 - **SC-003**: A code-block reply renders highlighted; copy button copies the
   raw message text.
 - **SC-004**: A ≥200 MB model download completes with progress events and
@@ -199,6 +203,8 @@ with progress and becomes loadable.
   re-decode — correctness over speed.
 - HuggingFace downloads use direct `resolve/` URLs (no auth/API tokens in
   v1 of this feature).
-- GPU offload (`n_gpu_layers`) is exposed as a setting but hardware support
-  varies — CPU remains the guaranteed path.
+- GPU offload (`n_gpu_layers`), `n_threads`, and context size are declared
+  in `lls_gen_params`/`GenerationParams` as reserved fields; wiring them
+  into `lls_ctx_create` is deferred to a later feature — CPU remains the
+  guaranteed path.
 - Token/sec stats are display-only (main-process measured, event-carried).

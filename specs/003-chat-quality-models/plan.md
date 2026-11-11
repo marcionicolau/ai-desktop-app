@@ -131,8 +131,8 @@ Then per story, each independently shippable:
 
 - **US1 (P1)**: engine.generate(params) → settings.get/set RPC →
   GenerationSettings UI. Verification: seed reproducibility test + manual A/B.
-- **US2 (P2)**: `lls_generate_continue` + `lls_token_count` + KVSession
-  fingerprint in engine (D2/D3/D8). Verification: timing test cold vs warm.
+- **US2 (P2)**: `lls_generate_continue` + `lls_token_count` + shim-side KV
+  token mirror (D2/D3/D8). Verification: `warm` flag + timing cold vs warm.
 - **US3 (P3)**: renderer-only mostly; markdown deps + components/ai; RPC
   `chat.regenerate`/`chat.editAndResend` (delete-tail semantics in store);
   stats ride `chat.done`. Verification: contract tests + UI checks.
@@ -148,6 +148,6 @@ buffers in JS).
 
 **Design patterns**: params-as-struct ABI (extensible without signature
 churn); engine façade unchanged outward; prompt assembly = pure function;
-KVSession = opaque session descriptor with explicit invalidation;
+KV reuse state = shim-side token mirror (`kv_tokens`) with LCP trim;
 store-level `deleteMessagesFrom(id)` primitive powers both regenerate and
 edit (single mutation path).

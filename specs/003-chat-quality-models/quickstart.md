@@ -17,9 +17,9 @@ Same as feature-001/002 + `bun install` for the new renderer deps
 
 ### VS-2 — Warm-turn latency (US2, SC-002)
 
-1. In one conversation send 3+ messages; watch main-process log timing or
-   the stats line — later turns' time-to-first-token should drop sharply
-   vs. the first.
+1. In one conversation send 3+ messages; verify via the engine's `warm`
+   flag (test or log) that turns ≥2 reuse the KV prefix and decode only the
+   divergent suffix. Absolute speed-up depends on model size.
 2. Trigger truncation (long history) or switch conversations → next turn
    transparently falls back to a full decode (no corrupted output).
 

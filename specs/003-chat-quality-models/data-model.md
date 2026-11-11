@@ -38,16 +38,19 @@ interface ModelMeta {
 
 Derived per file via `lls_gguf_meta` — never persisted (recomputed on scan).
 
-### `KVSession` (new, runtime only)
+### KV reuse state (new, runtime only — inside the shim)
 
-```ts
-interface KVSession {
-  modelPath: string;
-  conversationId: string;
-  turnsHash: string;   // hash of rendered prefix turns
-  kvPos: number;       // tokens in KV after last decode
-}
+```c
+// fields on lls_ctx — a mirror of every token currently in KV (seq 0)
+llama_token * kv_tokens; // prompt + sampled tokens, capacity = n_ctx
+int32_t       kv_count;  // valid entries
 ```
+
+`lls_generate_continue` tokenizes the incoming full prompt, computes the
+longest common token prefix against the mirror, trims KV past it via
+`llama_memory_seq_rm`, decodes only the suffix, and returns `0` (reused) or
+`2` (no shared prefix — full decode). JS passes `conversationId` only as a
+reuse hint; the token comparison makes divergence impossible.
 
 - Lives only in `engine.ts`; invalidated by conv switch, model unload,
   truncation, regenerate/edit, restart.

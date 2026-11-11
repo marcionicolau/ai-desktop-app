@@ -1,17 +1,3 @@
-<!--
-Sync Impact Report (temporary — remove before committing)
-- Version change: 0.0.0 → 1.0.0 (initial ratification; document was an unfilled template)
-- Modified principles: none (all principles newly defined)
-- Added sections:
-  - Core Principles I–VI (Local-First Inference, Electrobun Process Boundaries,
-    Strict TypeScript & Typed FFI, Component Standardization, Vite Build Pipeline,
-    Minimal Dependencies)
-  - Technology Stack Constraints
-  - Development Workflow & Quality Gates
-  - Governance
-- Removed sections: none
-- Follow-up TODOs: none
--->
 # AI Desktop App Constitution
 
 ## Core Principles

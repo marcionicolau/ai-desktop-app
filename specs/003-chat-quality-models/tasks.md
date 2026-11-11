@@ -20,7 +20,7 @@ features established test-first conventions.
 - [x] T005 Create `src/bun/llama/params.ts`: `GenerationParams` type (temperature 0–2, topP 0–1, topK ≥0, repeatPenalty ≥0 [1=off], seed uint32 [0=random], maxTokens ≥0 [0=ctx-bound], nThreads ≥0, nGpuLayers ≥0), `DEFAULT_PARAMS` matching current behavior, `mergeParams(base, override)`, `clampParams` validation
 - [x] T006 Extract prompt assembly from `src/bun/rpc/handlers.ts` into new `src/bun/llama/prompt.ts`: pure `buildPrompt(history, current, {chatml, budgetChars})` → `{prompt, turns, truncated}` preserving exact current semantics (ChatML when template has `im_start`, oldest-turn drop, current message always kept)
 - [x] T007 Extend `src/shared/types.ts` (`GenerationParams`, `Message.stats`) and `src/shared/rpc-contract.ts` per `contracts/rpc.md`: methods `settings.get`, `settings.set`, `chat.regenerate`, `chat.edit`, `model.list`, `model.download`, `model.setOverride`; event `model.download`; `chat.done` gains `stats`; error codes `INVALID_PARAMS`, `INVALID_URL`, `DOWNLOAD_FAILED`, `ALREADY_EXISTS`
-- [x] T008 Extend `src/bun/store/json-store.ts` Settings: `generation: GenerationParams`, `modelOverrides: Record<string, Partial<GenerationParams>>` keyed by file basename; add `deleteMessagesFrom(convId, messageId)` and `updateMessage(id, {content?, stats?, status?})`; clamp/validate params at write
+- [x] T008 Extend `src/bun/store/json-store.ts` Settings: `generation: GenerationParams`, `modelOverrides: Record<string, Partial<GenerationParams>>` keyed by file basename; add `deleteMessagesAfter(convId, messageId)` (as implemented: edit truncates the tail in-place before persisting); validate params at write
 - [x] T009 Rebuild native (`bash scripts/build-native.sh`) + run `bun test ./tests` — all 32 existing tests must still pass unmodified (proves ABI change is backward-safe)
 
 **Checkpoint**: params struct compiles, prompt module pure, settings persist, contract types complete.
@@ -46,7 +46,7 @@ features established test-first conventions.
 
 - [x] T014 [P] [US2] Write `tests/bun/prompt.test.ts`: `buildPrompt` formats (chatml/plain), oldest-turn drop, delta-prompt extraction for continue path
 - [x] T015 [US2] Add to shim + ffi.ts: `lls_generate_continue(ctx, prompt_delta, params, err)` (no `memory_clear`, `add_special=false`) and `lls_token_count(ctx, text) → int32` (NULL-buffer `llama_tokenize`); declare in `llama_shim.h`
-- [x] T016 [US2] Implement `KVSession` in `engine.ts`: `{modelPath, conversationId, turnsHash, kvPos}`; `generate` chooses continue vs begin by fingerprint match; invalidate on conv switch, model unload, truncation, regenerate/edit, restart; expose `warm` flag for tests
+- [x] T016 [US2] Implement KV reuse (as shipped): shim-side `kv_tokens` mirror on `lls_ctx`; `lls_generate_continue` computes the longest common token prefix vs the new prompt, trims via `llama_memory_seq_rm`, decodes the suffix; returns `0` reused / `2` full-decode fallback; `engine.generate` passes `{conversationId}` as hint and returns `warm` (the planned prompt-hash fingerprint was superseded — see research.md D2)
 - [x] T017 [US2] Update `handlers.ts` `chat.send`: replace `chars/4` estimate with `lls_token_count` budgeting (fallback to estimate when no model loaded); keep retry-on-overflow as safety net; pass `conversationId` so engine can fingerprint
 
 **Checkpoint**: US1+US2 both working; warm turns measurably faster (SC-002).
