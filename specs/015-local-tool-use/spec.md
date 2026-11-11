@@ -14,7 +14,7 @@
 
 - Q: What format should the model use to emit a tool call? → A: A fenced ````tool_call` code block containing one JSON object `{"tool":"read_file"|"list_dir","path":"<sandbox-relative or absolute>"}` — at most one call per block; surrounding prose is ignored.
 - Q: How should a pending tool call be presented for approval? → A: An inline card in the message timeline with Approve/Deny actions; generation pauses until the user decides.
-- Q: Where do the sandbox root + approval mode live, and what scope is the session-grant? → A: `sandboxRoot` + `mode` are global settings; the read-allow grant is per-conversation and held in memory only (cleared on app restart and on conversation switch).
+- Q: Where do the sandbox root + approval mode live, and what scope is the session-grant? → A: `sandboxRoot` + `mode` are global settings; the read-allow grant is per-conversation and held in memory only — it applies only within the granting conversation (other conversations always prompt) and dies on app restart.
 - Q: What should the per-turn tool-call cap be? → A: 5 tool calls per turn — hard stop with a visible notice; fixed in v1.
 - Q: How should the model learn the tool-call convention? → A: The `tool_call` instruction block is injected into the prompt only when policy mode is `ask` or `allow-read-session`; `deny` mode leaves prompts untouched.
 
@@ -68,8 +68,8 @@ out-of-sandbox call still refuses.
    prompt names tool + path before any execution.
 2. **Given** allow-read-for-session, **When** subsequent read calls
    arrive in that conversation, **Then** they execute without prompting
-   — the grant dies with the conversation's in-memory session (restart
-   or switching conversations re-prompts).
+   — the grant applies only within the granting conversation (other
+   conversations always prompt) and dies on app restart.
 3. **Given** any mode, **When** reviewing a completed turn, **Then** each
    tool call shows its verdict and a result summary.
 
@@ -86,6 +86,9 @@ out-of-sandbox call still refuses.
 - Tool calls in fusion mode: only the executor phase may call tools;
   the planner's plan may *request* data needs but cannot execute.
 - A generation stopped mid-tool-call: pending calls are discarded.
+- Regenerate/edit of a message carrying tool calls: the new variant
+  starts with an empty call list under current policy; the original
+  variant keeps its records.
 
 ## Requirements *(mandatory)*
 
