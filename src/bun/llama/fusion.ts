@@ -9,9 +9,12 @@ import type {
   MessageStats,
   MetricEntry,
   ResolvedRole,
+  ToolCallRecord,
 } from "../../shared/types";
 import type { ModelRegistry, SlotEngine } from "../models/registry";
 import type { SnapshotStore } from "../kv/store";
+import type { ToolService } from "../tools/service";
+import { runToolLoop } from "../tools/loop";
 import { buildExecutorPrompt, buildPlannerPrompt } from "./plan-prompt";
 import { buildPrompt, type PromptTurn } from "./prompt";
 
@@ -40,6 +43,15 @@ export interface FusionTurnOpts {
   // feature 016 (FR-003): one entry per phase call; the caller fills
   // personaName and gates on the outputPanel setting
   onMetric?: (e: Omit<MetricEntry, "id" | "ts" | "personaName">) => void;
+  // feature 015 (FR-009): the executor's answer phase runs through the
+  // tool loop; the planner's output is never scanned for calls
+  tools?: {
+    service: ToolService;
+    messageId: string;
+    onCall: (call: ToolCallRecord) => void;
+    onBudgetWarning: () => void;
+    isStopped: () => boolean;
+  };
 }
 
 export interface FusionTurnResult {
@@ -119,6 +131,66 @@ async function genPhase(opts: {
   }
 }
 
+// feature 015 (FR-009): the executor's answer phase — identical budgeting
+// to genPhase, but generation runs inside the tool loop so structured
+// calls can pause, resolve, and continue on the same KV prefix.
+async function genToolPhase(opts: {
+  eng: SlotEngine;
+  params: GenerationParams;
+  conversationId: string;
+  roleKey?: string;
+  snapshot?: SnapshotStore;
+  history: PromptTurn[];
+  current: string;
+  system?: string;
+  tools: NonNullable<FusionTurnOpts["tools"]>;
+  onToken: (delta: string) => void;
+  onTruncated: () => void;
+}): Promise<{
+  status: "complete" | "partial";
+  tokens: number;
+  elapsedMs: number;
+  warm: boolean;
+  promptTokens: number;
+}> {
+  const ctxSize = opts.eng.contextSize();
+  const reserve = Math.min(512, Math.floor(ctxSize / 2) || 512);
+  const baseBudget = ctxSize > 0 ? ctxSize - reserve : Infinity;
+  const chatml = (opts.eng.chatTemplate() ?? "").includes("im_start");
+  const costOf = (t: { content: string }) => opts.eng.tokenCount(t.content) + 8;
+  let budget = baseBudget;
+  for (;;) {
+    const built = buildPrompt(opts.history, opts.current, {
+      chatml,
+      budget,
+      costOf,
+      system: opts.system,
+    });
+    if (built.truncated) opts.onTruncated();
+    try {
+      // oxlint-disable-next-line no-await-in-loop -- sequential budget-halving retry
+      return await runToolLoop(opts.eng, built.prompt, {
+        tools: opts.tools.service,
+        conversationId: opts.conversationId,
+        messageId: opts.tools.messageId,
+        genParams: opts.params,
+        genOpts: {
+          conversationId: opts.conversationId,
+          roleKey: opts.roleKey,
+          snapshot: opts.snapshot,
+        },
+        onDelta: opts.onToken,
+        onCall: opts.tools.onCall,
+        onBudgetWarning: opts.tools.onBudgetWarning,
+        isStopped: opts.tools.isStopped,
+      });
+    } catch (e) {
+      if (!isCtxOverflow(e) || budget <= 256) throw e;
+      budget = Math.floor(budget / 2);
+    }
+  }
+}
+
 const phaseEvent = (phase: FusionPhase, role: ResolvedRole) => ({
   phase,
   tag: role.tag,
@@ -164,24 +236,39 @@ export async function runFusionTurn(
         slot = await o.registry.acquire(role.path);
         o.registry.pin(slot.path, o.conversationId);
         o.onEvent("chat.phase", phaseEvent(phase, role));
+        const onTok = (d: string) => {
+          emitted = true;
+          content += d;
+          onDelta(d);
+          o.onEvent("chat.token", { delta: d, phase });
+        };
         // oxlint-disable-next-line no-await-in-loop -- sequential candidate cascade
-        const res = await genPhase({
-          eng: slot.engine,
-          params: role.params,
-          conversationId: o.conversationId,
-          roleKey: kind,
-          snapshot: o.snapshot,
-          history,
-          current,
-          system,
-          onToken: (d) => {
-            emitted = true;
-            content += d;
-            onDelta(d);
-            o.onEvent("chat.token", { delta: d, phase });
-          },
-          onTruncated: o.onTruncated,
-        });
+        const res = await (kind === "executor" && o.tools
+          ? genToolPhase({
+              eng: slot.engine,
+              params: role.params,
+              conversationId: o.conversationId,
+              roleKey: kind,
+              snapshot: o.snapshot,
+              history,
+              current,
+              system,
+              tools: o.tools,
+              onToken: onTok,
+              onTruncated: o.onTruncated,
+            })
+          : genPhase({
+              eng: slot.engine,
+              params: role.params,
+              conversationId: o.conversationId,
+              roleKey: kind,
+              snapshot: o.snapshot,
+              history,
+              current,
+              system,
+              onToken: onTok,
+              onTruncated: o.onTruncated,
+            }));
         o.onMetric?.({
           conversationId: o.conversationId,
           modelFile: role.fileName,

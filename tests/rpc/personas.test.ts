@@ -190,6 +190,7 @@ describe("persona/snippet RPC + prompt injection", () => {
     });
     h["conversation.setPersona"]({ conversationId: a.id, personaName: "p1" });
     h["chat.send"]({ conversationId: a.id, content: "x" });
+    await settle(); // single-flight: the turn must end before the next send
     h["chat.send"]({ conversationId: b.id, content: "y" });
     await settle();
     expect(prompts[0]).toContain("ONLY-A");

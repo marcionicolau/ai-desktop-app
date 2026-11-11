@@ -22,6 +22,8 @@ import type {
   ModelStatus,
   Persona,
   Snippet,
+  ToolCallRecord,
+  ToolPolicy,
 } from "./types";
 
 export const RPC_ERROR_CODES = [
@@ -114,6 +116,7 @@ export interface ChatRpcSchema extends ElectrobunRPCSchema {
           generation: GenerationParams;
           modelOverrides: Record<string, Partial<GenerationParams>>;
           outputPanel: boolean; // feature 016
+          tools: ToolPolicy; // feature 015
         };
       };
       "settings.set": {
@@ -124,8 +127,24 @@ export interface ChatRpcSchema extends ElectrobunRPCSchema {
             params: Partial<GenerationParams> | null;
           };
           outputPanel?: boolean; // feature 016
+          tools?: Partial<ToolPolicy>; // feature 015
         };
         response: Record<string, never>;
+      };
+      // feature 015: decision on a pending tool call; NOT_FOUND when the
+      // call isn't pending (already decided or discarded)
+      "tool.respond": {
+        params: {
+          callId: string;
+          decision: "approve" | "deny" | "allowSession";
+        };
+        response: Record<string, never>;
+      };
+      // feature 015: native folder picker for the sandbox root;
+      // null = cancelled
+      "tool.pickRoot": {
+        params: Record<string, never>;
+        response: { path: string | null };
       };
       "model.list": {
         params: Record<string, never>;
@@ -331,11 +350,14 @@ export interface ChatRpcSchema extends ElectrobunRPCSchema {
       "model.download": DownloadState;
       "chat.warning": {
         messageId: string;
-        code: "CONTEXT_TRUNCATED" | "ATTACHMENTS_BUDGET";
+        code: "CONTEXT_TRUNCATED" | "ATTACHMENTS_BUDGET" | "TOOL_BUDGET";
         message: string;
       };
       // feature 016: emitted after each recorded call when enabled
       "metrics.entry": MetricEntry;
+      // feature 015: full record on every status transition; the
+      // renderer keeps a callId-keyed map for inline cards
+      "tool.update": { messageId: string; call: ToolCallRecord };
     };
   };
 }

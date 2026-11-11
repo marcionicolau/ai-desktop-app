@@ -9,6 +9,7 @@ import { ModelPicker } from "../models/ModelPicker";
 import { ModelLibrary } from "../models/ModelLibrary";
 import { GenerationSettings } from "../settings/GenerationSettings";
 import { DataPanel } from "../settings/DataPanel";
+import { ToolSettings } from "../settings/ToolSettings";
 import { RolesPanel } from "../roles/RolesPanel";
 import { FusionControls } from "../roles/FusionControls";
 import { PersonasPanel } from "../personas/PersonasPanel";
@@ -197,6 +198,7 @@ export function ChatPage() {
               value={state.generation}
               onSave={saveGeneration}
             />
+            <ToolSettings />
             <DataPanel />
           </>
         )}

@@ -4,8 +4,8 @@ import type { Message } from "@shared/types";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { AiMessage } from "@/components/ai/ai-message";
 import { MessageActions } from "@/components/ai/message-actions";
+import { ToolSegments } from "./ToolCallCard";
 import { VariantNav } from "./VariantNav";
 import { cn } from "@/lib/utils";
 
@@ -128,7 +128,12 @@ export function MessageList({
                   {m.status === "generating" && !m.content ? (
                     <p className="whitespace-pre-wrap">{m.content}</p>
                   ) : (
-                    <AiMessage content={m.content} />
+                    // feature 015: tool_call/tool_result fences become
+                    // inline cards; plain messages render unchanged
+                    <ToolSegments
+                      content={m.content}
+                      calls={m.toolCalls ?? []}
+                    />
                   )}
                 </div>
               ) : editingId === m.id ? (

@@ -8,6 +8,7 @@ import type {
   Message,
   MessageAttachment,
   ModelStatus,
+  ToolCallRecord,
 } from "@shared/types";
 import { DEFAULT_GENERATION } from "@shared/types";
 import type { RpcErrorCode } from "@shared/rpc-contract";
@@ -62,6 +63,8 @@ type Action =
   | { type: "selectVariant"; activeLeaf: string }
   | { type: "append"; message: Message }
   | { type: "token"; messageId: string; delta: string; phase?: FusionPhase }
+  // feature 015: a tool-call record transition for one message
+  | { type: "toolCall"; messageId: string; call: ToolCallRecord }
   | {
       type: "phase";
       messageId: string;
@@ -153,6 +156,19 @@ function reduce(state: ChatState, action: Action): ChatState {
             };
           }
           return { ...m, content: m.content + action.delta };
+        }),
+      };
+    case "toolCall":
+      // upsert by call.id — the loop emits every status transition
+      return {
+        ...state,
+        messages: state.messages.map((m) => {
+          if (m.id !== action.messageId) return m;
+          const list = [...(m.toolCalls ?? [])];
+          const i = list.findIndex((c) => c.id === action.call.id);
+          if (i >= 0) list[i] = action.call;
+          else list.push(action.call);
+          return { ...m, toolCalls: list };
         }),
       };
     case "phase":
@@ -541,6 +557,9 @@ export function useChat() {
       ),
       on("chat.warning", (p) =>
         dispatch({ type: "notice", message: p.message }),
+      ),
+      on("tool.update", (p) =>
+        dispatch({ type: "toolCall", messageId: p.messageId, call: p.call }),
       ),
       on("model.progress", (p) =>
         dispatch({

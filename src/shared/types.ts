@@ -38,6 +38,9 @@ export interface Message {
   parentId?: string | null;
   // feature 009: attach-order file records; content resolvable by id
   attachments?: MessageAttachment[] | null;
+  // feature 015: structured verdicts for fenced tool_call blocks in
+  // content (emission order); absent = no tool activity this turn
+  toolCalls?: ToolCallRecord[] | null;
 }
 
 export type ConversationMode = "single" | "fusion";
@@ -160,6 +163,65 @@ export interface Settings {
   snapshot?: SnapshotPolicy;
   // feature 016: output/metrics panel toggle; default off
   outputPanel?: boolean;
+  // feature 015: undefined → {sandboxRoot: null, mode: "deny"} —
+  // tools inactive until a root is configured
+  tools?: ToolPolicy;
+}
+
+// ---- feature 015: sandboxed local tool use ----
+
+export type ToolName = "read_file" | "list_dir";
+
+// verdict = status in UI wording. refused = rejected before prompting
+// (out-of-sandbox / cap exhausted / tools disabled); denied = user said no
+export type ToolCallStatus =
+  | "pending"
+  | "approved"
+  | "denied"
+  | "refused"
+  | "executed"
+  | "error";
+
+export type ToolRefuseReason =
+  | "out-of-sandbox"
+  | "budget"
+  | "malformed"
+  | "disabled";
+
+export interface ToolCallRecord {
+  id: string;
+  tool: ToolName | null; // null when the block failed schema validation
+  path: string;
+  resolvedPath?: string; // canonical path once it resolves in-sandbox
+  status: ToolCallStatus;
+  refuseReason?: ToolRefuseReason;
+  error?: string;
+  resultPreview?: string; // <=200 chars, single line — card summary
+  resultBytes?: number; // post-truncation injected size
+  createdAt: string;
+  decidedAt?: string;
+}
+
+export type ToolMode = "ask" | "allow-read-session" | "deny";
+
+export interface ToolPolicy {
+  sandboxRoot: string | null; // absolute path; null = tools inactive
+  mode: ToolMode;
+}
+
+// append-only audit line (dataDir()/tool-audit.jsonl), one per
+// executed-or-errored call — survives conversation deletion (FR-011)
+export interface AuditEntry {
+  ts: string;
+  conversationId: string;
+  messageId: string;
+  callId: string;
+  tool: ToolName;
+  path: string;
+  resolvedPath: string;
+  verdict: "executed" | "error";
+  resultBytes?: number;
+  error?: string;
 }
 
 // feature 016: one metrics entry per generation call (session ring, FR-007)
