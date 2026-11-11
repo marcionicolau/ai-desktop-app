@@ -57,7 +57,7 @@ description: "Task list for Electrobun v2 Upgrade implementation"
 
 - [x] T010 [US1] Implement minimal window bootstrap in `src/bun/index.ts`: `new BrowserWindow({ title, url })` loading `views://main/index.html` for packaged runs and the Vite dev-server URL (`http://localhost:5173`) in dev — required for any dev/packaged launch to show the UI (also covers feature-001 T017 bootstrap)
 - [x] T011 [US1] Wire dev flow so `dev` starts the Vite dev-server alongside `electrobun dev` (per `hutch.config.ts` `dev` script composition in contracts/config.md); verify `hutch pm exec` resolves `node_modules/.bin/vite` — fallback to `bunx vite` or `./node_modules/.bin/vite` in the script string if not; verify `vite build` output is not required in dev
-- [x] T012 [US1] Verify `bun run build:renderer` then `hutch build --env=dev` produces a launchable app loading `views://main/index.html`; fix `build.copy` semantics if v2 requires per-file entries instead of directory copies (research.md D3)
+- [x] T012 [US1] Verify `bun run dev` produces a launchable dev bundle in `build/dev-<platform>/` loading `views://main/index.html`; fix `build.copy` semantics if v2 requires per-file entries instead of directory copies (research.md D3)
 
 **Checkpoint**: US1 validated — dev window + HMR work under Electrobun 2.x
 
@@ -67,11 +67,11 @@ description: "Task list for Electrobun v2 Upgrade implementation"
 
 **Goal**: Canary/release build yields an installable artifact with native libraries staged correctly.
 
-**Independent Test**: `hutch build --env=canary` → artifact in `artifacts/`; inspect bundle for `Resources/app/views/main/` and `Resources/app/native/`; launch packaged app (quickstart VS-2).
+**Independent Test**: `bun run build` (canary) → bundle in `build/canary-<platform>/`; inspect bundle for `Resources/app/views/main/` and `Resources/app/native/`; launch packaged app (quickstart VS-2).
 
 ### Implementation for User Story 2
 
-- [x] T013 [US2] Run `hutch build --env=canary` (or `bun run build:canary`) to completion; fix any v2 field-name errors the validator reports in `electrobun.config.ts`
+- [x] T013 [US2] Run `bun run build` (`hutch run build` → `electrobun build --env=canary`) to completion; fix any v2 field-name errors the validator reports in `electrobun.config.ts`
 - [x] T014 [US2] Verify bundle layout: `Resources/app/views/main/` contains Vite output; `Resources/app/native/<platform>/` staging rule works — if `native/out/` is empty (feature-001 T011–T013 pending), create a placeholder `.so`/document the pending native build, and confirm the copy rule itself
 - [x] T015 [US2] Verify ASAR/archiving config: confirm `useAsar` (or v2 equivalent) is off for native libs, or add the platform globs to the unpack list so `dlopen` sees real files (spec constraint, research.md D6)
 - [x] T016 [US2] Launch the packaged artifact and confirm identical UI (SC-002, SC-003)
@@ -88,8 +88,8 @@ description: "Task list for Electrobun v2 Upgrade implementation"
 
 ### Implementation for User Story 3
 
-- [ ] T017 [US3] Audit repo for v1 remnants: grep for removed v1 config fields, `electrobun` bin invocations outside `hutch` tasks, and references to deleted `types/electrobun.d.ts`; clean up findings
-- [ ] T018 [US3] Verify every documented command end-to-end: `hutch install`, `hutch dev`, `hutch build`, `bun run typecheck`, `bun run lint`, `bun test`, `bun run build:renderer`
+- [x] T017 [US3] Audit repo for v1 remnants: grep for removed v1 config fields, `electrobun` bin invocations outside `hutch` tasks, and references to deleted `types/electrobun.d.ts`; clean up findings
+- [x] T018 [US3] Verify every documented command end-to-end: `hutch dev`, `bun run build`/`build:stable`, `bun run typecheck`, `bun run lint`, `bun test`, `bun run build:renderer`
 
 **Checkpoint**: US3 validated — one toolchain, all commands documented and working
 
@@ -99,8 +99,8 @@ description: "Task list for Electrobun v2 Upgrade implementation"
 
 **Purpose**: Full validation sweep
 
-- [ ] T019 Run complete `quickstart.md` validation (VS-1 through VS-4) and record results
-- [ ] T020 Update `specs/001-desktop-ai-chat/tasks.md` note or `AGENTS.md` with the v2 command set (`hutch` vs `electrobun` bin) so feature-001 tasks reference the right commands
+- [x] T019 Run complete `quickstart.md` validation (VS-1 through VS-4) and record results
+- [x] T020 Update `specs/001-desktop-ai-chat/tasks.md` note or `AGENTS.md` with the v2 command set (`hutch` vs `electrobun` bin) so feature-001 tasks reference the right commands
 
 ---
 

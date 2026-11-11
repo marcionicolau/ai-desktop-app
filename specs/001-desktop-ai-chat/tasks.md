@@ -27,7 +27,7 @@ defines automated checks (typecheck, FFI lifecycle, vite build).
 - [x] T001 Initialize Bun project: `package.json` with scripts (`dev`, `build:renderer`, `build:native`, `typecheck`, `test`), and dependencies `electrobun`, `vite`, `react`, `react-dom`, `typescript`, `tailwindcss@4`, `@tailwindcss/vite`, `oxlint` in `package.json`
 - [x] T002 Create strict `tsconfig.json` (`strict: true`, `noUncheckedIndexedAccess`, JSX for React) covering `src/` at repo root
 - [x] T003 [P] Scaffold Electrobun config `electrobun.config.ts`: `build.bun.entrypoint = "src/bun/index.ts"`, `build.copy` mapping `dist/renderer/` → `views/main/` and `native/out/<platform>/` → `native/<platform>/`
-- [x] T004 [P] Create `hutch.config.ts` with `dev`/`build:canary`/`build:stable` script entries
+- [x] T004 [P] Create `hutch.config.ts` with `dev`/`build`/`build:stable` script entries
 - [x] T005 [P] Scaffold Vite renderer: `src/renderer/index.html`, `src/renderer/vite.config.ts` (React plugin + `@tailwindcss/vite`, `outDir: ../../dist/renderer`), `src/renderer/src/main.tsx`
 - [x] T006 [P] Initialize Tailwind CSS v4 (CSS-first `@theme` in `src/renderer/src/index.css`, no `tailwind.config.js`) and shadcn/ui under `src/renderer/src/components/ui/`
 - [x] T007 Add llama.cpp as git submodule pinned to a release tag at `src/native/vendor/llama.cpp/`
@@ -133,7 +133,7 @@ defines automated checks (typecheck, FFI lifecycle, vite build).
 - [ ] T041 [P] Verify `scripts/build-native.ps1` on Windows produces `llama_shim.dll` + deps and `build.copy` stages them correctly — **SKIPPED**: no Windows host available; defer to first Windows runner
 - [ ] T042 [P] Verify macOS build produces `*.dylib` set with `@rpath` names resolving inside `Resources/app/native/` in the packaged bundle — **SKIPPED**: no macOS host available; defer to first macOS runner
 - [x] T043 Run full `quickstart.md` validation (VS-1 through VS-4) offline and record results
-- [x] T044 Package canary build (`bun electrobun build --env=canary`) and smoke-test installer artifact per OS runner available
+- [x] T044 Package canary build (`bun run build` (hutch run → electrobun build --env=canary)) and smoke-test installer artifact per OS runner available
 
 ---
 

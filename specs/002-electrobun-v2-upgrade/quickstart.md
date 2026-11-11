@@ -9,25 +9,27 @@
 
 ```bash
 bun add -d electrobun@^2           # 2.0.x
-rm -f types/electrobun.d.ts        # shim replaced by .hutch/devkit types (keep if strict tsc still fails)
+rm -f types/electrobun.d.ts        # shim replaced by .hutch/devkit types
 # create hutch.config.ts, rewrite electrobun.config.ts per contracts/config.md
 # update src imports: "electrobun" → "electrobun/main"
-hutch install --frozen-lockfile    # or bun install
-hutch electrobun dev               # first run prepares .hutch/devkit
+bun install                        # bun is the package manager (hutch pm delegates)
+bun x electrobun prepare           # first run projects .hutch/devkit + dependencies.lock
 ```
 
 ## Validation scenarios
 
 ### VS-1 — Dev mode (spec US1, SC-001)
 
-1. `hutch dev` → app window opens with renderer UI, no console errors, ≤15s.
+1. `bun run dev` (= `hutch dev` → `scripts.dev`) → app window opens with
+   renderer UI, no console errors, ≤15s.
 2. Edit a file under `src/renderer/src/` → UI hot-reloads (Vite dev-server).
 3. Confirm `.hutch/devkit` exists and `bun run typecheck` resolves
    `electrobun` types without the hand-written shim.
 
 ### VS-2 — Packaged build (spec US2, SC-003)
 
-1. `hutch build` (canary) → artifact in `artifacts/`.
+1. `bun run build` (= `hutch run build` → `electrobun build --env=canary`) →
+   bundle in `build/canary-<platform>/`.
 2. Inspect bundle: `Resources/app/native/<platform>/` contains
    `libllama_shim.*` + `llama`/`ggml` deps; `Resources/app/views/main/` has
    the Vite output.

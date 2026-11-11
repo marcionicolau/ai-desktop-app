@@ -13,11 +13,12 @@ bun install                        # JS deps
 ./scripts/build-native.sh          # Linux/macOS — or build-native.ps1 on Windows
                                    # produces native/out/<platform>/libllama_shim.* + deps
 bun run build:renderer             # vite build → dist/renderer/
-bun run dev                        # electrobun dev (Vite dev-server for HMR)
+bun run dev                        # hutch dev → vite :5173 + electrobun dev --watch
 ```
 
-Packaged check: `bun electrobun build --env=canary` → app bundle under
-`artifacts/`; native libs land in `Resources/app/native/<platform>/`.
+Packaged check: `bun run build` (hutch run build → electrobun build
+--env=canary) → bundle in `build/canary-<platform>/`; native libs land in
+`Resources/app/native/<platform>/`.
 
 ## Validation scenarios
 

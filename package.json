@@ -11,8 +11,8 @@
     "typecheck": "tsc --noEmit",
     "lint": "oxlint src/bun src/renderer src/shared",
     "test": "bun test ./tests",
-    "build": "electrobun build --env=canary",
-    "build:stable": "electrobun build --env=stable"
+    "build": "hutch run build",
+    "build:stable": "hutch run build:stable"
   },
   "dependencies": {
     "react": "^19.2.0",

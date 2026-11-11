@@ -89,7 +89,7 @@ src/bun/index.ts      # imports → "electrobun/main"
 src/renderer/         # unchanged (Vite/Tailwind/shadcn as-is)
 scripts/              # build-native.{sh,ps1}, stage-native.ts unchanged
 .gitignore            # + .hutch/
-hutch.lock            # NEW (Hutch resolver lockfile — committed)
+.hutch/dependencies.lock  # NEW (toolchain pin — committed; devkit/ + locks/ ignored)
 ```
 
 **Structure Decision**: No source-layout changes — v2 conventions already

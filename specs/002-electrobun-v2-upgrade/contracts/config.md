@@ -61,7 +61,10 @@ export default {
 
 ## Generated artifacts (never committed)
 
-- `.hutch/devkit/` — SDK sysroot projected by Hutch prepare
+- `.hutch/devkit/` — SDK sysroot projected by Hutch prepare (ignored)
+- `.hutch/devkit.lock`, `.hutch/locks/` — generated build locks (ignored)
 - `~/.hutch/releases/` — shared toolchain cache
-- `hutch.lock` — dependency lock (committed; Hutch's built-in resolver owns it
-  unless an external PM is selected — we keep Bun via `pm`/scripts)
+- `.hutch/dependencies.lock` — toolchain pin lock (COMMITTED; written by
+  `hutch prepare`/`hutch install`, sha256-pins bun + electrobun + cottontail)
+- `bun.lock` — npm dependency lock (committed; Bun is the package manager —
+  `hutch pm` delegates to it)
