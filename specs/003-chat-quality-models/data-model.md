@@ -1,0 +1,95 @@
+# Data Model: Chat Quality & Model Management
+
+## New / Extended Entities
+
+### `GenerationParams` (new)
+
+```ts
+interface GenerationParams {
+  temperature: number;   // 0.0–2.0; 0 = greedy
+  topP: number;          // 0.0–1.0 nucleus cutoff; 1 = off
+  topK: number;          // ≥0; 0 = off
+  repeatPenalty: number; // ≥0; 1.0 = off
+  seed: number;          // uint32; 0 = random each run
+  maxTokens: number;     // ≥0; 0 = ctx-bound only
+  nThreads: number;      // ≥0; 0 = llama default
+  nGpuLayers: number;    // ≥0; 0 = CPU only
+}
+```
+
+- Defaults: `{0, 1, 0, 1, 0, 512, 0, 0}` (current behavior: greedy + 512 cap)
+- Persisted in `settings.json` under `generation`; per-model overrides under
+  `modelOverrides[basename]` as `Partial<GenerationParams>`
+
+### `ModelMeta` (new)
+
+```ts
+interface ModelMeta {
+  path: string;          // absolute path to .gguf
+  fileName: string;      // basename — the override key
+  sizeBytes: number;
+  name: string | null;        // general.name
+  architecture: string | null; // general.architecture
+  paramCount: string | null;   // e.g. "135M" (formatted)
+  quantization: string | null; // file type name e.g. "Q4_K_M"
+  contextTrain: number | null; // trained ctx length
+}
+```
+
+Derived per file via `lls_gguf_meta` — never persisted (recomputed on scan).
+
+### `KVSession` (new, runtime only)
+
+```ts
+interface KVSession {
+  modelPath: string;
+  conversationId: string;
+  turnsHash: string;   // hash of rendered prefix turns
+  kvPos: number;       // tokens in KV after last decode
+}
+```
+
+- Lives only in `engine.ts`; invalidated by conv switch, model unload,
+  truncation, regenerate/edit, restart.
+
+### `DownloadState` (new)
+
+```ts
+interface DownloadState {
+  fileName: string;
+  phase: "progress" | "done" | "error";
+  downloadedBytes: number;
+  totalBytes: number | null;
+  error?: string;
+}
+```
+
+Carried by the `model.download` event while a fetch is active.
+
+### `Message` (extended)
+
+```ts
+stats?: { tokens: number; tokensPerSec: number } | null;
+```
+
+Optional, persisted with the assistant turn on `chat.done`.
+
+## `Settings` (extended)
+
+```ts
+interface Settings {
+  activeModelPath: string | null;      // existing
+  generation: GenerationParams;        // new
+  modelOverrides: Record<string, Partial<GenerationParams>>; // new
+}
+```
+
+## State Transitions
+
+- **Regenerate**: assistant msg (last turn, `complete|partial`) →
+  `generating` in place → `complete|partial|failed` (same messageId, new
+  content + stats).
+- **Edit+resend**: user msg content replaced → all later turns deleted →
+  new assistant `generating` appended.
+- **Download**: `progress…` → `done` (file renamed, loadable) | `error`
+  (`.part` removed).
