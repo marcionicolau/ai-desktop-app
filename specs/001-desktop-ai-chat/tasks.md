@@ -63,18 +63,18 @@ defines automated checks (typecheck, FFI lifecycle, vite build).
 
 ### Tests for User Story 1
 
-- [ ] T018 [P] [US1] FFI lifecycle integration test in `tests/ffi/lifecycle.test.ts`: load model → `generate_begin` → `lls_step` N tokens → `generate_end` → `ctx_free` → `model_free` → `close()` → reload succeeds (ownership rules from `contracts/ffi.md`)
-- [ ] T019 [P] [US1] RPC contract test in `tests/rpc/chat.test.ts`: `chat.send` emits ordered `chat.token` deltas then `chat.done`; `chat.send` during generation rejects `ENGINE_BUSY`; `chat.stop` → `chat.done {status:"partial"}` within 1s (SC-006); empty/whitespace message rejects `EMPTY_MESSAGE`
+- [x] T018 [P] [US1] FFI lifecycle integration test in `tests/ffi/lifecycle.test.ts`: load model → `generate_begin` → `lls_step` N tokens → `generate_end` → `ctx_free` → `model_free` → `close()` → reload succeeds (ownership rules from `contracts/ffi.md`)
+- [x] T019 [P] [US1] RPC contract test in `tests/rpc/chat.test.ts`: `chat.send` emits ordered `chat.token` deltas then `chat.done`; `chat.send` during generation rejects `ENGINE_BUSY`; `chat.stop` → `chat.done {status:"partial"}` within 1s (SC-006); empty/whitespace message rejects `EMPTY_MESSAGE`
 
 ### Implementation for User Story 1
 
-- [ ] T020 [US1] Implement `model.load`/`model.status` RPC handlers in `src/bun/rpc/handlers.ts` as thin pass-throughs to `engine.loadModel` with `model.progress` event emission (`loading → ready | error`); plus startup bootstrap: on app start, attempt `model.load` with `settings.activeModelPath` or `MODEL_PATH` env var if present (MVP path to a loaded model before US3's picker)
-- [ ] T021 [US1] Implement `chat.send` in `src/bun/rpc/handlers.ts`: create user `Message` (reject non-empty after trim per edge case), create assistant `Message {status:"generating"}`, drive `engine.generate` step loop → emit `chat.token {messageId, delta}` per chunk, emit `chat.done {status:"complete"}` at end or `chat.error` on failure; reject concurrent send with `ENGINE_BUSY` (FR-012)
-- [ ] T022 [US1] Implement `chat.stop` in `src/bun/rpc/handlers.ts`: sets the stop flag consumed by the `engine.generate` step loop (which calls `lls_generate_end` and returns), finalizes the in-flight message as `status:"partial"` (FR-003)
-- [ ] T023 [P] [US1] Build typed RPC client in `src/renderer/src/lib/rpc.ts` importing `src/shared/rpc-contract.ts` (invoke + subscribe APIs only — no raw bridge calls elsewhere)
-- [ ] T024 [P] [US1] Build chat UI in `src/renderer/src/features/chat/`: `MessageList` (renders `Message[]` with role styling via shadcn components), `Composer` (input + send/stop button), stream reducer accumulating `chat.token` deltas
-- [ ] T025 [US1] Wire composer states in `src/renderer/src/features/chat/`: send disabled with visible explanation while generating (FR-012), generating indicator shown (FR-010), stop button halts and keeps partial text
-- [ ] T026 [US1] Render model-not-loaded state in `src/renderer/src/features/chat/`: when `model.status` ≠ `ready`, show "load a model" prompt instead of silent failure (US1 acceptance 3)
+- [x] T020 [US1] Implement `model.load`/`model.status` RPC handlers in `src/bun/rpc/handlers.ts` as thin pass-throughs to `engine.loadModel` with `model.progress` event emission (`loading → ready | error`); plus startup bootstrap: on app start, attempt `model.load` with `settings.activeModelPath` or `MODEL_PATH` env var if present (MVP path to a loaded model before US3's picker)
+- [x] T021 [US1] Implement `chat.send` in `src/bun/rpc/handlers.ts`: create user `Message` (reject non-empty after trim per edge case), create assistant `Message {status:"generating"}`, drive `engine.generate` step loop → emit `chat.token {messageId, delta}` per chunk, emit `chat.done {status:"complete"}` at end or `chat.error` on failure; reject concurrent send with `ENGINE_BUSY` (FR-012)
+- [x] T022 [US1] Implement `chat.stop` in `src/bun/rpc/handlers.ts`: sets the stop flag consumed by the `engine.generate` step loop (which calls `lls_generate_end` and returns), finalizes the in-flight message as `status:"partial"` (FR-003)
+- [x] T023 [P] [US1] Build typed RPC client in `src/renderer/src/lib/rpc.ts` importing `src/shared/rpc-contract.ts` (invoke + subscribe APIs only — no raw bridge calls elsewhere)
+- [x] T024 [P] [US1] Build chat UI in `src/renderer/src/features/chat/`: `MessageList` (renders `Message[]` with role styling via shadcn components), `Composer` (input + send/stop button), stream reducer accumulating `chat.token` deltas
+- [x] T025 [US1] Wire composer states in `src/renderer/src/features/chat/`: send disabled with visible explanation while generating (FR-012), generating indicator shown (FR-010), stop button halts and keeps partial text
+- [x] T026 [US1] Render model-not-loaded state in `src/renderer/src/features/chat/`: when `model.status` ≠ `ready`, show "load a model" prompt instead of silent failure (US1 acceptance 3)
 
 **Checkpoint**: US1 works end-to-end offline — send → streamed tokens → complete; send → stop → partial preserved
 

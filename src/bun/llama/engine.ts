@@ -95,6 +95,10 @@ export class LlamaEngine {
     this.stopRequested = true;
   }
 
+  isGenerating(): boolean {
+    return this.generating;
+  }
+
   // Drives the pull loop. onToken receives raw byte-chunks decoded as text.
   // Resolves "complete" on natural end, "partial" when stop() was called.
   async generate(

@@ -19,6 +19,8 @@
     "react-dom": "^19.2.0"
   },
   "devDependencies": {
+    "@radix-ui/react-scroll-area": "^1.4.0",
+    "@radix-ui/react-slot": "^1.5.0",
     "@tailwindcss/vite": "^4.1.17",
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
@@ -27,6 +29,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "electrobun": "^2",
+    "lucide-react": "^1.72.0",
     "oxlint": "^1.25.0",
     "tailwind-merge": "^3.7.0",
     "tailwindcss": "^4.1.17",
