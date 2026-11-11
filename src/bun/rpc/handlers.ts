@@ -8,12 +8,16 @@ import type {
   GenerationParams,
   Message,
   ModelStatus,
+  ResolvedRole,
+  RoleRef,
 } from "../../shared/types";
 import { DEFAULT_GENERATION } from "../../shared/types";
-import { EngineError, LlamaEngine } from "../llama/engine";
+import { EngineError } from "../llama/engine";
 import { mergeParams, validateParams } from "../llama/params";
 import { buildPrompt, type PromptTurn } from "../llama/prompt";
 import { modelsDir, scanModels } from "../models/library";
+import { ModelRegistry, createRegistryEngine } from "../models/registry";
+import { RolesService } from "../models/roles";
 import * as store from "../store/json-store";
 import { existsSync, mkdirSync, renameSync, unlinkSync } from "node:fs";
 import { basename, join } from "node:path";
@@ -56,6 +60,9 @@ export interface HandlerDeps {
   engine: EngineLike;
   emit: Emit;
   store: StoreLike;
+  // feature 004: optional so existing tests keep a two-dep harness
+  roles?: RolesService;
+  registry?: ModelRegistry;
 }
 
 function fail(code: RpcErrorCode, message: string): never {
@@ -94,6 +101,8 @@ export function createRequestHandlers(deps: HandlerDeps) {
     );
   };
 
+  const rolesSvc = () => deps.roles ?? new RolesService({ store: deps.store });
+
   const findMessage = (messageId: string) => {
     for (const summary of deps.store.listConversations()) {
       const conv = deps.store.getConversation(summary.id);
@@ -113,13 +122,18 @@ export function createRequestHandlers(deps: HandlerDeps) {
     history: PromptTurn[],
     current: string,
   ): void => {
-    const genParams = resolveGenParams();
-    const ctxSize = deps.engine.contextSize();
-    const reserve = Math.min(512, Math.floor(ctxSize / 2) || 512);
-    const baseBudget = ctxSize > 0 ? ctxSize - reserve : Infinity;
-    const chatml = (deps.engine.chatTemplate() ?? "").includes("im_start");
-    const costOf = (t: { content: string }) =>
-      deps.engine.tokenCount(t.content) + 8; // ~wrapper tokens per turn
+    // FR-010: single-mode generation resolves through the `default` tag;
+    // when the roles dep is absent (unit-test harness) fall back to the
+    // legacy per-model param merge.
+    let resolved: ResolvedRole | null = null;
+    if (deps.roles) {
+      try {
+        resolved = deps.roles.resolve("default");
+      } catch {
+        resolved = null;
+      }
+    }
+    const genParams = resolved ? resolved.params : resolveGenParams();
     const messageId = assistantMsg.id;
     activeMessageId = messageId;
 
@@ -145,7 +159,23 @@ export function createRequestHandlers(deps: HandlerDeps) {
       });
     };
     const run = async () => {
+      // resolve() gave us the path; acquire pins the slot for this turn
+      let eng: EngineLike = deps.engine;
+      let slotPath: string | null = null;
+      if (resolved && deps.registry) {
+        const slot = await deps.registry.acquire(resolved.path);
+        deps.registry.pin(slot.path, conv.id);
+        slotPath = slot.path;
+        eng = slot.engine;
+      }
+      const ctxSize = eng.contextSize();
+      const reserve = Math.min(512, Math.floor(ctxSize / 2) || 512);
+      const baseBudget = ctxSize > 0 ? ctxSize - reserve : Infinity;
+      const chatml = (eng.chatTemplate() ?? "").includes("im_start");
+      const costOf = (t: { content: string }) =>
+        eng.tokenCount(t.content) + 8; // ~wrapper tokens per turn
       let budget = baseBudget;
+      try {
       for (;;) {
         const built = buildPrompt(history, current, {
           chatml,
@@ -155,7 +185,7 @@ export function createRequestHandlers(deps: HandlerDeps) {
         if (built.truncated) warnTruncated();
         try {
           // oxlint-disable-next-line no-await-in-loop -- sequential budget-halving retry
-          return await deps.engine.generate(
+          return await eng.generate(
             built.prompt,
             (delta) => {
               assistantMsg.content += delta;
@@ -169,6 +199,9 @@ export function createRequestHandlers(deps: HandlerDeps) {
           if (!isCtxOverflow(e) || budget <= 256) throw e;
           budget = Math.floor(budget / 2);
         }
+      }
+      } finally {
+        if (slotPath && deps.registry) deps.registry.release(slotPath);
       }
     };
 
@@ -214,8 +247,14 @@ export function createRequestHandlers(deps: HandlerDeps) {
       try {
         const res = await deps.engine.loadModel(path);
         deps.emit("model.progress", { phase: "ready", detail: res.name });
-        const settings = deps.store.getSettings();
-        deps.store.saveSettings({ ...settings, activeModelPath: path });
+        if (deps.roles) {
+          // bind("default") also syncs activeModelPath (FR-010)
+          deps.roles.bind("default", path);
+          deps.emit("role.changed", { name: "default" });
+        } else {
+          const settings = deps.store.getSettings();
+          deps.store.saveSettings({ ...settings, activeModelPath: path });
+        }
         return res;
       } catch (e) {
         deps.emit("model.progress", {
@@ -227,8 +266,13 @@ export function createRequestHandlers(deps: HandlerDeps) {
     },
     "model.unload": () => {
       deps.engine.unloadModel();
-      const settings = deps.store.getSettings();
-      deps.store.saveSettings({ ...settings, activeModelPath: null });
+      if (deps.roles) {
+        deps.roles.bind("default", null);
+        deps.emit("role.changed", { name: "default" });
+      } else {
+        const settings = deps.store.getSettings();
+        deps.store.saveSettings({ ...settings, activeModelPath: null });
+      }
       return {};
     },
     "model.pick": async () => {
@@ -564,12 +608,76 @@ export function createRequestHandlers(deps: HandlerDeps) {
       }
       return {};
     },
+    "role.list": () => ({ tags: rolesSvc().list() }),
+    "role.create": ({
+      name,
+      label,
+      description,
+    }: {
+      name: string;
+      label?: string;
+      description?: string;
+    }) => {
+      const tag = rolesSvc().create({ name, label, description });
+      deps.emit("role.changed", { name });
+      return { tag };
+    },
+    "role.update": ({
+      name,
+      label,
+      description,
+      params,
+    }: {
+      name: string;
+      label?: string;
+      description?: string;
+      params?: Partial<GenerationParams> | null;
+    }) => {
+      rolesSvc().update({ name, label, description, params });
+      deps.emit("role.changed", { name });
+      return {};
+    },
+    "role.delete": ({ name, force }: { name: string; force?: boolean }) => {
+      rolesSvc().delete(name, force ?? false);
+      deps.emit("role.changed", { name });
+      return {};
+    },
+    "role.bind": ({
+      name,
+      fileName,
+    }: {
+      name: string;
+      fileName: string | null;
+    }) => {
+      rolesSvc().bind(name, fileName);
+      deps.emit("role.changed", { name });
+      return {};
+    },
+    "role.setFallback": ({
+      name,
+      chain,
+    }: {
+      name: string;
+      chain: RoleRef[];
+    }) => {
+      rolesSvc().setFallback(name, chain);
+      deps.emit("role.changed", { name });
+      return {};
+    },
+    "role.resolve": ({ name }: { name: string }) => ({
+      resolved: rolesSvc().resolve(name),
+    }),
   };
 }
 
 export type RequestHandlers = ReturnType<typeof createRequestHandlers>;
 
-const engine = new LlamaEngine();
+const registry = new ModelRegistry();
+const roles = new RolesService({ store });
+const engine = createRegistryEngine({
+  registry,
+  activePath: () => store.getSettings().activeModelPath,
+});
 
 // Attempts initial model load from settings.activeModelPath or MODEL_PATH
 // (MVP bootstrap before US3's model picker).
@@ -593,6 +701,8 @@ export function createRpc() {
   let emit: Emit = () => {};
   const handlers = createRequestHandlers({
     engine,
+    roles,
+    registry,
     emit: (m, p) => emit(m, p),
     store,
   });
