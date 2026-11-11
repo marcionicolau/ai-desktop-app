@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { Library, Settings2, Tags } from "lucide-react";
+import { GitBranch, Library, Settings2, Tags } from "lucide-react";
 import { useChat } from "./use-chat";
 import { MessageList } from "./MessageList";
+import { BranchOverview } from "./BranchOverview";
 import { Composer } from "./Composer";
 import { Sidebar } from "./Sidebar";
 import { ModelPicker } from "../models/ModelPicker";
@@ -14,6 +15,9 @@ import { Button } from "@/components/ui/button";
 export function ChatPage() {
   const {
     state,
+    path,
+    variants,
+    branches,
     send,
     stop,
     selectConversation,
@@ -26,11 +30,13 @@ export function ChatPage() {
     editMessage,
     loadModel,
     setMode,
+    selectVariant,
   } = useChat();
   const modelReady = state.modelStatus === "ready";
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [rolesOpen, setRolesOpen] = useState(false);
+  const [branchesOpen, setBranchesOpen] = useState(false);
 
   return (
     <main className="flex h-screen bg-background text-foreground">
@@ -46,6 +52,15 @@ export function ChatPage() {
         <header className="flex items-center justify-between border-b border-border px-4 py-2">
           <h1 className="text-sm font-semibold">AI Desktop App</h1>
           <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Branches"
+              disabled={branches.length === 0}
+              onClick={() => setBranchesOpen((v) => !v)}
+            >
+              <GitBranch className="h-4 w-4" />
+            </Button>
             <Button
               variant="ghost"
               size="icon"
@@ -118,11 +133,21 @@ export function ChatPage() {
             {state.lastError.code}: {state.lastError.message}
           </div>
         )}
+        {branchesOpen && (
+          <BranchOverview
+            branches={branches}
+            pathIds={new Set(path.map((m) => m.id))}
+            onSelect={selectVariant}
+            onClose={() => setBranchesOpen(false)}
+          />
+        )}
         <MessageList
-          messages={state.messages}
+          messages={path}
+          variants={variants}
           generating={state.generatingId !== null}
           onRegenerate={(id) => void regenerate(id)}
           onEdit={(id, c) => void editMessage(id, c)}
+          onSelectVariant={selectVariant}
         />
         <Composer
           generating={state.generatingId !== null}

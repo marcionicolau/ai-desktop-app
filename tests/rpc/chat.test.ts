@@ -215,7 +215,7 @@ describe("chat.regenerate / chat.edit contract", () => {
     completedAt: "t",
   });
 
-  test("regenerate reuses the assistant messageId and re-streams", async () => {
+  test("regenerate creates a sibling variant and re-streams (feature 005)", async () => {
     const { deps, emitted, convs, getLastPrompt } = makeDeps({
       tokens: ["new"],
     });
@@ -228,11 +228,18 @@ describe("chat.regenerate / chat.edit contract", () => {
     });
     const h = createRequestHandlers(deps);
     const res = h["chat.regenerate"]({ messageId: "m2" });
-    expect(res.messageId).toBe("m2");
+    // sibling semantics: NEW assistant id, original variant untouched
+    expect(res.messageId).not.toBe("m2");
     await flush();
-    const m2 = convs.get(CONV)!.messages[1];
-    expect(m2.content).toBe("new");
-    expect(m2.status).toBe("complete");
+    const msgs = convs.get(CONV)!.messages;
+    const variant = msgs.find((m) => m.id === res.messageId)!;
+    expect(variant.content).toBe("new");
+    expect(variant.status).toBe("complete");
+    expect(variant.parentId).toBe("m1");
+    const orig = msgs.find((m) => m.id === "m2")!;
+    expect(orig.content).toBe("old");
+    expect(orig.status).toBe("complete");
+    expect(convs.get(CONV)!.activeLeaf).toBe(res.messageId);
     expect(getLastPrompt()).toContain("hi");
     expect(emitted.at(-1)!.method).toBe("chat.done");
   });
@@ -255,7 +262,7 @@ describe("chat.regenerate / chat.edit contract", () => {
     }
   });
 
-  test("edit truncates the tail and creates a fresh assistant turn", async () => {
+  test("edit creates a user sibling + fresh assistant; tail preserved (feature 005)", async () => {
     const { deps, convs, getLastPrompt } = makeDeps({ tokens: ["x"] });
     convs.set(CONV, {
       id: CONV,
@@ -273,15 +280,24 @@ describe("chat.regenerate / chat.edit contract", () => {
     const res = h["chat.edit"]({ messageId: "m3", content: "q2-edited" });
     await flush();
     const msgs = convs.get(CONV)!.messages;
-    expect(msgs.map((m) => m.id)).toEqual(["m1", "m2", "m3", res.messageId]);
+    // nothing deleted: user variant + new assistant appended
+    expect(msgs).toHaveLength(6);
     expect(res.messageId).not.toBe("m4");
-    expect(msgs[2].content).toBe("q2-edited");
-    expect(msgs[3].role).toBe("assistant");
-    expect(msgs[3].status).toBe("complete");
-    // prompt rebuilds from the surviving history + edited text
+    expect(msgs[2].content).toBe("q2"); // original untouched
+    const userVariant = msgs[4];
+    expect(userVariant.role).toBe("user");
+    expect(userVariant.content).toBe("q2-edited");
+    expect(userVariant.parentId).toBe("m2"); // sibling of m3
+    const newAssistant = msgs[5];
+    expect(newAssistant.id).toBe(res.messageId);
+    expect(newAssistant.role).toBe("assistant");
+    expect(newAssistant.status).toBe("complete");
+    expect(newAssistant.parentId).toBe(userVariant.id);
+    expect(convs.get(CONV)!.activeLeaf).toBe(res.messageId);
+    // prompt = ancestors of the edited turn + edited text; dead subtree excluded
     expect(getLastPrompt()).toContain("q1");
     expect(getLastPrompt()).toContain("q2-edited");
-    expect(getLastPrompt()).not.toContain("q2\n");
+    expect(getLastPrompt()).not.toContain("a2");
   });
 
   test("edit rejects assistant-role and empty content", () => {

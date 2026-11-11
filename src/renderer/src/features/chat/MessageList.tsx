@@ -5,6 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { AiMessage } from "@/components/ai/ai-message";
 import { MessageActions } from "@/components/ai/message-actions";
+import { VariantNav } from "./VariantNav";
 import { cn } from "@/lib/utils";
 
 const STATUS_HINT: Partial<Record<Message["status"], string>> = {
@@ -14,17 +15,21 @@ const STATUS_HINT: Partial<Record<Message["status"], string>> = {
 };
 
 interface Props {
-  messages: Message[];
+  messages: Message[]; // displayed path only (feature 005)
+  variants: Map<string, { pos: number; ids: string[] }>;
   generating: boolean;
   onRegenerate: (messageId: string) => void;
   onEdit: (messageId: string, content: string) => void;
+  onSelectVariant: (messageId: string) => void;
 }
 
 export function MessageList({
   messages,
+  variants,
   generating,
   onRegenerate,
   onEdit,
+  onSelectVariant,
 }: Props) {
   const endRef = useRef<HTMLDivElement>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -51,6 +56,7 @@ export function MessageList({
         {messages.map((m, i) => {
           const isLast = i === messages.length - 1;
           const canAct = !generating && m.status !== "generating";
+          const v = variants.get(m.id);
           return (
             <div
               key={m.id}
@@ -138,6 +144,15 @@ export function MessageList({
                 <p className="mt-1 text-xs text-muted-foreground">
                   {m.stats.tokens} tokens · {m.stats.tokensPerSec} tok/s
                 </p>
+              )}
+              {v && (
+                <VariantNav
+                  pos={v.pos}
+                  total={v.ids.length}
+                  disabled={generating}
+                  onPrev={() => onSelectVariant(v.ids[v.pos - 2]!)}
+                  onNext={() => onSelectVariant(v.ids[v.pos]!)}
+                />
               )}
               {canAct && editingId !== m.id && (
                 <MessageActions

@@ -122,10 +122,25 @@ export function getConversation(id: string): Conversation | null {
     conv.mode ??= "single";
     conv.plannerTag ??= "planner";
     conv.executorTag ??= "executor";
+    // feature 005 lazy backfill (write-through on next save)
+    backfillTree(conv);
     return conv;
   } catch {
     return null;
   }
+}
+
+// feature 005: pre-tree conversations get a linear parentId chain and
+// activeLeaf = last message; already-migrated fields are preserved
+export function backfillTree(conv: Conversation): void {
+  let prev: string | null = null;
+  for (const m of conv.messages) {
+    // only ABSENT parentId is legacy — explicit null is a real root marker
+    // (e.g. an edited root user variant); re-chaining it would corrupt the tree
+    if (m.parentId === undefined) m.parentId = prev;
+    prev = m.id;
+  }
+  conv.activeLeaf ??= conv.messages.at(-1)?.id ?? null;
 }
 
 export function saveConversation(conv: Conversation): void {

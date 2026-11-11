@@ -101,6 +101,32 @@ Gotchas:
 - ChatML literals in `prompt.ts` are deliberately split (`"<" + "|im_...|>"`)
   because the edit toolchain strips the literal tokens — do not merge them.
 - `chat.send` accepts `userMessageId` so optimistic renderer ids match the
-  store; required for `chat.edit` to find fresh user messages.
+  store; required for `chat.edit` to find fresh user messages. `chat.edit`
+  accepts the same param for its new user variant (feature 005).
 - Runtime fallback cascades retry only *before* the first emitted token —
   mid-stream failures propagate so output never duplicates.
+
+## Module map additions (feature 005 — conversation branching)
+
+Main process (`src/bun/`):
+
+- `store/tree.ts` — pure ops over flat `messages[]`: `pathOf`, `siblings`,
+  `children`, `deepestLeaf`, `variantIndex`, `pathToLeaf`, `leafOf`.
+  Variant set = same `parentId`; displayed path = ancestors of
+  `Conversation.activeLeaf`.
+- `store/json-store.ts` — `backfillTree` lazy migration: ABSENT `parentId`
+  → linear chain; explicit `null` is a real root marker and is preserved.
+- `rpc/handlers.ts` — `chat.regenerate`/`chat.edit` now append siblings
+  (no in-place reset, no tail splice; `deleteMessagesAfter` is off the
+  edit path but stays exported for tests/cleanup); history = `pathOf`
+  ancestors, so dead variants never reach the model; new
+  `message.selectVariant` (`activeLeaf = deepestLeaf(target)`,
+  `ENGINE_BUSY` mid-turn).
+
+Renderer (`src/renderer/src/`): `features/chat/tree.ts` (client mirror),
+`VariantNav` (‹ n/m › picker), `BranchOverview` (fork list), `use-chat`
+keeps flat messages + `activeLeaf` and derives `path`/`variants`/
+`branches` locally.
+
+Gotcha: sibling semantics mean `chat.regenerate`/`chat.edit` return NEW
+message ids — callers must re-target follow-ups to the returned id.

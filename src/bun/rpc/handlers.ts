@@ -20,6 +20,14 @@ import { ModelRegistry, createRegistryEngine } from "../models/registry";
 import { RolesService } from "../models/roles";
 import { runFusionTurn } from "../llama/fusion";
 import * as store from "../store/json-store";
+import { backfillTree } from "../store/json-store";
+import {
+  deepestLeaf,
+  leafOf,
+  parentOf,
+  pathOf,
+  pathToLeaf,
+} from "../store/tree";
 import { existsSync, mkdirSync, renameSync, unlinkSync } from "node:fs";
 import { basename, join } from "node:path";
 
@@ -73,14 +81,11 @@ function fail(code: RpcErrorCode, message: string): never {
 const now = () => new Date().toISOString();
 const newId = () => crypto.randomUUID();
 
-// turns strictly before the given message, newest-first, usable as
-// buildPrompt history
-const turnsBefore = (conv: Conversation, msgId: string): PromptTurn[] =>
-  conv.messages
-    .slice(
-      0,
-      conv.messages.findIndex((m) => m.id === msgId),
-    )
+// turns strictly before the given message on its branch, newest-first,
+// usable as buildPrompt history (feature 005: ancestor path, not array slice)
+const turnsBefore = (conv: Conversation, msg: Message): PromptTurn[] =>
+  pathToLeaf(conv, msg)
+    .slice(0, -1)
     .filter((m) => m.status === "complete" || m.status === "partial")
     .toReversed()
     .map((m) => ({ role: m.role, content: m.content }));
@@ -108,7 +113,11 @@ export function createRequestHandlers(deps: HandlerDeps) {
     for (const summary of deps.store.listConversations()) {
       const conv = deps.store.getConversation(summary.id);
       const msg = conv?.messages.find((m) => m.id === messageId);
-      if (conv && msg) return { conv, msg };
+      if (conv && msg) {
+        // normalize pre-005 fixtures/stores to a linear chain
+        backfillTree(conv);
+        return { conv, msg };
+      }
     }
     return null;
   };
@@ -544,7 +553,9 @@ export function createRequestHandlers(deps: HandlerDeps) {
       }
 
       let conv = deps.store.getConversation(conversationId);
-      if (!conv) {
+      if (conv) {
+        backfillTree(conv); // normalize fake/legacy stores
+      } else {
         conv = {
           id: conversationId,
           title: text.slice(0, 40) || "New conversation",
@@ -554,6 +565,7 @@ export function createRequestHandlers(deps: HandlerDeps) {
           mode: mode ?? "single",
           plannerTag: plannerTag ?? "planner",
           executorTag: executorTag ?? "executor",
+          activeLeaf: null,
         };
         if (conv.mode === "fusion" && deps.roles) {
           requireBound("planner", conv.plannerTag);
@@ -561,11 +573,14 @@ export function createRequestHandlers(deps: HandlerDeps) {
         }
       }
 
-      const history = conv.messages
+      // history = the active path only (feature 005): dead-end variants
+      // never reach the model
+      const history = pathOf(conv)
         .filter((m) => m.status === "complete" || m.status === "partial")
         .toReversed()
         .map((m) => ({ role: m.role, content: m.content }));
 
+      const leaf = leafOf(conv);
       const userMsg: Message = {
         id: userMessageId ?? newId(),
         conversationId,
@@ -574,6 +589,7 @@ export function createRequestHandlers(deps: HandlerDeps) {
         status: "complete",
         createdAt: now(),
         completedAt: now(),
+        parentId: leaf?.id ?? null,
       };
       const assistantMsg: Message = {
         id: newId(),
@@ -583,8 +599,10 @@ export function createRequestHandlers(deps: HandlerDeps) {
         status: "generating",
         createdAt: now(),
         completedAt: null,
+        parentId: userMsg.id,
       };
       conv.messages.push(userMsg, assistantMsg);
+      conv.activeLeaf = assistantMsg.id;
       conv.updatedAt = now();
       persist(conv);
 
@@ -600,29 +618,47 @@ export function createRequestHandlers(deps: HandlerDeps) {
       }
       const found = findMessage(messageId);
       const { conv, msg } = found ?? { conv: null, msg: null };
-      if (!conv || !msg || msg.role !== "assistant" || conv.messages.at(-1) !== msg) {
+      // feature 005: only the last assistant on the ACTIVE path regenerates;
+      // the original variant is preserved as a sibling (append-only)
+      const path = conv ? pathOf(conv) : [];
+      if (
+        !conv ||
+        !msg ||
+        msg.role !== "assistant" ||
+        path.at(-1) !== msg
+      ) {
         fail("NOT_FOUND", `assistant turn ${messageId} not found`);
       }
-      const userMsg = conv.messages[conv.messages.indexOf(msg) - 1];
+      const userMsg = parentOf(conv, msg);
       if (!userMsg || userMsg.role !== "user") {
         fail("NOT_FOUND", "preceding user turn not found");
       }
-      const history = turnsBefore(conv, userMsg.id);
-      msg.content = "";
-      msg.status = "generating";
-      msg.completedAt = null;
-      msg.stats = null;
+      const history = turnsBefore(conv, userMsg);
+      const variant: Message = {
+        id: newId(),
+        conversationId: conv.id,
+        role: "assistant",
+        content: "",
+        status: "generating",
+        createdAt: now(),
+        completedAt: null,
+        parentId: msg.parentId ?? null,
+      };
+      conv.messages.push(variant);
+      conv.activeLeaf = variant.id;
       conv.updatedAt = now();
       persist(conv);
-      streamAssistant(conv, msg, history, userMsg.content);
-      return { messageId };
+      streamAssistant(conv, variant, history, userMsg.content);
+      return { messageId: variant.id };
     },
     "chat.edit": ({
       messageId,
       content,
+      userMessageId,
     }: {
       messageId: string;
       content: string;
+      userMessageId?: string;
     }) => {
       const text = content.trim();
       if (!text) fail("EMPTY_MESSAGE", "message must not be empty");
@@ -637,10 +673,20 @@ export function createRequestHandlers(deps: HandlerDeps) {
       if (!conv || !msg || msg.role !== "user") {
         fail("NOT_FOUND", `user turn ${messageId} not found`);
       }
-      const history = turnsBefore(conv, messageId);
-      msg.content = text;
-      // delete every turn after the edited message (FR-007)
-      conv.messages.splice(conv.messages.indexOf(msg) + 1);
+      // feature 005: edit creates a user sibling + fresh assistant child;
+      // the original subtree stays reachable (deleteMessagesAfter leaves
+      // the edit path — kept exported for tests/cleanup)
+      const history = turnsBefore(conv, msg);
+      const userVariant: Message = {
+        id: userMessageId ?? newId(),
+        conversationId: conv.id,
+        role: "user",
+        content: text,
+        status: "complete",
+        createdAt: now(),
+        completedAt: now(),
+        parentId: msg.parentId ?? null,
+      };
       const assistantMsg: Message = {
         id: newId(),
         conversationId: conv.id,
@@ -649,12 +695,28 @@ export function createRequestHandlers(deps: HandlerDeps) {
         status: "generating",
         createdAt: now(),
         completedAt: null,
+        parentId: userVariant.id,
       };
-      conv.messages.push(assistantMsg);
+      conv.messages.push(userVariant, assistantMsg);
+      conv.activeLeaf = assistantMsg.id;
       conv.updatedAt = now();
       persist(conv);
       streamAssistant(conv, assistantMsg, history, text);
       return { messageId: assistantMsg.id };
+    },
+    "message.selectVariant": ({ messageId }: { messageId: string }) => {
+      if (deps.engine.isGenerating()) {
+        fail("ENGINE_BUSY", "a generation is already in progress");
+      }
+      const found = findMessage(messageId);
+      if (!found) {
+        fail("NOT_FOUND", `message ${messageId} not found`);
+      }
+      const { conv, msg } = found;
+      conv.activeLeaf = deepestLeaf(conv, msg).id;
+      conv.updatedAt = now();
+      persist(conv);
+      return { activeLeaf: conv.activeLeaf };
     },
     "chat.stop": ({ messageId }: { messageId: string }) => {
       if (!deps.engine.isGenerating() || activeMessageId !== messageId) {

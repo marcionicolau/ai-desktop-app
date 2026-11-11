@@ -11,11 +11,21 @@ import type {
 import { DEFAULT_GENERATION } from "@shared/types";
 import type { RpcErrorCode } from "@shared/rpc-contract";
 import { invoke, on } from "@/lib/rpc";
+import {
+  branchPoints,
+  deepestLeaf,
+  leafOf,
+  pathOf,
+  variantInfo,
+} from "./tree";
 
 interface ChatState {
   conversations: ConversationSummary[];
   conversationId: string | null;
+  // flat append-only store incl. hidden variants (feature 005)
   messages: Message[];
+  // deepest message on the displayed branch; null = last in array
+  activeLeaf: string | null;
   generatingId: string | null;
   modelStatus: ModelStatus;
   modelName: string | null;
@@ -36,7 +46,13 @@ interface ChatState {
 
 type Action =
   | { type: "list"; conversations: ConversationSummary[] }
-  | { type: "hydrate"; conversationId: string | null; messages: Message[] }
+  | {
+      type: "hydrate";
+      conversationId: string | null;
+      messages: Message[];
+      activeLeaf: string | null;
+    }
+  | { type: "selectVariant"; activeLeaf: string }
   | { type: "append"; message: Message }
   | { type: "token"; messageId: string; delta: string; phase?: FusionPhase }
   | {
@@ -64,11 +80,11 @@ type Action =
   | { type: "model"; status: ModelStatus; name?: string; error?: string }
   | { type: "notice"; message: string }
   | { type: "generation"; params: GenerationParams }
-  | { type: "reset"; messageId: string }
   | {
       type: "editApplied";
-      messageId: string;
+      userVariantId: string;
       content: string;
+      parentId: string | null;
       assistantId: string;
       conversationId: string;
     };
@@ -82,13 +98,18 @@ function reduce(state: ChatState, action: Action): ChatState {
         ...state,
         conversationId: action.conversationId,
         messages: action.messages,
+        activeLeaf: action.activeLeaf,
         generatingId: null,
         activePhase: null,
       };
+    case "selectVariant":
+      return { ...state, activeLeaf: action.activeLeaf };
     case "append":
+      // every appended message becomes the active leaf (feature 005)
       return {
         ...state,
         messages: [...state.messages, action.message],
+        activeLeaf: action.message.id,
         generatingId:
           action.message.status === "generating"
             ? action.message.id
@@ -213,43 +234,36 @@ function reduce(state: ChatState, action: Action): ChatState {
       return { ...state, notice: action.message };
     case "generation":
       return { ...state, generation: action.params };
-    case "reset":
-      return {
-        ...state,
-        generatingId: action.messageId,
-        lastError: null,
-        messages: state.messages.map((m) =>
-          m.id === action.messageId
-            ? {
-                ...m,
-                content: "",
-                status: "generating",
-                completedAt: null,
-                stats: null,
-                phases: null,
-              }
-            : m,
-        ),
-      };
     case "editApplied": {
-      const idx = state.messages.findIndex((m) => m.id === action.messageId);
-      if (idx === -1) return state;
-      const kept = state.messages.slice(0, idx);
-      kept.push({ ...state.messages[idx]!, content: action.content });
+      // feature 005: append a user variant + fresh assistant child;
+      // the original subtree stays in the flat list
+      const now = new Date().toISOString();
       return {
         ...state,
         generatingId: action.assistantId,
+        activeLeaf: action.assistantId,
         lastError: null,
         messages: [
-          ...kept,
+          ...state.messages,
+          {
+            id: action.userVariantId,
+            conversationId: action.conversationId,
+            role: "user",
+            content: action.content,
+            status: "complete",
+            createdAt: now,
+            completedAt: now,
+            parentId: action.parentId,
+          },
           {
             id: action.assistantId,
             conversationId: action.conversationId,
             role: "assistant",
             content: "",
             status: "generating",
-            createdAt: new Date().toISOString(),
+            createdAt: now,
             completedAt: null,
+            parentId: action.userVariantId,
           },
         ],
       };
@@ -261,6 +275,7 @@ const initial: ChatState = {
   conversations: [],
   conversationId: null,
   messages: [],
+  activeLeaf: null,
   generatingId: null,
   modelStatus: "unloaded",
   modelName: null,
@@ -294,6 +309,7 @@ export function useChat() {
       type: "hydrate",
       conversationId: conv.id,
       messages: conv.messages,
+      activeLeaf: conv.activeLeaf ?? conv.messages.at(-1)?.id ?? null,
     });
     dispatch({
       type: "mode",
@@ -305,7 +321,12 @@ export function useChat() {
 
   const newConversation = useCallback(() => {
     convRef.current = null; // draft: created on first send (T032)
-    dispatch({ type: "hydrate", conversationId: null, messages: [] });
+    dispatch({
+      type: "hydrate",
+      conversationId: null,
+      messages: [],
+      activeLeaf: null,
+    });
   }, []);
 
   const setMode = useCallback(
@@ -360,6 +381,7 @@ export function useChat() {
               type: "hydrate",
               conversationId: conv.id,
               messages: conv.messages,
+              activeLeaf: conv.activeLeaf ?? conv.messages.at(-1)?.id ?? null,
             });
             dispatch({
               type: "mode",
@@ -467,10 +489,14 @@ export function useChat() {
       const conversationId = convRef.current;
       const now = new Date().toISOString();
       const userMessageId = crypto.randomUUID();
+      // chain onto the displayed leaf so new turns continue the active
+      // branch, not a dead variant (feature 005)
+      const parent = leafOf(state.messages, state.activeLeaf);
       dispatch({
         type: "hydrate",
         conversationId,
         messages: state.messages,
+        activeLeaf: state.activeLeaf,
       });
       dispatch({
         type: "append",
@@ -482,6 +508,7 @@ export function useChat() {
           status: "complete",
           createdAt: now,
           completedAt: now,
+          parentId: parent?.id ?? null,
         },
       });
       const { messageId } = await invoke("chat.send", {
@@ -502,10 +529,17 @@ export function useChat() {
           status: "generating",
           createdAt: now,
           completedAt: null,
+          parentId: userMessageId,
         },
       });
     },
-    [state.messages, state.mode, state.plannerTag, state.executorTag],
+    [
+      state.messages,
+      state.activeLeaf,
+      state.mode,
+      state.plannerTag,
+      state.executorTag,
+    ],
   );
 
   const stop = useCallback(() => {
@@ -517,9 +551,25 @@ export function useChat() {
   const regenerate = useCallback(
     async (messageId: string) => {
       if (!convRef.current) return;
-      dispatch({ type: "reset", messageId });
+      const target = state.messages.find((m) => m.id === messageId);
       try {
-        await invoke("chat.regenerate", { messageId });
+        // feature 005: the backend appends a sibling variant; mirror it
+        const { messageId: variantId } = await invoke("chat.regenerate", {
+          messageId,
+        });
+        dispatch({
+          type: "append",
+          message: {
+            id: variantId,
+            conversationId: convRef.current,
+            role: "assistant",
+            content: "",
+            status: "generating",
+            createdAt: new Date().toISOString(),
+            completedAt: null,
+            parentId: target?.parentId ?? null,
+          },
+        });
       } catch (e) {
         dispatch({
           type: "error",
@@ -538,15 +588,19 @@ export function useChat() {
   const editMessage = useCallback(
     async (messageId: string, content: string) => {
       if (!convRef.current) return;
+      const target = state.messages.find((m) => m.id === messageId);
+      const userMessageId = crypto.randomUUID();
       try {
         const { messageId: assistantId } = await invoke("chat.edit", {
           messageId,
           content,
+          userMessageId,
         });
         dispatch({
           type: "editApplied",
-          messageId,
+          userVariantId: userMessageId,
           content,
+          parentId: target?.parentId ?? null,
           assistantId,
           conversationId: convRef.current,
         });
@@ -563,6 +617,36 @@ export function useChat() {
       }
     },
     [],
+  );
+
+  // feature 005: navigate to a variant — updates the leaf locally (fast
+  // path) then persists via message.selectVariant; on failure reconcile
+  // from the store
+  const selectVariant = useCallback(
+    (messageId: string) => {
+      if (state.generatingId) return; // FR-006: no switching mid-turn
+      const target = state.messages.find((m) => m.id === messageId);
+      if (!target) return;
+      const leaf = deepestLeaf(state.messages, target);
+      dispatch({ type: "selectVariant", activeLeaf: leaf.id });
+      void invoke("message.selectVariant", { messageId }).catch(async () => {
+        if (!convRef.current) return;
+        try {
+          const conv = await invoke("conversation.get", {
+            conversationId: convRef.current,
+          });
+          dispatch({
+            type: "hydrate",
+            conversationId: conv.id,
+            messages: conv.messages,
+            activeLeaf: conv.activeLeaf ?? null,
+          });
+        } catch {
+          // keep local state
+        }
+      });
+    },
+    [state.generatingId, state.messages],
   );
 
   const loadModel = useCallback(async (path: string) => {
@@ -583,8 +667,16 @@ export function useChat() {
     [state.generation],
   );
 
+  // derived views for the UI: displayed path + variant/branch metadata
+  const path = pathOf(state.messages, state.activeLeaf);
+  const variants = variantInfo(state.messages);
+  const branches = branchPoints(state.messages);
+
   return {
     state,
+    path,
+    variants,
+    branches,
     send,
     stop,
     loadModel,
@@ -597,5 +689,6 @@ export function useChat() {
     regenerate,
     editMessage,
     setMode,
+    selectVariant,
   };
 }

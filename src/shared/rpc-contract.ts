@@ -79,10 +79,21 @@ export interface ChatRpcSchema extends ElectrobunRPCSchema {
         response: { messageId: string };
       };
       "chat.edit": {
-        params: { messageId: string; content: string };
+        params: {
+          messageId: string;
+          content: string;
+          // client-assigned id for the new user variant (same pattern as
+          // chat.send's userMessageId) so optimistic state matches the store
+          userMessageId?: string;
+        };
         response: { messageId: string };
       };
       "chat.stop": { params: { messageId: string }; response: Record<string, never> };
+      // feature 005: pure navigation — sets activeLeaf = deepestLeaf(target)
+      "message.selectVariant": {
+        params: { messageId: string };
+        response: { activeLeaf: string };
+      };
       "settings.get": {
         params: Record<string, never>;
         response: {

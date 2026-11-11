@@ -22,6 +22,9 @@ export interface Message {
   stats?: MessageStats | null;
   // fusion turns only: plan artifact + per-phase provenance
   phases?: MessagePhases | null;
+  // feature 005: id of the preceding message on this branch; null/absent
+  // = first message or legacy pre-005 message (linear backfill on load)
+  parentId?: string | null;
 }
 
 export type ConversationMode = "single" | "fusion";
@@ -35,6 +38,9 @@ export interface Conversation {
   mode: ConversationMode;
   plannerTag: string;
   executorTag: string;
+  // feature 005: id of the deepest message on the displayed branch;
+  // null/absent = last message in array order (legacy default)
+  activeLeaf?: string | null;
 }
 
 export interface ConversationSummary {
