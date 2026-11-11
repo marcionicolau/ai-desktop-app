@@ -280,9 +280,17 @@ export function createRpc() {
   const rpc = defineElectrobunRPC<ChatRpcSchema, "bun">("bun", {
     handlers: { requests: handlers, messages: {} },
   });
-  emit = (m, p) => (rpc.send as CallableFunction)(m, p);
-  void bootstrapModel(emit);
-  return rpc;
+  emit = (m, p) => {
+    try {
+      (rpc.send as CallableFunction)(m, p);
+    } catch {
+      // transport not attached yet — pre-window emits are dropped;
+      // the renderer reconciles via model.status on mount
+    }
+  };
+  // bootstrap must run after a BrowserWindow attaches the rpc transport
+  const start = () => void bootstrapModel(emit);
+  return { rpc, start };
 }
 
 export { engine };
