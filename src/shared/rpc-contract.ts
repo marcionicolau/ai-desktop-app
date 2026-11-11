@@ -52,7 +52,13 @@ export interface ChatRpcSchema extends ElectrobunRPCSchema {
         response: { status: ModelStatus; name?: string; error?: string };
       };
       "chat.send": {
-        params: { conversationId: string; content: string };
+        params: {
+          conversationId: string;
+          content: string;
+          // client-assigned id for the stored user message, so optimistic
+          // renderer messages keep backend-visible ids (needed by chat.edit)
+          userMessageId?: string;
+        };
         response: { messageId: string };
       };
       "chat.regenerate": {

@@ -60,6 +60,7 @@ export interface LlamaShimSymbols {
   lls_token_count(ctx: number, text: string): number;
   lls_step(ctx: number, buf: number, cap: number | bigint, outLen: number): number;
   lls_generate_end(ctx: number): void;
+  lls_gguf_meta(path: string, err: number): number | null;
   lls_free_string(s: number): void;
 }
 
@@ -97,6 +98,7 @@ export function loadLlamaShim() {
       returns: FFIType.i32,
     },
     lls_generate_end: { args: [FFIType.ptr], returns: FFIType.void },
+    lls_gguf_meta: { args: [FFIType.cstring, FFIType.ptr], returns: FFIType.ptr },
     lls_free_string: { args: [FFIType.ptr], returns: FFIType.void },
   });
 

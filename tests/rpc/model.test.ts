@@ -9,6 +9,9 @@ import {
   type StoreLike,
 } from "../../src/bun/rpc/handlers";
 import type { Conversation, Settings } from "../../src/shared/types";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { DEFAULT_GENERATION } from "../../src/shared/types";
 
 function makeDeps(loadBehavior: "ok" | "not_found" | "invalid") {
@@ -117,6 +120,68 @@ describe("model.* contract", () => {
       expect.unreachable();
     } catch (e) {
       expect((e as EngineError).code).toBe("NO_MODEL");
+    }
+  });
+});
+
+describe("model.download contract", () => {
+  test("rejects non-HF URL with INVALID_URL", () => {
+    const { deps } = makeDeps("ok");
+    const h = createRequestHandlers(deps);
+    for (const url of [
+      "https://example.com/model.gguf",
+      "https://huggingface.co/org/repo/blob/main/m.gguf",
+      "ftp://huggingface.co/x/y/resolve/z/m.gguf",
+    ]) {
+      try {
+        h["model.download"]({ url, fileName: "m.gguf" });
+        expect.unreachable();
+      } catch (e) {
+        expect((e as EngineError).code).toBe("INVALID_URL");
+      }
+    }
+  });
+
+  test("rejects existing target with ALREADY_EXISTS", () => {
+    const dir = mkdtempSync(join(tmpdir(), "dl-test-"));
+    process.env.MODELS_DIR = dir;
+    writeFileSync(join(dir, "m.gguf"), "x");
+    try {
+      const { deps } = makeDeps("ok");
+      const h = createRequestHandlers(deps);
+      try {
+        h["model.download"]({
+          url: "https://huggingface.co/o/r/resolve/main/m.gguf",
+          fileName: "m.gguf",
+        });
+        expect.unreachable();
+      } catch (e) {
+        expect((e as EngineError).code).toBe("ALREADY_EXISTS");
+      }
+    } finally {
+      delete process.env.MODELS_DIR;
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("rejects path-traversal fileName with INVALID_URL", () => {
+    const dir = mkdtempSync(join(tmpdir(), "dl-test-"));
+    process.env.MODELS_DIR = dir;
+    try {
+      const { deps } = makeDeps("ok");
+      const h = createRequestHandlers(deps);
+      try {
+        h["model.download"]({
+          url: "https://huggingface.co/o/r/resolve/main/m.gguf",
+          fileName: "../evil.gguf",
+        });
+        expect.unreachable();
+      } catch (e) {
+        expect((e as EngineError).code).toBe("INVALID_URL");
+      }
+    } finally {
+      delete process.env.MODELS_DIR;
+      rmSync(dir, { recursive: true, force: true });
     }
   });
 });

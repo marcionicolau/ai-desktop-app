@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { Settings2 } from "lucide-react";
+import { Library, Settings2 } from "lucide-react";
 import { useChat } from "./use-chat";
 import { MessageList } from "./MessageList";
 import { Composer } from "./Composer";
 import { Sidebar } from "./Sidebar";
 import { ModelPicker } from "../models/ModelPicker";
+import { ModelLibrary } from "../models/ModelLibrary";
 import { GenerationSettings } from "../settings/GenerationSettings";
 import { Button } from "@/components/ui/button";
 
@@ -21,9 +22,11 @@ export function ChatPage() {
     saveGeneration,
     regenerate,
     editMessage,
+    loadModel,
   } = useChat();
   const modelReady = state.modelStatus === "ready";
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [libraryOpen, setLibraryOpen] = useState(false);
 
   return (
     <main className="flex h-screen bg-background text-foreground">
@@ -39,6 +42,14 @@ export function ChatPage() {
         <header className="flex items-center justify-between border-b border-border px-4 py-2">
           <h1 className="text-sm font-semibold">AI Desktop App</h1>
           <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Model library"
+              onClick={() => setLibraryOpen((v) => !v)}
+            >
+              <Library className="h-4 w-4" />
+            </Button>
             <Button
               variant="ghost"
               size="icon"
@@ -59,6 +70,12 @@ export function ChatPage() {
           <GenerationSettings
             value={state.generation}
             onSave={saveGeneration}
+          />
+        )}
+        {libraryOpen && (
+          <ModelLibrary
+            activeName={state.modelName}
+            onLoad={(p) => void loadModel(p)}
           />
         )}
         {state.modelStatus === "unloaded" && (

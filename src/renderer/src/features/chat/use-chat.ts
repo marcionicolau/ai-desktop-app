@@ -133,7 +133,7 @@ function reduce(state: ChatState, action: Action): ChatState {
       const idx = state.messages.findIndex((m) => m.id === action.messageId);
       if (idx === -1) return state;
       const kept = state.messages.slice(0, idx);
-      kept.push({ ...state.messages[idx], content: action.content });
+      kept.push({ ...state.messages[idx]!, content: action.content });
       return {
         ...state,
         generatingId: action.assistantId,
@@ -301,6 +301,7 @@ export function useChat() {
       convRef.current ??= crypto.randomUUID();
       const conversationId = convRef.current;
       const now = new Date().toISOString();
+      const userMessageId = crypto.randomUUID();
       dispatch({
         type: "hydrate",
         conversationId,
@@ -309,7 +310,7 @@ export function useChat() {
       dispatch({
         type: "append",
         message: {
-          id: crypto.randomUUID(),
+          id: userMessageId,
           conversationId,
           role: "user",
           content,
@@ -321,6 +322,7 @@ export function useChat() {
       const { messageId } = await invoke("chat.send", {
         conversationId,
         content,
+        userMessageId,
       });
       dispatch({
         type: "append",
@@ -368,17 +370,29 @@ export function useChat() {
   const editMessage = useCallback(
     async (messageId: string, content: string) => {
       if (!convRef.current) return;
-      const { messageId: assistantId } = await invoke("chat.edit", {
-        messageId,
-        content,
-      });
-      dispatch({
-        type: "editApplied",
-        messageId,
-        content,
-        assistantId,
-        conversationId: convRef.current,
-      });
+      try {
+        const { messageId: assistantId } = await invoke("chat.edit", {
+          messageId,
+          content,
+        });
+        dispatch({
+          type: "editApplied",
+          messageId,
+          content,
+          assistantId,
+          conversationId: convRef.current,
+        });
+      } catch (e) {
+        dispatch({
+          type: "error",
+          messageId,
+          code:
+            e && typeof e === "object" && "code" in e
+              ? (e.code as RpcErrorCode)
+              : "ENGINE_ERROR",
+          message: e instanceof Error ? e.message : String(e),
+        });
+      }
     },
     [],
   );

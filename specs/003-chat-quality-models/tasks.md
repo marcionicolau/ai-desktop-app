@@ -70,10 +70,10 @@ features established test-first conventions.
 
 **Independent Test**: VS-4 — `models/` files listed with metadata; HF URL downloads with progress; `.part` cleaned on failure.
 
-- [ ] T022 [P] [US4] Add `lls_gguf_meta(path, err) → char*` (JSON) to shim — header-only GGUF parse (name, architecture, paramCount, quantization, contextTrain); write `tests/ffi/gguf-meta.test.ts` against `models/SmolLM2-135M-Instruct-Q4_K_M.gguf`
-- [ ] T023 [US4] Create `src/bun/models/library.ts`: scan `models/` for `.gguf`, call `lls_gguf_meta` per file → `ModelMeta[]`; exclude `.part`; write `tests/models/library.test.ts`
-- [ ] T024 [US4] Implement `model.download` in `handlers.ts`: allowlist `huggingface.co/*/resolve/*.gguf` (`INVALID_URL` otherwise); stream `fetch` → `{fileName}.part` → atomic rename (`ALREADY_EXISTS` if target exists); emit `model.download` progress/done/error events; abort → delete `.part`
-- [ ] T025 [US4] Create `src/renderer/src/features/models/ModelLibrary.tsx`: meta table + download form + load action (reuse `model.pick`/`model.load`); per-model override editor wired to `model.setOverride`
+- [x] T022 [P] [US4] Add `lls_gguf_meta(path, err) → char*` (JSON) to shim — header-only GGUF parse (name, architecture, paramCount, quantization, contextTrain); write `tests/ffi/gguf-meta.test.ts` against `models/SmolLM2-135M-Instruct-Q4_K_M.gguf`
+- [x] T023 [US4] Create `src/bun/models/library.ts`: scan `models/` for `.gguf`, call `lls_gguf_meta` per file → `ModelMeta[]`; exclude `.part`; write `tests/models/library.test.ts`
+- [x] T024 [US4] Implement `model.download` in `handlers.ts`: allowlist `huggingface.co/*/resolve/*.gguf` (`INVALID_URL` otherwise); stream `fetch` → `{fileName}.part` → atomic rename (`ALREADY_EXISTS` if target exists); emit `model.download` progress/done/error events; abort → delete `.part`
+- [x] T025 [US4] Create `src/renderer/src/features/models/ModelLibrary.tsx`: meta table + download form + load action (reuse `model.pick`/`model.load`); per-model override editor wired to `model.setOverride`
 
 **Checkpoint**: all four stories functional.
 

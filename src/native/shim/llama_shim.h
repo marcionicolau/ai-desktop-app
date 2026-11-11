@@ -90,6 +90,12 @@ LLS_API int lls_step(lls_ctx * c, char * buf, size_t cap, size_t * out_len);
 // releases generation state; idempotent; NULL-safe
 LLS_API void lls_generate_end(lls_ctx * c);
 
+// parses GGUF header metadata without loading the model; returns a
+// shim-allocated JSON string {name,architecture,paramCount,quantization,
+// contextTrain} (fields null when absent) or NULL on failure — free via
+// lls_free_string either way
+LLS_API char * lls_gguf_meta(const char * path, char ** err);
+
 // frees any char* the shim allocated
 LLS_API void lls_free_string(char * s);
 

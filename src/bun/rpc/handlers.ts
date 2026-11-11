@@ -13,7 +13,10 @@ import { DEFAULT_GENERATION } from "../../shared/types";
 import { EngineError, LlamaEngine } from "../llama/engine";
 import { mergeParams, validateParams } from "../llama/params";
 import { buildPrompt, type PromptTurn } from "../llama/prompt";
+import { modelsDir, scanModels } from "../models/library";
 import * as store from "../store/json-store";
+import { existsSync, mkdirSync, renameSync, unlinkSync } from "node:fs";
+import { basename, join } from "node:path";
 
 type Events = ChatRpcSchema["webview"]["messages"];
 type Emit = <M extends keyof Events>(method: M, payload: Events[M]) => void;
@@ -239,12 +242,95 @@ export function createRequestHandlers(deps: HandlerDeps) {
       return { path: paths[0] ?? null };
     },
     "model.status": () => deps.engine.status(),
+    "model.list": () => ({ models: scanModels() }),
+    "model.download": ({
+      url,
+      fileName,
+    }: {
+      url: string;
+      fileName: string;
+    }) => {
+      // allowlist: huggingface.co/<org>/<repo>/resolve/<rev>/<file>.gguf
+      const HF_RE =
+        /^https:\/\/huggingface\.co\/[^/]+\/[^/]+\/resolve\/[^\s/]+\/[^\s/]+\.gguf(?:\?[^\s]*)?$/;
+      if (!HF_RE.test(url)) {
+        fail(
+          "INVALID_URL",
+          "only https://huggingface.co/<org>/<repo>/resolve/<rev>/<file>.gguf links are allowed",
+        );
+      }
+      const safeName = basename(fileName.trim());
+      if (!safeName.endsWith(".gguf") || safeName !== fileName.trim()) {
+        fail("INVALID_URL", "fileName must be a plain .gguf basename");
+      }
+      const dir = modelsDir();
+      mkdirSync(dir, { recursive: true });
+      const target = join(dir, safeName);
+      const part = target + ".part";
+      if (existsSync(target) || existsSync(part)) {
+        fail("ALREADY_EXISTS", `${safeName} already exists`);
+      }
+
+      void (async () => {
+        const emitDl = (phase: "progress" | "done" | "error", extra = {}) =>
+          deps.emit("model.download", {
+            fileName: safeName,
+            phase,
+            downloadedBytes: 0,
+            totalBytes: null,
+            ...extra,
+          });
+        let writer: ReturnType<ReturnType<typeof Bun.file>["writer"]> | null =
+          null;
+        try {
+          const res = await fetch(url, { redirect: "follow" });
+          if (!res.ok || !res.body) {
+            throw new Error(`HTTP ${res.status}`);
+          }
+          const totalHeader = res.headers.get("content-length");
+          const total = totalHeader ? Number(totalHeader) : null;
+          writer = Bun.file(part).writer();
+          let downloaded = 0;
+          let lastEmit = 0;
+          const body = res.body as unknown as AsyncIterable<Uint8Array>;
+          for await (const chunk of body) {
+            writer.write(chunk);
+            downloaded += chunk.byteLength;
+            if (downloaded - lastEmit >= 4 * 1024 * 1024) {
+              lastEmit = downloaded;
+              emitDl("progress", { downloadedBytes: downloaded, totalBytes: total });
+            }
+          }
+          await writer.end();
+          writer = null;
+          renameSync(part, target);
+          emitDl("done", { downloadedBytes: downloaded, totalBytes: downloaded });
+        } catch (e) {
+          try {
+            writer?.end();
+          } catch {
+            // writer may already be closed
+          }
+          try {
+            unlinkSync(part);
+          } catch {
+            // .part may not exist yet
+          }
+          emitDl("error", {
+            error: e instanceof Error ? e.message : String(e),
+          });
+        }
+      })();
+      return { fileName: safeName };
+    },
     "chat.send": ({
       conversationId,
       content,
+      userMessageId,
     }: {
       conversationId: string;
       content: string;
+      userMessageId?: string;
     }) => {
       const text = content.trim();
       if (!text) fail("EMPTY_MESSAGE", "message must not be empty");
@@ -272,7 +358,7 @@ export function createRequestHandlers(deps: HandlerDeps) {
         .map((m) => ({ role: m.role, content: m.content }));
 
       const userMsg: Message = {
-        id: newId(),
+        id: userMessageId ?? newId(),
         conversationId,
         role: "user",
         content: text,

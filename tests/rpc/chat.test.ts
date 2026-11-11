@@ -121,6 +121,18 @@ describe("chat.send contract", () => {
     expect(assistant.completedAt).not.toBeNull();
   });
 
+  test("persists the client-supplied userMessageId (edit/resend needs it)", async () => {
+    const { deps, convs } = makeDeps({});
+    const h = createRequestHandlers(deps);
+    h["chat.send"]({
+      conversationId: CONV,
+      content: "hi",
+      userMessageId: "client-uid-1",
+    });
+    await flush();
+    expect(convs.get(CONV)!.messages[0].id).toBe("client-uid-1");
+  });
+
   test("rejects empty/whitespace message with EMPTY_MESSAGE", () => {
     const { deps } = makeDeps({});
     const h = createRequestHandlers(deps);
