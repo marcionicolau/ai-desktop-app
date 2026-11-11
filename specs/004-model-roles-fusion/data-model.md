@@ -45,9 +45,12 @@ executorTag: string;                 // default "executor"
 
 ```ts
 phases?: {
-  plan?: { content: string; stats?: MessageStats | null; tag: string; fileName: string };
-  answer?: { stats?: MessageStats | null; tag?: string; fileName?: string };
-} | null; // absent on pre-004 and single-mode messages
+  plan?: { content: string; stats?: MessageStats | null; tag: string;
+           fileName: string; servedBy?: "primary" | "fallback" };
+  answer?: { stats?: MessageStats | null; tag?: string; fileName?: string;
+             servedBy?: "primary" | "fallback" };
+} | null; // absent on pre-004 and single-mode messages, except a single-mode
+          // fallback serve records `answer.servedBy:"fallback"` (T019 notice)
 ```
 
 `content` stays the answer text — `phases.plan.content` carries the plan

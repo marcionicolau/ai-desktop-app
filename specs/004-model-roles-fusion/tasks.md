@@ -46,7 +46,7 @@ FFI/RPC boundary; each story gets a contract/unit suite.
 - [X] T014 [P] [US2] `src/bun/llama/plan-prompt.ts`: `buildPlannerPrompt(userText)` (concise-plan template, no JSON schema) + `buildExecutorPrompt(userText, plan)` injecting `<plan>…</plan>` block; unit tests in `tests/llama/plan-prompt.test.ts`.
 - [X] T015 [US2] `src/bun/llama/fusion.ts`: `FusionOrchestrator` — `runFusionTurn` state machine `planning→answering→done|partial|failed`; resolves both roles via registry (shared slot if same path), per-phase `engine.generate` with `ResolvedRole.params`, plan captured to `Message.phases.plan`, stop honored mid-phase and at boundary; emits `chat.phase` transitions. Tests in `tests/llama/fusion.test.ts`.
 - [X] T016 [US2] `src/bun/rpc/handlers.ts`: `conversation.setMode` (validates both tags resolvable → `ROLE_UNBOUND` naming missing tag); `streamAssistant` fusion branch delegating to orchestrator; persist `Message.phases`; `chat.done.stats` per-phase shape. Tests in `tests/rpc/fusion.test.ts`.
-- [X] T017 [US2] `src/renderer/src/features/chat/FusionControls.tsx`: mode toggle (refuses + names missing tag via `ROLE_UNBOUND`), planner/executor tag pickers from `role.list`; integrate in `ChatPage.tsx`.
+- [X] T017 [US2] `src/renderer/src/features/roles/FusionControls.tsx`: mode toggle (refuses + names missing tag via `ROLE_UNBOUND`), planner/executor tag pickers from `role.list`; integrate in `ChatPage.tsx`.
 - [X] T018 [US2] `use-chat.ts` + `MessageList.tsx` + `ai-message.tsx`: route `chat.token` by `phase` into plan buffer vs answer buffer; collapsible Plan block labeled with planner tag/model; per-phase stats display.
 
 ## Phase 5: User Story 3 — Role Fallbacks & Per-Role Behavior (P3)

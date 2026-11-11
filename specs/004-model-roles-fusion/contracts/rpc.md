@@ -13,7 +13,7 @@ Renderer stays native-blind (constitution II).
 | `role.delete` | `{ name, force?: boolean }` | `{}` | `NOT_FOUND`, `ROLE_IN_USE` (name consumers) |
 | `role.bind` | `{ name, fileName: string \| null }` | `{}` | `NOT_FOUND`, `MODEL_NOT_FOUND` |
 | `role.setFallback` | `{ name, chain: RoleRef[] }` | `{}` | `NOT_FOUND`, `INVALID_PARAMS` (cycle/self/len>3) |
-| `role.resolve` | `{ name }` | `{ resolved: ResolvedRole }` | `NOT_FOUND`, `ROLE_UNBOUND`, `MODEL_NOT_FOUND` |
+| `role.resolve` | `{ name }` | `{ resolved: ResolvedRole; candidates: ResolvedRole[] }` (ordered for the runtime cascade) | `NOT_FOUND`, `ROLE_UNBOUND`, `MODEL_NOT_FOUND` |
 | `conversation.setMode` | `{ conversationId, mode: "single"\|"fusion", plannerTag?, executorTag? }` | `{}` | `NOT_FOUND`, `INVALID_PARAMS`, `ROLE_UNBOUND` (names the missing tag) |
 
 ## Changed requests
@@ -21,8 +21,11 @@ Renderer stays native-blind (constitution II).
 - `model.download`: params add optional `tagName` → binds on `done`
   (D8). New error `NOT_FOUND` if tag missing (validated upfront, before
   download starts).
-- `chat.send` / `chat.regenerate` / `chat.edit`: unchanged signatures —
-  fusion behavior is selected by `conversation.mode`.
+- `chat.send`: params add optional `mode?`, `plannerTag?`, `executorTag?`
+  — applied only when this send creates the conversation (draft chats can
+  open in fusion mode); existing conversations use `conversation.setMode`.
+- `chat.regenerate` / `chat.edit`: unchanged signatures — fusion behavior
+  is selected by `conversation.mode`.
 
 ## New / changed events (`webview.messages`)
 

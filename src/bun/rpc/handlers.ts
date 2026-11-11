@@ -839,6 +839,9 @@ export function createRequestHandlers(deps: HandlerDeps) {
     }) => {
       const conv = deps.store.getConversation(conversationId);
       if (!conv) fail("NOT_FOUND", `conversation ${conversationId} not found`);
+      if (mode !== "single" && mode !== "fusion") {
+        fail("INVALID_PARAMS", `invalid mode: ${mode}`);
+      }
       const pTag = plannerTag ?? conv.plannerTag;
       const eTag = executorTag ?? conv.executorTag;
       if (mode === "fusion" && deps.roles) {
