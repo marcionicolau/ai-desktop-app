@@ -20,10 +20,15 @@
   helper `recordCall({...})` gated on `settings.outputPanel`; single-mode
   path records after `eng.generate` (modelFile = serving slot/fileName,
   tag = attempt role tag, fallback = servedBy==="fallback", preview =
-  `current` ≤120 chars); emit `metrics.entry`.
+  `current` ≤120 chars); emit `metrics.entry`. Failed/thrown generates
+  also record with `status:"failed"` and tokens produced so far (spec
+  edge case) — record inside the turn's catch path too.
 - [ ] T007 `src/bun/llama/fusion.ts`: `onMetric?: (e: MetricEntry)=>void`
   in `FusionTurnOpts`; record inside `runPhase` after `genPhase` with
   `roleKey: kind`, `modelFile: role.fileName`, `fallback` from servedBy.
+  Widen `genPhase`'s return to forward `promptTokens`/`warm` from the
+  engine result (it currently drops them); thrown generates record
+  `status:"failed"` same as T006.
 - [ ] T008 `src/bun/rpc/handlers.ts`: `metrics.list`/`metrics.clear`
   handlers; `settings.get` includes `outputPanel`; `settings.set`
   accepts + persists `outputPanel`.
