@@ -258,3 +258,27 @@ draft-side; `MessageList` renders `Message.attachments` chips (`·trunc` /
 - `ModelRegistry` 3rd ctor arg `onEvict(slot)` → FR-008 disk offer.
 - `snapshot.stats`/`snapshot.clear` RPC; `deps.snapshots` absent ⇒
   feature off (tests).
+
+## Feature 016 — output stats panel
+
+- `metrics/store.ts` `MetricsStore` — session-only ring (500 cap,
+  oldest dropped); `record` assigns id+ts, `clear` returns `{removed}`.
+- `MetricEntry` (shared/types): modelFile (serving model, fallback
+  aware), roleKey `main|planner|executor`, tag/personaName,
+  prompt/outputTokens, elapsedMs, warm, status
+  `complete|partial|failed`, fallback flag, ≤120-char promptPreview.
+- Collection point = `recordCall` in `rpc/handlers.ts` — gated on
+  `settings.outputPanel` (off ⇒ zero entries, zero overhead); records
+  success and `status:"failed"` from catch paths (`recFail` guarded by
+  `recorded` so one call = one entry). Fusion phases report via
+  `runFusionTurn`'s `onMetric` (one entry per phase; handlers add
+  personaName so fusion.ts stays persona-agnostic).
+- `engine.generate` result gained `promptTokens` — real count via
+  `lls_token_count` on the built prompt; `EngineLike.promptTokens?`
+  optional (fakes omit). `genPhase` forwards `promptTokens`/`warm`.
+- RPC: `metrics.list`, `metrics.clear`; `settings.get` returns
+  `outputPanel` (default false), `settings.set` persists it; live push
+  via `metrics.entry` event.
+- Renderer: `features/metrics/OutputPanel.tsx` — bottom sibling under
+  Composer in ChatPage's flex-col (pushes messages up, never overlays);
+  model tabs + role→persona groups + Clear; header checkbox toggle.

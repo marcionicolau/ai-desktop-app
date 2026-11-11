@@ -64,3 +64,14 @@
 - MVP: T001–T012 minus T013 — panel ships alone.
 - Parallel: T004 ∥ T005; T011 ∥ T012 (T012 mounts after T011 exists).
 - Format: `- [ ] T### [P?] [USn?] description + file path`.
+
+## Phase 5: Convergence
+
+- [X] T016 Add fallback-attribution coverage: a `metrics` test where a
+  fallback candidate serves, asserting `entry.modelFile` = the serving
+  file and `fallback: true` per T009/US1 (missing)
+- [X] T017 Add the AGENTS.md section documenting metrics store/panel
+  paths and the outputPanel gate per T015 (missing)
+- [X] T018 Reconcile toggle placement: T012 names a "header switch" but
+  the shipped control is a checkbox in the dock's collapsed bar — move
+  it to the header or accept the bottom-bar placement per T012 (partial)

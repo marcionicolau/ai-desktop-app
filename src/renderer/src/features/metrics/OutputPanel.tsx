@@ -14,31 +14,16 @@ const fmtTime = (ts: string) =>
 // role subdivisions: a fallback-served call groups under "fallback"
 const groupKey = (e: MetricEntry) => (e.fallback ? "fallback" : e.roleKey);
 
-export function OutputPanel() {
-  const [open, setOpen] = useState(false);
+export function OutputPanel({ open }: { open: boolean }) {
   const [entries, setEntries] = useState<MetricEntry[]>([]);
   const [tab, setTab] = useState<string>("*");
 
   useEffect(() => {
-    void (async () => {
-      const s = await invoke("settings.get", {});
-      setOpen(s.outputPanel);
-      if (s.outputPanel) {
-        const r = await invoke("metrics.list", {});
-        setEntries(r.entries);
-      }
-    })();
+    if (!open) return;
+    // hydrate on open; live appends arrive via metrics.entry
+    void invoke("metrics.list", {}).then((r) => setEntries(r.entries));
     return on("metrics.entry", (e) => setEntries((p) => [...p, e]));
-  }, []);
-
-  const toggle = async (v: boolean) => {
-    setOpen(v);
-    await invoke("settings.set", { outputPanel: v });
-    if (v) {
-      const r = await invoke("metrics.list", {});
-      setEntries(r.entries);
-    }
-  };
+  }, [open]);
 
   const models = useMemo(
     () => [...new Set(entries.map((e) => e.modelFile))],
@@ -60,114 +45,101 @@ export function OutputPanel() {
     return m;
   }, [visible]);
 
+  if (!open) return null;
   return (
     <div className="shrink-0 border-t border-border">
       <div className="flex items-center gap-2 px-4 py-1.5">
-        <label className="flex cursor-pointer items-center gap-1.5 text-xs">
-          <input
-            type="checkbox"
-            checked={open}
-            onChange={(e) => void toggle(e.target.checked)}
-            aria-label="Output metrics panel"
-          />
-          Metrics
-        </label>
-        {open && (
-          <>
-            {models.length > 1 && (
-              <div className="flex gap-1">
-                {["*", ...models].map((m) => (
-                  <button
-                    key={m}
-                    onClick={() => setTab(m)}
-                    className={`rounded px-1.5 py-0.5 text-[10px] ${
-                      tab === m
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted text-muted-foreground"
-                    }`}
-                  >
-                    {m === "*" ? "All" : m.replace(/\.gguf$/, "")}
-                  </button>
-                ))}
-              </div>
-            )}
-            <span className="ml-auto text-[10px] text-muted-foreground">
-              {visible.length} call{visible.length === 1 ? "" : "s"}
-            </span>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 px-2 text-[10px]"
-              onClick={() => {
-                void invoke("metrics.clear", {});
-                setEntries([]);
-              }}
-            >
-              Clear
-            </Button>
-          </>
-        )}
-      </div>
-      {open && (
-        <ScrollArea className="h-56">
-          <div className="flex flex-col gap-1 px-4 pb-2">
-            {visible.length === 0 && (
-              <p className="py-4 text-center text-xs text-muted-foreground">
-                No calls recorded yet.
-              </p>
-            )}
-            {[...groups].map(([role, personas]) => (
-              <div key={role}>
-                <div className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  {role}
-                </div>
-                {[...personas].map(([persona, list]) => (
-                  <div key={persona}>
-                    <div className="pl-2 text-[10px] italic text-muted-foreground">
-                      {persona}
-                    </div>
-                    {list.map((e) => (
-                      <div
-                        key={e.id}
-                        className="flex items-baseline gap-2 py-0.5 pl-4 text-[11px]"
-                      >
-                        <span className="shrink-0 text-muted-foreground">
-                          {fmtTime(e.ts)}
-                        </span>
-                        <span className="shrink-0 font-medium">
-                          {e.modelFile.replace(/\.gguf$/, "")}
-                        </span>
-                        {e.tag && (
-                          <span className="shrink-0 rounded bg-muted px-1 text-[10px]">
-                            {e.tag}
-                          </span>
-                        )}
-                        {e.fallback && (
-                          <span className="shrink-0 rounded bg-amber-900 px-1 text-[10px] text-amber-200">
-                            fallback
-                          </span>
-                        )}
-                        {e.status === "failed" ? (
-                          <span className="shrink-0 text-red-400">failed</span>
-                        ) : (
-                          <span className="shrink-0 text-muted-foreground">
-                            {e.promptTokens}→{e.outputTokens} tok ·{" "}
-                            {(e.elapsedMs / 1000).toFixed(1)}s
-                            {e.warm ? " · warm" : ""}
-                          </span>
-                        )}
-                        <span className="min-w-0 truncate text-muted-foreground">
-                          {e.promptPreview}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                ))}
-              </div>
+        <span className="text-xs font-medium">Metrics</span>
+        {models.length > 1 && (
+          <div className="flex gap-1">
+            {["*", ...models].map((m) => (
+              <button
+                key={m}
+                onClick={() => setTab(m)}
+                className={`rounded px-1.5 py-0.5 text-[10px] ${
+                  tab === m
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground"
+                }`}
+              >
+                {m === "*" ? "All" : m.replace(/\.gguf$/, "")}
+              </button>
             ))}
           </div>
-        </ScrollArea>
-      )}
+        )}
+        <span className="ml-auto text-[10px] text-muted-foreground">
+          {visible.length} call{visible.length === 1 ? "" : "s"}
+        </span>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-6 px-2 text-[10px]"
+          onClick={() => {
+            void invoke("metrics.clear", {});
+            setEntries([]);
+          }}
+        >
+          Clear
+        </Button>
+      </div>
+      <ScrollArea className="h-56">
+        <div className="flex flex-col gap-1 px-4 pb-2">
+          {visible.length === 0 && (
+            <p className="py-4 text-center text-xs text-muted-foreground">
+              No calls recorded yet.
+            </p>
+          )}
+          {[...groups].map(([role, personas]) => (
+            <div key={role}>
+              <div className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                {role}
+              </div>
+              {[...personas].map(([persona, list]) => (
+                <div key={persona}>
+                  <div className="pl-2 text-[10px] italic text-muted-foreground">
+                    {persona}
+                  </div>
+                  {list.map((e) => (
+                    <div
+                      key={e.id}
+                      className="flex items-baseline gap-2 py-0.5 pl-4 text-[11px]"
+                    >
+                      <span className="shrink-0 text-muted-foreground">
+                        {fmtTime(e.ts)}
+                      </span>
+                      <span className="shrink-0 font-medium">
+                        {e.modelFile.replace(/\.gguf$/, "")}
+                      </span>
+                      {e.tag && (
+                        <span className="shrink-0 rounded bg-muted px-1 text-[10px]">
+                          {e.tag}
+                        </span>
+                      )}
+                      {e.fallback && (
+                        <span className="shrink-0 rounded bg-amber-900 px-1 text-[10px] text-amber-200">
+                          fallback
+                        </span>
+                      )}
+                      {e.status === "failed" ? (
+                        <span className="shrink-0 text-red-400">failed</span>
+                      ) : (
+                        <span className="shrink-0 text-muted-foreground">
+                          {e.promptTokens}→{e.outputTokens} tok ·{" "}
+                          {(e.elapsedMs / 1000).toFixed(1)}s
+                          {e.warm ? " · warm" : ""}
+                        </span>
+                      )}
+                      <span className="min-w-0 truncate text-muted-foreground">
+                        {e.promptPreview}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      </ScrollArea>
     </div>
   );
 }

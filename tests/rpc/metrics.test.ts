@@ -183,6 +183,66 @@ describe("metrics rpc", () => {
     expect(metrics.list()[0].status).toBe("failed");
   });
 
+  test("fallback-served call: failed candidate + serving model entry", async () => {
+    const emitted: { method: string; payload: unknown }[] = [];
+    const convs = new Map<string, Conversation>([
+      [
+        "c3",
+        {
+          id: "c3",
+          title: "t",
+          createdAt: "x",
+          updatedAt: "x",
+          messages: [],
+          mode: "single",
+        },
+      ],
+    ]);
+    const { store } = makeStore(true, convs);
+    const settings = store.getSettings();
+    settings.tags = [
+      {
+        name: "default",
+        binding: "bad.gguf",
+        params: {},
+        fallback: [{ kind: "model", fileName: "e.gguf" }],
+      },
+    ];
+    writeFileSync(join(dir, "bad.gguf"), "x");
+    const metrics = new MetricsStore();
+    let i = 0;
+    const slot = (fail: boolean): SlotEngine => ({
+      ...fakeEngine(),
+      loadModel: async (p: string) => {
+        if (fail) throw new Error("load fail");
+        return { status: "ready" as const, name: p };
+      },
+      dispose: () => {},
+    });
+    // first acquired engine (primary) fails; second (fallback) serves
+    const registry = new ModelRegistry(2, () => slot(i++ === 0));
+    const deps = {
+      engine: fakeEngine(),
+      store,
+      metrics,
+      registry,
+      roles: new RolesService({ store, scan: () => [] }),
+      emit: (m: string, p: unknown) =>
+        emitted.push({ method: m, payload: p }),
+    } as never;
+    const call = (method: string, params: Record<string, unknown>) =>
+      (createRequestHandlers(deps) as never)[method](params);
+    call("chat.send", { conversationId: "c3", content: "hi" });
+    await waitDone(emitted);
+    const entries = metrics.list();
+    expect(entries).toHaveLength(2);
+    expect(entries[0].modelFile).toBe("bad.gguf");
+    expect(entries[0].status).toBe("failed");
+    expect(entries[1].modelFile).toBe("e.gguf");
+    expect(entries[1].fallback).toBe(true);
+    expect(entries[1].status).toBe("complete");
+  });
+
   test("fusion emits one entry per phase with correct roles", async () => {
     const emitted: { method: string; payload: unknown }[] = [];
     const convs = new Map<string, Conversation>([
