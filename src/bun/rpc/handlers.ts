@@ -19,6 +19,17 @@ import { modelsDir, scanModels } from "../models/library";
 import { ModelRegistry, createRegistryEngine } from "../models/registry";
 import { RolesService } from "../models/roles";
 import { runFusionTurn } from "../llama/fusion";
+import {
+  buildBackupEnvelope,
+  buildEnvelope,
+  renderMarkdown,
+  uniqueFileName,
+} from "../export/exporter";
+import {
+  parseEnvelope,
+  remapConversation,
+  toSettings,
+} from "../export/importer";
 import * as store from "../store/json-store";
 import { backfillTree } from "../store/json-store";
 import {
@@ -28,7 +39,14 @@ import {
   pathOf,
   pathToLeaf,
 } from "../store/tree";
-import { existsSync, mkdirSync, renameSync, unlinkSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { basename, join } from "node:path";
 
 type Events = ChatRpcSchema["webview"]["messages"];
@@ -72,6 +90,11 @@ export interface HandlerDeps {
   // feature 004: optional so existing tests keep a two-dep harness
   roles?: RolesService;
   registry?: ModelRegistry;
+  // feature 008: file pickers, injectable for headless tests
+  dialogs?: {
+    pickFolder(): Promise<string | null>;
+    pickFile(allowedTypes?: string): Promise<string | null>;
+  };
 }
 
 function fail(code: RpcErrorCode, message: string): never {
@@ -825,6 +848,95 @@ export function createRequestHandlers(deps: HandlerDeps) {
       }
       return {};
     },
+    // feature 008: export/import — dialogs are injectable (deps.dialogs);
+    // absent dep = treat as cancelled, so headless tests stay safe
+    "conversation.export": async ({
+      conversationId,
+      format,
+    }: {
+      conversationId: string;
+      format: "markdown" | "json";
+    }) => {
+      if (format !== "markdown" && format !== "json") {
+        fail("INVALID_PARAMS", `invalid format: ${format}`);
+      }
+      const conv = deps.store.getConversation(conversationId);
+      if (!conv) fail("NOT_FOUND", `conversation ${conversationId} not found`);
+      const dir = await deps.dialogs?.pickFolder();
+      if (!dir) return { path: null };
+      const ext = format === "json" ? "json" : "md";
+      const name = uniqueFileName(conv.title, conv.id, ext, (n) =>
+        existsSync(join(dir, n)),
+      );
+      const path = join(dir, name);
+      writeFileSync(
+        path,
+        format === "json"
+          ? JSON.stringify(buildEnvelope(conv), null, 2)
+          : renderMarkdown(conv),
+        "utf8",
+      );
+      return { path };
+    },
+    "conversation.import": async () => {
+      const file = await deps.dialogs?.pickFile("json");
+      if (!file) return { conversationId: null };
+      const env = parseEnvelope(readFileSync(file, "utf8"));
+      if (env.kind !== "conversation") {
+        fail("INVALID_PARAMS", "expected a conversation export file");
+      }
+      const titles = new Set(
+        deps.store.listConversations().map((c) => c.title),
+      );
+      let first: string | null = null;
+      for (const ec of env.conversations) {
+        const r = remapConversation(ec, titles.has(ec.title));
+        titles.add(r.title);
+        deps.store.saveConversation(r);
+        first ??= r.id;
+      }
+      return { conversationId: first };
+    },
+    "backup.export": async () => {
+      const dir = await deps.dialogs?.pickFolder();
+      if (!dir) return { path: null };
+      const convs = deps.store
+        .listConversations()
+        .map((s) => deps.store.getConversation(s.id))
+        .filter((c): c is Conversation => c !== null);
+      const settings = deps.store.getSettings();
+      const env = buildBackupEnvelope(convs, settings, settings.tags);
+      const name = uniqueFileName("backup", crypto.randomUUID(), "json", (n) =>
+        existsSync(join(dir, n)),
+      );
+      const path = join(dir, name);
+      writeFileSync(path, JSON.stringify(env, null, 2), "utf8");
+      return { path };
+    },
+    "backup.import": async () => {
+      const file = await deps.dialogs?.pickFile("json");
+      if (!file) return { imported: null };
+      const env = parseEnvelope(readFileSync(file, "utf8"));
+      if (env.kind !== "backup") {
+        fail("INVALID_PARAMS", "expected a backup export file");
+      }
+      const titles = new Set(
+        deps.store.listConversations().map((c) => c.title),
+      );
+      for (const ec of env.conversations) {
+        const r = remapConversation(ec, titles.has(ec.title));
+        titles.add(r.title);
+        deps.store.saveConversation(r);
+      }
+      if (env.settings) {
+        const current = deps.store.getSettings();
+        // keep local-only tags too (they act as the provisioned set)
+        deps.store.saveSettings(
+          toSettings(env.settings, env.tags ?? [], modelsDir(), current.tags),
+        );
+      }
+      return { imported: env.conversations.length };
+    },
     "role.list": () => ({ tags: rolesSvc().list() }),
     "role.create": ({
       name,
@@ -955,6 +1067,29 @@ export function createRpc() {
     registry,
     emit: (m, p) => emit(m, p),
     store,
+    dialogs: {
+      pickFolder: async () => {
+        const { Utils } = await import("electrobun/main");
+        const r = await Utils.openFileDialog({
+          startingFolder: "~/",
+          canChooseFiles: false,
+          canChooseDirectory: true,
+          allowsMultipleSelection: false,
+        });
+        return r[0] ?? null;
+      },
+      pickFile: async (types = "*") => {
+        const { Utils } = await import("electrobun/main");
+        const r = await Utils.openFileDialog({
+          startingFolder: "~/",
+          allowedFileTypes: types,
+          canChooseFiles: true,
+          canChooseDirectory: false,
+          allowsMultipleSelection: false,
+        });
+        return r[0] ?? null;
+      },
+    },
   });
   const rpc = defineElectrobunRPC<ChatRpcSchema, "bun">("bun", {
     handlers: { requests: handlers, messages: {} },

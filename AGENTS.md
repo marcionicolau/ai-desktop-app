@@ -130,3 +130,33 @@ keeps flat messages + `activeLeaf` and derives `path`/`variants`/
 
 Gotcha: sibling semantics mean `chat.regenerate`/`chat.edit` return NEW
 message ids — callers must re-target follow-ups to the returned id.
+
+## Module map additions (feature 008 — export/import)
+
+Shared (`src/shared/`): `export.ts` — one versioned envelope for both
+scopes: `{formatVersion:1, app, kind:"conversation"|"backup", exportedAt,
+conversations[], settings?, tags?}`; `ExportedConversation` is `Conversation`
+verbatim so trees/phases round-trip; `ExportedSettings` stores
+`activeModel` as a **basename** (no absolute paths leave the machine).
+
+Main process (`src/bun/`):
+
+- `export/exporter.ts` — `buildEnvelope`/`buildBackupEnvelope`,
+  `renderMarkdown` (active path via `pathOf`, `*(variant k of N)*` markers,
+  plan phases as `<details>`), `slugify`/`uniqueFileName` (`<slug>-<id8>.ext`,
+  `-2` dedup).
+- `export/importer.ts` — `parseEnvelope` validates EVERYTHING before any
+  write (`INVALID_PARAMS`, zero partial writes); `remapConversation` mints
+  fresh ids for conv + all messages and rewrites `parentId`/`activeLeaf`
+  through the map (dangling refs → null); `toSettings` resolves basename
+  → path only if the file exists, absent bindings stay bound (`broken`).
+- `rpc/handlers.ts` — `conversation.export`/`conversation.import`/
+  `backup.export`/`backup.import`. New injectable `dialogs` dep
+  (`pickFolder`/`pickFile` over `Utils.openFileDialog`); absent dep = treat
+  as cancelled so headless tests stay safe. Electrobun 2.x has NO save
+  dialog: exports pick a folder and write a deduped filename into it;
+  `null` responses mean cancellation.
+
+Renderer: `Sidebar` has an inline Download icon (format-choice dialog) +
+an Import button; `DataPanel` under settings does full backup export/
+restore.
