@@ -17,14 +17,14 @@ FFI/RPC boundary; each story gets a contract/unit suite.
 
 - [ ] T001 Extend `src/shared/types.ts`: `ModelTag` (`name` slug `/^[a-z0-9]+(-[a-z0-9]+)*$/` 1–32 chars, `label?`, `description?`, `binding: string|null`, `params: Partial<GenerationParams>`, `fallback: RoleRef[]`), `RoleRef` (`{kind:"tag";name}|{kind:"model";fileName}`), `RoleState` (`"bound"|"unbound"|"broken"`), `ResolvedRole`, `FusionPhase` (`"plan"|"answer"`), `PhaseStats`, `ModelSlot`-facing types; extend `Conversation` with `mode:"single"|"fusion"`, `plannerTag`, `executorTag`; extend `Message` with optional `phases`; extend `Settings` with `tags: ModelTag[]`.
 - [ ] T002 Extend `src/shared/rpc-contract.ts`: add `role.list/create/update/delete/bind/setFallback/resolve`, `conversation.setMode`, optional `tagName` on `model.download`, events `chat.phase` + `role.changed`, `phase?` on `chat.token`, per-phase `chat.done.stats`, error codes `ROLE_UNBOUND` + `ROLE_IN_USE` — per `contracts/rpc.md`.
-- [ ] T003 Extend `src/bun/store/json-store.ts`: settings schema gains `tags` (default `[]`, provision `planner`+`executor` unbound on first load), conversation gains `mode`/`plannerTag`/`executorTag` defaults (`"single"`/`"planner"`/`"executor"`); validate on load; round-trip test additions in `tests/store/json-store.test.ts`.
+- [ ] T003 Extend `src/bun/store/json-store.ts`: settings schema gains `tags` (default `[]`, provision `default` bound to `activeModelPath`, plus unbound `planner`+`executor`, on first load; keep `default`↔`activeModelPath` synced both directions), conversation gains `mode`/`plannerTag`/`executorTag` defaults (`"single"`/`"planner"`/`"executor"`); validate on load; round-trip test additions in `tests/store/json-store.test.ts`.
 
 ## Phase 2: Foundational (blocking prerequisites)
 
-- [ ] T004 Implement `src/bun/models/roles.ts`: tag CRUD with slug + uniqueness validation, `bind(name, fileName|null)`, fallback chain setter (`≤3` entries, no self-ref, cycle-checked), `state(tag)` derivation (`bound`/`unbound`/`broken` via library scan), and `resolve(name) → ResolvedRole` — walks binding → fallback chain (`servedBy` recorded), throws `ROLE_UNBOUND`.
+- [ ] T004 Implement `src/bun/models/roles.ts`: tag CRUD with slug + uniqueness validation, `bind(name, fileName|null)`, fallback chain setter (`≤3` entries, no self-ref, cycle-checked), `state(tag)` derivation (`bound`/`unbound`/`broken` via library scan), and `resolve(name) → ResolvedRole` — *static* resolution: walks binding → fallback chain in order (cycle-checked, `servedBy` recorded), throws `ROLE_UNBOUND`. Runtime-failure cascade (load/generate error → try next candidate) is T019's job, not this task's.
 - [ ] T005 Implement `src/bun/models/registry.ts`: `ModelRegistry` — `Map<normalizedPath, ModelSlot>`; `acquire(path)` shares slots (FR-011), `MAX_SLOTS=2` with LRU eviction of non-busy slots, `busyFor`/`stale` semantics per data-model, `release()`, `shutdown()` freeing ctx→model in order; wraps `LlamaEngine` per slot.
 - [ ] T006 Param cascade in `src/bun/llama/params.ts` or `roles.ts`: effective params = `DEFAULT_GENERATION ← settings.generation ← modelOverrides[file] ← tag.params` via existing `mergeParams`; applied inside `resolve` so `ResolvedRole.params` is final.
-- [ ] T007 Wire `role.*` + `role.changed` handlers in `src/bun/rpc/handlers.ts` (`createRequestHandlers` deps gain `roles`, `registry`); add `ROLE_UNBOUND`/`ROLE_IN_USE` to `fail()` usage; emit `role.changed` after every mutation. Update `src/bun/index.ts` to construct registry/roles.
+- [ ] T007 Wire `role.*` + `role.changed` handlers in `src/bun/rpc/handlers.ts` (`createRequestHandlers` deps gain `roles`, `registry`); add `ROLE_UNBOUND`/`ROLE_IN_USE` to `fail()` usage; emit `role.changed` after every mutation; `model.load`/`role.bind("default")` keep `default`↔`activeModelPath` synced; single-mode `streamAssistant` resolves via `resolve("default")` instead of raw `activeModelPath` (FR-010). Update `src/bun/index.ts` to construct registry/roles.
 
 ## Phase 3: User Story 1 — Named Model Roles Bound to Real Models (P1)
 
@@ -35,7 +35,7 @@ FFI/RPC boundary; each story gets a contract/unit suite.
 - [ ] T009 [P] [US1] `tests/roles/registry.test.ts`: two acquires same path → one slot; `MAX_SLOTS=2` LRU eviction; busy slot never evicted; `stale` freed after release.
 - [ ] T010 [P] [US1] `tests/rpc/role.test.ts`: all `role.*` methods' params/responses/error codes vs `contracts/rpc.md`; `role.changed` emission.
 - [ ] T011 [US1] `src/renderer/src/features/roles/use-roles.ts`: hook wrapping `role.list/create/update/delete/bind/setFallback/resolve`, subscribes `role.changed`.
-- [ ] T012 [US1] `src/renderer/src/features/roles/RolesPanel.tsx` + `TagEditor.tsx`: tag list with `bound|unbound|broken` badges + bound-model metadata, create/rename/delete (with `ROLE_IN_USE` consumer naming), bind/unbind via library-model select, per-tag params editor reusing `GenerationSettings`, fallback chain editor. Entry point from `ChatPage`/`Sidebar`.
+- [ ] T012 [US1] `src/renderer/src/features/roles/RolesPanel.tsx` + `TagEditor.tsx`: tag list with `bound|unbound|broken` badges + bound-model metadata, create/rename/delete (with `ROLE_IN_USE` consumer naming), bind/unbind via library-model select, per-tag params editor reusing `GenerationSettings`, fallback chain editor. Entry point from `ChatPage`/`Sidebar`; when two fusion-bound models' combined file sizes exceed a documented threshold, show a memory-pressure hint (spec Assumptions).
 - [ ] T013 [US1] Download→bind: `model.download` handler accepts `tagName` (validated upfront → `NOT_FOUND`), binds post-`done`, emits `role.changed`; add tag select to `ModelLibrary.tsx` download form. `.part`/error paths never bind (FR-004).
 
 ## Phase 4: User Story 2 — Fusion Generation (P2)
@@ -54,7 +54,7 @@ FFI/RPC boundary; each story gets a contract/unit suite.
 **Goal**: ordered fallback chains serve turns when primary fails; servedBy visible.
 **Independent test**: VS-5 — primary file deleted → fallback serves + notice; both gone → typed error naming chain.
 
-- [ ] T019 [US3] Fallback walk in `roles.ts`/`registry.ts`: on primary load failure or missing file, cascade `RoleRef[]` (tag → nested resolve, model → direct), depth-cap 3, record `servedBy`; surface in `chat.phase` (`servedBy:"fallback"`) and `role.resolve` response. Extend `tests/roles/roles.test.ts` + `tests/rpc/fusion.test.ts`.
+- [ ] T019 [US3] Runtime fallback cascade in `roles.ts`/`registry.ts`: on primary *load failure* or missing file at generation time (T004's static walk only orders candidates), retry subsequent `RoleRef[]` entries (tag → nested resolve, model → direct), depth-cap 3, record `servedBy`; surface in `chat.phase` (`servedBy:"fallback"`) and `role.resolve` response. Extend `tests/roles/roles.test.ts` + `tests/rpc/fusion.test.ts`.
 - [ ] T020 [US3] UI: fallback notice in chat (which model served which tag) in `MessageList.tsx`/banner; fallback chain editor already in `TagEditor.tsx` from T012 — wire `role.setFallback` + `INVALID_PARAMS` display.
 
 ## Phase 6: Polish & Cross-Cutting

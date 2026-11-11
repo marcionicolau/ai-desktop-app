@@ -189,7 +189,9 @@ notice — tested without touching any other story's surface.
 - **FR-010**: All feature entry points MUST reference models by tag, so
   rebinding a tag changes behavior app-wide without touching conversation
   data, settings, or code — the alias indirection of the reference
-  configuration.
+  configuration. Single-mode chat resolves through the built-in `default`
+  tag, whose binding stays synced with the existing active-model setting
+  (load a model ↔ `default` binds to it, and vice versa).
 - **FR-011**: Two roles sharing one bound model file MUST be served by a
   single loaded instance (no double load); memory behavior MUST be
   documented when this sharing applies.
@@ -242,9 +244,10 @@ notice — tested without touching any other story's surface.
   default and is unaffected when fusion roles are unbound.
 - The planner role's output is a user-visible artifact (collapsible plan),
   not a hidden scratchpad — users chose "fusion" to see the thinking.
-- Default tags `planner` and `executor` are provisioned on first run
-  (unbound) so fusion has a predictable contract; additional tags
-  (`writer`, `extractor`, …) are user-created.
+- Default tags `default`, `planner`, and `executor` are provisioned on
+  first run (`default` bound to the currently active model, the other two
+  unbound) so both single-mode and fusion have a predictable contract;
+  additional tags (`writer`, `extractor`, …) are user-created.
 - Two loaded models simultaneously is expected to fit on the target
   hardware for the documented small/large pairing; VRAM/RAM pressure is a
   user concern, but the UI warns when combined file sizes suggest it.

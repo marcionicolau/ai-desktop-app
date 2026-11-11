@@ -34,7 +34,7 @@ UI surface plus chat-side fusion controls.
 
 **Constraints**: ≤2 loaded ctxs (memory), sequential phases (single-flight), offline-only, typed RPC boundary
 
-**Scale/Scope**: ~7 new files, ~6 modified, ~4 new test files
+**Scale/Scope**: ~12 new files, ~10 modified, ~4 new test files
 
 ## Constitution Check
 
@@ -113,7 +113,7 @@ src/
 ├── shared/
 │   ├── types.ts              # ModelTag, TagBinding, RoleState, FusionPhase,
 │   │                         # PhaseStats, Conversation.fusion fields
-│   └── rpc-contract.ts       # role.* + setMode + chat.phase/chat.planToken
+│   └── rpc-contract.ts       # role.* + setMode + chat.phase + chat.token{phase}
 └── renderer/src/
     ├── features/
     │   ├── roles/

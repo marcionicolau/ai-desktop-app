@@ -99,7 +99,11 @@ compatible: `phase` absent ⇒ single-model.
 description, `binding: fileName|null`, `params`, `fallback: Ref[]`).
 `Conversation` gains `mode: "single"|"fusion"` + `plannerTag`/`executorTag`
 defaults `"planner"`/`"executor"`. Store validates on load; missing tags
-field ⇒ `[]` + provision `planner`/`executor` unbound (spec assumption).
+field ⇒ `[]` + provision `default` (bound to `activeModelPath`),
+`planner`/`executor` unbound. The `default` tag and `activeModelPath` are
+kept in sync both directions so single-mode chat also resolves by tag —
+making FR-010's "all entry points" literally true rather than
+fusion-only.
 
 **Rationale**: atomic single-file writes already proven; tags are few
 (<20) so no indexing needed; conversation-local mode satisfies "opt-in per

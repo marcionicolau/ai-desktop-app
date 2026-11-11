@@ -73,11 +73,15 @@ interface ModelSlot {
 ## `Settings` (extended)
 
 ```ts
-tags: ModelTag[];   // provisioned ["planner", "executor"] unbound on first run
+tags: ModelTag[];   // provisioned ["default", "planner", "executor"] on first run —
+  // "default" bound to activeModelPath; the other two unbound
 ```
 
-`activeModelPath` remains — it is the *single-mode* model and binds the
-implicit `default` role; `model.load(path)` still works as today.
+`activeModelPath` remains the *single-mode* model and is kept in sync with
+the built-in `default` tag's `binding`: `model.load(path)` rebinds
+`default` to that file, and `role.bind("default", file)` updates
+`activeModelPath`. Single-mode generation resolves through
+`resolve("default")`, so every entry point is tag-referenced (FR-010).
 
 ## Validation rules
 
