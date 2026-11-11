@@ -160,7 +160,7 @@ export function ChatPage() {
         <Composer
           generating={state.generatingId !== null}
           modelReady={modelReady}
-          onSend={(c) => void send(c)}
+          onSend={(c, ids, chips) => void send(c, ids, chips)}
           onStop={stop}
         />
       </div>

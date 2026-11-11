@@ -20,6 +20,12 @@ import { ModelRegistry, createRegistryEngine } from "../models/registry";
 import { RolesService } from "../models/roles";
 import { runFusionTurn } from "../llama/fusion";
 import {
+  gcFor,
+  pickAndStore,
+  resolveMany,
+} from "../attachments/store";
+import { fitBudget, plannerSummary } from "../attachments/inject";
+import {
   buildBackupEnvelope,
   buildEnvelope,
   renderMarkdown,
@@ -94,6 +100,8 @@ export interface HandlerDeps {
   dialogs?: {
     pickFolder(): Promise<string | null>;
     pickFile(allowedTypes?: string): Promise<string | null>;
+    // feature 009: multi-select; default = wrap pickFile
+    pickFiles?(allowedTypes?: string): Promise<string[] | null>;
   };
 }
 
@@ -149,11 +157,44 @@ export function createRequestHandlers(deps: HandlerDeps) {
   // builds the budgeted prompt from (history, current), streams tokens into
   // assistantMsg, persists, and emits chat.token/done/error. FR-011: the
   // token budget halves and retries on real context overflow.
+  // feature 009: budget estimate for attachment fit — the real prompt
+  // budget is derived inside the generation loop; mirror its formula so
+  // recorded statuses match what was actually injected
+  const attachBudget = (): number => {
+    const cs = deps.engine.contextSize();
+    if (cs <= 0) return 2048;
+    return Math.max(256, cs - Math.min(512, Math.floor(cs / 2)));
+  };
+
+  // resolve attachment ids -> file blocks + status records + planner
+  // text. Returns null when no attachments are involved.
+  const buildAttachmentContext = (
+    ids: string[] | undefined,
+    text: string,
+  ): {
+    current: string;
+    plannerText: string;
+    records: import("../../shared/types").MessageAttachment[];
+    warnings: string[];
+  } | null => {
+    if (!ids?.length) return null;
+    const atts = resolveMany(ids); // unknown id -> INVALID_PARAMS
+    const fit = fitBudget(atts, text, attachBudget());
+    const summary = plannerSummary(atts);
+    return {
+      current: fit.injectText + text,
+      plannerText: summary ? `${text}\n\n${summary}` : text,
+      records: fit.records,
+      warnings: fit.warnings,
+    };
+  };
+
   const streamAssistant = (
     conv: Conversation,
     assistantMsg: Message,
     history: PromptTurn[],
     current: string,
+    plannerText?: string,
   ): void => {
     // FR-010: single-mode generation resolves through the `default` tag;
     // when the roles dep is absent (unit-test harness) fall back to the
@@ -211,6 +252,7 @@ export function createRequestHandlers(deps: HandlerDeps) {
           conversationId: conv.id,
           history,
           current,
+          plannerText,
           onTruncated: warnTruncated,
           onEvent: (m, p) =>
             deps.emit(
@@ -558,6 +600,7 @@ export function createRequestHandlers(deps: HandlerDeps) {
       mode,
       plannerTag,
       executorTag,
+      attachmentIds,
     }: {
       conversationId: string;
       content: string;
@@ -565,6 +608,7 @@ export function createRequestHandlers(deps: HandlerDeps) {
       mode?: "single" | "fusion";
       plannerTag?: string;
       executorTag?: string;
+      attachmentIds?: string[];
     }) => {
       const text = content.trim();
       if (!text) fail("EMPTY_MESSAGE", "message must not be empty");
@@ -604,6 +648,7 @@ export function createRequestHandlers(deps: HandlerDeps) {
         .map((m) => ({ role: m.role, content: m.content }));
 
       const leaf = leafOf(conv);
+      const attCtx = buildAttachmentContext(attachmentIds, text);
       const userMsg: Message = {
         id: userMessageId ?? newId(),
         conversationId,
@@ -613,6 +658,7 @@ export function createRequestHandlers(deps: HandlerDeps) {
         createdAt: now(),
         completedAt: now(),
         parentId: leaf?.id ?? null,
+        attachments: attCtx?.records ?? null,
       };
       const assistantMsg: Message = {
         id: newId(),
@@ -629,8 +675,30 @@ export function createRequestHandlers(deps: HandlerDeps) {
       conv.updatedAt = now();
       persist(conv);
 
-      streamAssistant(conv, assistantMsg, history, text);
+      if (attCtx?.warnings.length) {
+        deps.emit("chat.warning", {
+          messageId: userMsg.id,
+          code: "ATTACHMENTS_BUDGET",
+          message: attCtx.warnings.join("; "),
+        });
+      }
+      streamAssistant(
+        conv,
+        assistantMsg,
+        history,
+        attCtx?.current ?? text,
+        attCtx?.plannerText,
+      );
       return { messageId: assistantMsg.id };
+    },
+    "attachment.pick": async () => {
+      const paths =
+        (await deps.dialogs?.pickFiles?.()) ??
+        ((await deps.dialogs?.pickFile()) as string | null);
+      if (!paths) return null;
+      const list = Array.isArray(paths) ? paths : [paths];
+      if (list.length === 0) return null;
+      return pickAndStore(list);
     },
     "chat.regenerate": ({ messageId }: { messageId: string }) => {
       if (deps.engine.isGenerating()) {
@@ -671,7 +739,19 @@ export function createRequestHandlers(deps: HandlerDeps) {
       conv.activeLeaf = variant.id;
       conv.updatedAt = now();
       persist(conv);
-      streamAssistant(conv, variant, history, userMsg.content);
+      // feature 009: regenerated turns reuse the original attachments —
+      // ids re-resolve to the same on-disk content (deterministic)
+      const reAtt = buildAttachmentContext(
+        userMsg.attachments?.map((a) => a.id),
+        userMsg.content,
+      );
+      streamAssistant(
+        conv,
+        variant,
+        history,
+        reAtt?.current ?? userMsg.content,
+        reAtt?.plannerText,
+      );
       return { messageId: variant.id };
     },
     "chat.edit": ({
@@ -843,9 +923,11 @@ export function createRequestHandlers(deps: HandlerDeps) {
       return {};
     },
     "conversation.delete": ({ conversationId }: { conversationId: string }) => {
+      const conv = deps.store.getConversation(conversationId);
       if (!deps.store.deleteConversation(conversationId)) {
         fail("NOT_FOUND", `conversation ${conversationId} not found`);
       }
+      if (conv) gcFor(conv); // feature 009: unlink attachment files
       return {};
     },
     // feature 008: export/import — dialogs are injectable (deps.dialogs);
@@ -1088,6 +1170,17 @@ export function createRpc() {
           allowsMultipleSelection: false,
         });
         return r[0] ?? null;
+      },
+      pickFiles: async (types = "*") => {
+        const { Utils } = await import("electrobun/main");
+        const r = await Utils.openFileDialog({
+          startingFolder: "~/",
+          allowedFileTypes: types,
+          canChooseFiles: true,
+          canChooseDirectory: false,
+          allowsMultipleSelection: true,
+        });
+        return r.length ? r : null;
       },
     },
   });
