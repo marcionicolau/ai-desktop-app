@@ -39,6 +39,8 @@ interface ChatState {
   executorTag: string;
   // feature 006: persona assigned to the open conversation (null = none)
   personaName: string | null;
+  // feature 007: message to scroll+highlight after a search jump
+  scrollTarget: string | null;
   activePhase: {
     phase: FusionPhase;
     tag: string;
@@ -55,6 +57,7 @@ type Action =
       messages: Message[];
       activeLeaf: string | null;
       personaName?: string | null;
+      scrollTarget?: string | null;
     }
   | { type: "selectVariant"; activeLeaf: string }
   | { type: "append"; message: Message }
@@ -110,6 +113,8 @@ function reduce(state: ChatState, action: Action): ChatState {
           action.personaName !== undefined
             ? action.personaName
             : state.personaName,
+        // every hydrate clears the last search jump unless it carries one
+        scrollTarget: action.scrollTarget ?? null,
       };
     case "persona":
       return { ...state, personaName: action.name };
@@ -298,6 +303,7 @@ const initial: ChatState = {
   plannerTag: "planner",
   executorTag: "executor",
   personaName: null,
+  scrollTarget: null,
   activePhase: null,
 };
 
@@ -316,16 +322,30 @@ export function useChat() {
     }
   }, []);
 
-  const selectConversation = useCallback(async (id: string) => {
-    const conv = await invoke("conversation.get", { conversationId: id });
-    convRef.current = conv.id;
-    dispatch({
-      type: "hydrate",
-      conversationId: conv.id,
-      messages: conv.messages,
-      activeLeaf: conv.activeLeaf ?? conv.messages.at(-1)?.id ?? null,
-      personaName: conv.personaName ?? null,
-    });
+  // feature 007: optional targetMessageId — a search hit jumps to the
+  // variant path containing it (deepestLeaf, display-only — we do NOT
+  // persist a selectVariant; a read must not mutate the chosen branch)
+  const selectConversation = useCallback(
+    async (id: string, targetMessageId?: string) => {
+      const conv = await invoke("conversation.get", { conversationId: id });
+      convRef.current = conv.id;
+      let leaf = conv.activeLeaf ?? conv.messages.at(-1)?.id ?? null;
+      let scrollTarget: string | null = null;
+      const target = targetMessageId
+        ? conv.messages.find((m) => m.id === targetMessageId)
+        : undefined;
+      if (target) {
+        leaf = deepestLeaf(conv.messages, target).id;
+        scrollTarget = targetMessageId!;
+      }
+      dispatch({
+        type: "hydrate",
+        conversationId: conv.id,
+        messages: conv.messages,
+        activeLeaf: leaf,
+        personaName: conv.personaName ?? null,
+        scrollTarget,
+      });
     dispatch({
       type: "mode",
       mode: conv.mode ?? "single",

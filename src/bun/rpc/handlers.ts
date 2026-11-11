@@ -34,6 +34,7 @@ import { freemem, totalmem } from "node:os";
 import { ModelRegistry, createRegistryEngine } from "../models/registry";
 import { RolesService } from "../models/roles";
 import { PersonaService } from "../personas/service";
+import { SearchIndex } from "../search/index";
 import { runFusionTurn } from "../llama/fusion";
 import {
   gcFor,
@@ -175,6 +176,11 @@ export function createRequestHandlers(deps: HandlerDeps) {
   };
 
   const rolesSvc = () => deps.roles ?? new RolesService({ store: deps.store });
+
+  // feature 007: one index per handler set; lazily refreshed per query
+  // from deps.store (updatedAt-keyed — always consistent by construction)
+  let searchIdx: SearchIndex | null = null;
+  const searchIndex = () => (searchIdx ??= new SearchIndex(deps.store));
 
   const personasSvc = () =>
     deps.personas ??
@@ -463,6 +469,8 @@ export function createRequestHandlers(deps: HandlerDeps) {
                 }
               : null;
         assistantMsg.stats = stats;
+        conv.updatedAt = now(); // feature 007: freshness key for the
+        // search index — a completed turn is "recent activity"
         persist(conv);
         deps.emit("chat.done", {
           messageId,
@@ -478,6 +486,7 @@ export function createRequestHandlers(deps: HandlerDeps) {
       .catch((e: unknown) => {
         assistantMsg.status = "failed";
         assistantMsg.completedAt = now();
+        conv.updatedAt = now(); // feature 007: terminal-state freshness
         persist(conv);
         deps.emit("chat.error", {
           messageId,
@@ -1132,6 +1141,9 @@ export function createRequestHandlers(deps: HandlerDeps) {
     "snippet.delete": ({ name }: { name: string }) => ({
       deleted: personasSvc().deleteSnippet(name),
     }),
+    // feature 007: best-effort search — malformed/short queries degrade
+    // to empty groups rather than INVALID_PARAMS
+    "search.query": ({ q }: { q: string }) => searchIndex().query(q),
     // feature 008: export/import — dialogs are injectable (deps.dialogs);
     // absent dep = treat as cancelled, so headless tests stay safe
     "conversation.export": async ({

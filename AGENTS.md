@@ -221,3 +221,19 @@ draft-side; `MessageList` renders `Message.attachments` chips (`·trunc` /
   `pendingPersona` until `chat.send` creates the record.
 - UI: header persona `<select>` + sidebar `personaName` badge +
   `PersonasPanel` (CRUD incl. snippets) + Composer `/` picker.
+
+## Feature 007 — conversation search
+
+- `bun/search/index.ts` — in-memory `SearchIndex`; lazy refresh keyed on
+  each conversation's `updatedAt` (rebuilds transparently from JSON on
+  restart; nothing persisted). Literal case-insensitive substring, all
+  terms AND'd; `generating`/`failed` excluded; 20 groups × 3 hits.
+- RPC `search.query` → `{groups}`; hit carries `snippet` +
+  `matchStart`/`matchEnd` for renderer `<mark>` highlighting; title-only
+  matches surface as `{titleMatched, hits:[]}`.
+- Index freshness depends on `updatedAt` — every mutation (incl.
+  `chat.done`/`chat.error` persists) must bump it.
+- Renderer: Sidebar search box (≥3 chars flips to results, 250 ms
+  debounce, seq-guard for stale responses, `<3` = title filter); hit
+  click → `selectConversation(cid, mid)` → `scrollTarget` →
+  `MessageList` `scrollIntoView` + 2 s ring flash.

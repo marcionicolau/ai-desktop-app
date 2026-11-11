@@ -65,6 +65,33 @@ export interface ConversationSummary {
   personaName?: string | null; // feature 006: sidebar badge
 }
 
+// ---- feature 007: cross-conversation search ----
+
+export interface SearchHit {
+  messageId: string;
+  role: "user" | "assistant";
+  timestamp: string;
+  // ~80 chars of context around the first match; matchStart/matchEnd
+  // delimit the match inside `snippet` for highlight rendering
+  snippet: string;
+  matchStart: number;
+  matchEnd: number;
+}
+
+export interface SearchGroup {
+  conversationId: string;
+  title: string;
+  updatedAt: string;
+  personaName?: string | null;
+  // true when the query matched the title (hits may still be empty)
+  titleMatched: boolean;
+  hits: SearchHit[]; // ≤3, earliest message first
+}
+
+export interface SearchResponse {
+  groups: SearchGroup[]; // ≤20, ordered by updatedAt desc
+}
+
 export interface ModelInfo {
   path: string;
   name: string;
