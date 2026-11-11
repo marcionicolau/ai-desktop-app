@@ -15,6 +15,8 @@ import type {
   RoleRef,
   RoleView,
   SearchGroup,
+  SnapshotClearResult,
+  SnapshotStats,
   TurnStats,
   ModelStatus,
   Persona,
@@ -278,6 +280,14 @@ export interface ChatRpcSchema extends ElectrobunRPCSchema {
       "search.query": {
         params: { q: string };
         response: { groups: SearchGroup[] };
+      };
+      "snapshot.stats": {
+        params: Record<string, never>;
+        response: SnapshotStats;
+      };
+      "snapshot.clear": {
+        params: Record<string, never>;
+        response: SnapshotClearResult;
       };
     };
     messages: Record<string, never>;

@@ -55,6 +55,12 @@ export function ModelLibrary({ activeName, onLoad }: Props) {
   // feature 011: live verdicts keyed by fileName; null = not fetched yet
   const [advise, setAdvise] = useState<Map<string, ModelAdvise>>(new Map());
   const [benching, setBenching] = useState<string | null>(null);
+  // feature 010: KV snapshot disk usage (US2)
+  const [snapStats, setSnapStats] = useState<{
+    count: number;
+    usedBytes: number;
+    maxBytes: number;
+  } | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -66,6 +72,11 @@ export function ModelLibrary({ activeName, onLoad }: Props) {
       setAdvise(new Map(adv.models.map((a) => [a.fileName, a])));
     } catch {
       // list is best-effort
+    }
+    try {
+      setSnapStats(await invoke("snapshot.stats", {}));
+    } catch {
+      /* older builds lack the method */
     }
   }, []);
 
@@ -331,6 +342,29 @@ export function ModelLibrary({ activeName, onLoad }: Props) {
             );
           })}
         </div>
+        {snapStats && (
+          <div className="flex items-center justify-between rounded border border-border px-3 py-2 text-xs text-muted-foreground">
+            <span>
+              KV snapshots: {snapStats.count} ·{" "}
+              {fmtBytes(snapStats.usedBytes)} of{" "}
+              {snapStats.maxBytes > 0 ? fmtBytes(snapStats.maxBytes) : "disabled"}
+            </span>
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={snapStats.count === 0}
+              onClick={() => {
+                void invoke("snapshot.clear", {}).then(() =>
+                  setSnapStats((s) =>
+                    s ? { ...s, count: 0, usedBytes: 0 } : s,
+                  ),
+                );
+              }}
+            >
+              Clear snapshots
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );

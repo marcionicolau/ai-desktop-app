@@ -582,3 +582,61 @@ fail2:
     free(params);
     return NULL;
 }
+
+// feature 010: whole-ctx state save/load. lls_state_load also rebuilds
+// the kv_tokens mirror from the tokens echoed by llama_state_load_file
+// and resets pos, so a later lls_generate_continue LCP-resumes exactly
+// at the saved turn boundary. Both are no-ops on inactive ctx only;
+// callers must not invoke while generating.
+int lls_state_save(lls_ctx * c, const char * path, char ** err) {
+    if (c == NULL || path == NULL || path[0] == 0) {
+        set_err(err, "bad args");
+        return 1;
+    }
+    if (c->generating) {
+        set_err(err, "generation in progress");
+        return 1;
+    }
+    // mirror IS the session token list (prompt + generated, seq 0)
+    if (!llama_state_save_file(c->handle, path, c->kv_tokens,
+                               (size_t) c->kv_count)) {
+        set_err(err, "state save failed");
+        return 1;
+    }
+    return 0;
+}
+
+int lls_state_load(lls_ctx * c, const char * path, char ** err) {
+    if (c == NULL || path == NULL || path[0] == 0) {
+        set_err(err, "bad args");
+        return 1;
+    }
+    if (c->generating) {
+        set_err(err, "generation in progress");
+        return 1;
+    }
+    llama_token * tokens =
+        (llama_token *) malloc(sizeof(llama_token) * (size_t) c->kv_cap);
+    if (tokens == NULL) {
+        set_err(err, "out of memory");
+        return 1;
+    }
+    size_t n_out = 0;
+    if (!llama_state_load_file(c->handle, path, tokens,
+                               (size_t) c->kv_cap, &n_out)) {
+        free(tokens);
+        set_err(err, "state load failed");
+        return 1;
+    }
+    if (c->kv_tokens != NULL && n_out <= (size_t) c->kv_cap) {
+        memcpy(c->kv_tokens, tokens, n_out * sizeof(llama_token));
+        c->kv_count = (int32_t) n_out;
+    } else {
+        // mirror unavailable: force full-prefill semantics on continue
+        c->kv_count = 0;
+    }
+    free(tokens);
+    c->pos = (int32_t) n_out;
+    c->n_gen = 0;
+    return 0;
+}

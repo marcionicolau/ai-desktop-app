@@ -62,6 +62,9 @@ export interface LlamaShimSymbols {
   lls_generate_end(ctx: number): void;
   lls_gguf_meta(path: string, err: number): number | null;
   lls_free_string(s: number): void;
+  // feature 010: absent on stale shims — snapshot layer no-ops then
+  lls_state_save?(ctx: number, path: string, err: number): number;
+  lls_state_load?(ctx: number, path: string, err: number): number;
 }
 
 export type LlamaShim = ReturnType<typeof loadLlamaShim>;
@@ -73,7 +76,7 @@ export function loadLlamaShim() {
     throw new Error(`llama_shim not found. Tried:\n  ${tried.join("\n  ")}`);
   }
 
-  const lib = dlopen(libPath, {
+  const base: Parameters<typeof dlopen>[1] = {
     lls_version: { args: [], returns: FFIType.cstring },
     lls_model_load: { args: [FFIType.cstring, FFIType.ptr], returns: FFIType.ptr },
     lls_model_free: { args: [FFIType.ptr], returns: FFIType.void },
@@ -100,7 +103,25 @@ export function loadLlamaShim() {
     lls_generate_end: { args: [FFIType.ptr], returns: FFIType.void },
     lls_gguf_meta: { args: [FFIType.cstring, FFIType.ptr], returns: FFIType.ptr },
     lls_free_string: { args: [FFIType.ptr], returns: FFIType.void },
-  });
+  };
+  // feature 010: prefer the state symbols; a stale shim that lacks
+  // them still loads without (snapshot layer then no-ops)
+  const stateSyms = {
+    lls_state_save: {
+      args: [FFIType.ptr, FFIType.cstring, FFIType.ptr],
+      returns: FFIType.i32,
+    },
+    lls_state_load: {
+      args: [FFIType.ptr, FFIType.cstring, FFIType.ptr],
+      returns: FFIType.i32,
+    },
+  } as const;
+  let lib: ReturnType<typeof dlopen>;
+  try {
+    lib = dlopen(libPath, { ...base, ...stateSyms });
+  } catch {
+    lib = dlopen(libPath, base);
+  }
 
   return { lib, path: libPath, symbols: lib.symbols as unknown as LlamaShimSymbols };
 }

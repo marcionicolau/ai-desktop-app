@@ -10,6 +10,7 @@ import type {
   ResolvedRole,
 } from "../../shared/types";
 import type { ModelRegistry, SlotEngine } from "../models/registry";
+import type { SnapshotStore } from "../kv/store";
 import { buildExecutorPrompt, buildPlannerPrompt } from "./plan-prompt";
 import { buildPrompt, type PromptTurn } from "./prompt";
 
@@ -19,6 +20,8 @@ export interface FusionTurnOpts {
   planner: ResolvedRole[];
   executor: ResolvedRole[];
   registry: ModelRegistry;
+  // feature 010 (FR-007): per-phase snapshots keyed planner/executor
+  snapshot?: SnapshotStore;
   conversationId: string;
   history: PromptTurn[]; // newest-first, same convention as chat path
   current: string; // the user's message text (may carry injected file blocks)
@@ -69,6 +72,8 @@ async function genPhase(opts: {
   eng: SlotEngine;
   params: GenerationParams;
   conversationId: string;
+  roleKey?: string; // feature 010
+  snapshot?: SnapshotStore; // feature 010
   history: PromptTurn[];
   current: string;
   system?: string;
@@ -93,6 +98,8 @@ async function genPhase(opts: {
       // oxlint-disable-next-line no-await-in-loop -- sequential budget-halving retry
       return await opts.eng.generate(built.prompt, opts.onToken, opts.params, {
         conversationId: opts.conversationId,
+        roleKey: opts.roleKey,
+        snapshot: opts.snapshot,
       });
     } catch (e) {
       if (!isCtxOverflow(e) || budget <= 256) throw e;
@@ -142,6 +149,8 @@ export async function runFusionTurn(
           eng: slot.engine,
           params: role.params,
           conversationId: o.conversationId,
+          roleKey: kind,
+          snapshot: o.snapshot,
           history,
           current,
           system,

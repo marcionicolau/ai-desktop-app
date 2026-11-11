@@ -28,6 +28,9 @@ export class ModelRegistry {
   constructor(
     private maxSlots = DEFAULT_MAX_SLOTS,
     private factory: () => SlotEngine = () => new LlamaEngine(),
+    // feature 010 FR-008: invoked before a slot frees so its KV state
+    // can be offered to the snapshot store
+    private onEvict?: (slot: ModelSlot) => void,
   ) {}
 
   size(): number {
@@ -112,6 +115,11 @@ export class ModelRegistry {
   evict(path: string): void {
     const s = this.slots.get(path);
     if (!s) return;
+    try {
+      this.onEvict?.(s);
+    } catch {
+      /* snapshot offer is best-effort */
+    }
     s.engine.unloadModel();
     s.engine.dispose();
     this.slots.delete(path);
@@ -159,7 +167,7 @@ export function createRegistryEngine(deps: RegistryEngineDeps) {
       prompt: string,
       onToken: (delta: string) => void,
       params?: Parameters<SlotEngine["generate"]>[2],
-      opts?: { conversationId?: string },
+      opts?: Parameters<SlotEngine["generate"]>[3],
     ) => {
       const s = active();
       if (!s) throw new EngineError("NO_MODEL", "no model is loaded");

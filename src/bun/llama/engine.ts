@@ -1,13 +1,15 @@
 // Typed engine wrapper over the llama_shim FFI surface.
 // Pull model: generate() drives an async lls_step loop on the JS thread,
 // yielding to the event loop between steps so RPC stays responsive.
-import { accessSync, constants, existsSync } from "node:fs";
+import { accessSync, constants, existsSync, renameSync, rmSync } from "node:fs";
 import { ptr } from "bun:ffi";
 import { basename } from "node:path";
 import type { RpcErrorCode } from "../../shared/rpc-contract";
 import type { GenerationParams } from "../../shared/types";
 import { loadLlamaShim, newErrSlot, readErr, type LlamaShim } from "./ffi";
 import { packParams } from "./params";
+import { entryKey, type SnapshotStore } from "../kv/store";
+import { modelFingerprint } from "../models/library";
 
 export class EngineError extends Error {
   constructor(
@@ -29,6 +31,8 @@ export class LlamaEngine {
   private generating = false;
   private stopRequested = false;
   private kvConvId: string | null = null;
+  private kvRoleKey = "main"; // feature 010: "main"|"planner"|"executor"
+  private modelPath: string | null = null;
   private tokenBuf = new Uint8Array(TOKEN_BUF_CAP);
   private outLen = new BigUint64Array(1);
 
@@ -79,6 +83,7 @@ export class LlamaEngine {
     this.model = model;
     this.ctx = ctx;
     this.modelName = basename(path);
+    this.modelPath = path;
     return { status: "ready", name: this.modelName };
   }
 
@@ -95,6 +100,7 @@ export class LlamaEngine {
       this.model = null;
     }
     this.modelName = null;
+    this.modelPath = null;
     this.generating = false;
     this.stopRequested = false;
     this.kvConvId = null;
@@ -137,7 +143,11 @@ export class LlamaEngine {
     prompt: string,
     onToken: (delta: string) => void,
     params?: GenerationParams | null,
-    opts?: { conversationId?: string },
+    opts?: {
+      conversationId?: string;
+      roleKey?: string; // feature 010: fusion phase key
+      snapshot?: SnapshotStore; // feature 010: enables save/restore
+    },
   ): Promise<{
     status: "complete" | "partial";
     tokens: number;
@@ -158,7 +168,16 @@ export class LlamaEngine {
     // the shim verifies the token prefix and falls back to a full decode
     // on any mismatch (correctness is guaranteed in C)
     const convId = opts?.conversationId;
-    const resume = convId !== undefined && convId === this.kvConvId;
+    const roleKey = opts?.roleKey ?? "main";
+    let resume =
+      convId !== undefined &&
+      convId === this.kvConvId &&
+      roleKey === this.kvRoleKey;
+    // feature 010: cold slot → try a disk snapshot before re-prefill;
+    // any failure is silent and falls through to normal prefill (FR-009)
+    if (!resume && convId && opts?.snapshot && this.modelPath) {
+      resume = this.tryRestore(opts.snapshot, convId, roleKey);
+    }
     const pptr = pbuf ? ptr(pbuf) : null;
     const rc = resume
       ? symbols.lls_generate_continue(this.ctx, prompt, pptr, ptr(err))
@@ -169,6 +188,7 @@ export class LlamaEngine {
     }
     const warm = resume && rc === 0;
     this.kvConvId = convId ?? this.kvConvId;
+    if (convId) this.kvRoleKey = roleKey;
 
     const started = performance.now();
     let tokens = 0;
@@ -209,7 +229,71 @@ export class LlamaEngine {
     } finally {
       symbols.lls_generate_end(this.ctx);
       this.generating = false;
+      // feature 010: turn boundary → persist the decode state (FR-001).
+      // Best-effort: any failure just means no snapshot this turn.
+      if (convId && opts?.snapshot) {
+        try {
+          this.saveState(opts.snapshot);
+        } catch {
+          /* accelerator only */
+        }
+      }
     }
+  }
+
+  // feature 010: serialize resident KV for (kvConvId, kvRoleKey) via
+  // shim → .tmp → rename → manifest. No-ops without a loaded model, a
+  // state-capable shim, or a tagged conversation.
+  saveState(store: SnapshotStore): void {
+    const { symbols } = this.shim ?? {};
+    if (
+      !this.ctx ||
+      !symbols?.lls_state_save ||
+      !this.kvConvId ||
+      !this.modelPath
+    )
+      return;
+    const key = entryKey(this.kvConvId, this.kvRoleKey);
+    const tmp = store.tmpPath(key);
+    const err = newErrSlot();
+    if (symbols.lls_state_save(this.ctx, tmp, ptr(err)) !== 0) {
+      rmSync(tmp, { force: true });
+      return;
+    }
+    renameSync(tmp, store.blobPath(key));
+    store.save({
+      key,
+      convId: this.kvConvId,
+      roleKey: this.kvRoleKey,
+      modelPath: this.modelPath,
+      fingerprint: modelFingerprint(this.modelPath),
+      ctxSize: this.contextSize(),
+    });
+  }
+
+  // feature 010: manifest-gated restore. Returns true when the shim
+  // loaded the snapshot (kvConvId/kvRoleKey then track it).
+  private tryRestore(
+    store: SnapshotStore,
+    convId: string,
+    roleKey: string,
+  ): boolean {
+    const { symbols } = this.shim ?? {};
+    if (!this.ctx || !symbols?.lls_state_load || !this.modelPath)
+      return false;
+    const key = entryKey(convId, roleKey);
+    const p = store.lookup(
+      key,
+      modelFingerprint(this.modelPath),
+      this.contextSize(),
+    );
+    if (!p) return false;
+    const err = newErrSlot();
+    if (symbols.lls_state_load(this.ctx, p, ptr(err)) !== 0) return false;
+    this.kvConvId = convId;
+    this.kvRoleKey = roleKey;
+    store.touch(key);
+    return true;
   }
 
   dispose(): void {

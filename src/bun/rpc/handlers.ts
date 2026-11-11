@@ -56,6 +56,10 @@ import {
 import * as store from "../store/json-store";
 import { backfillTree } from "../store/json-store";
 import {
+  DEFAULT_SNAPSHOT_POLICY,
+  SnapshotStore,
+} from "../kv/store";
+import {
   deepestLeaf,
   leafOf,
   parentOf,
@@ -98,7 +102,11 @@ export interface EngineLike {
     prompt: string,
     onToken: (delta: string) => void,
     params?: GenerationParams | null,
-    opts?: { conversationId?: string },
+    opts?: {
+      conversationId?: string;
+      roleKey?: string; // feature 010
+      snapshot?: SnapshotStore; // feature 010
+    },
   ): Promise<{
     status: "complete" | "partial";
     tokens: number;
@@ -106,6 +114,8 @@ export interface EngineLike {
     warm: boolean;
   }>;
   stop(): void;
+  // feature 010: persist resident KV for the tagged conversation
+  saveState?(store: SnapshotStore): void;
 }
 
 export interface StoreLike {
@@ -126,6 +136,9 @@ export interface HandlerDeps {
   registry?: ModelRegistry;
   // feature 006: personas/snippets service; absent in two-dep harnesses
   personas?: PersonaService;
+  // feature 010: snapshot store; absent → module singleton in prod,
+  // disabled in tests that don't inject one
+  snapshots?: SnapshotStore;
   // feature 008: file pickers, injectable for headless tests
   dialogs?: {
     pickFolder(): Promise<string | null>;
@@ -156,6 +169,17 @@ const isCtxOverflow = (e: unknown) =>
 
 export function createRequestHandlers(deps: HandlerDeps) {
   let activeMessageId: string | null = null;
+  // feature 010: absent dep → snapshot layer off (tests); prod injects
+  // the module singleton via createRpc
+  const snap = deps.snapshots ?? null;
+  const snapSync = () => {
+    if (!snap) return null;
+    snap.policy = {
+      ...DEFAULT_SNAPSHOT_POLICY,
+      ...deps.store.getSettings().snapshot,
+    };
+    return snap;
+  };
 
   const persist = (conv: Conversation) => deps.store.saveConversation(conv);
 
@@ -316,6 +340,7 @@ export function createRequestHandlers(deps: HandlerDeps) {
           planner,
           executor,
           registry: deps.registry,
+          snapshot: snapSync() ?? undefined,
           conversationId: conv.id,
           history,
           current,
@@ -422,7 +447,7 @@ export function createRequestHandlers(deps: HandlerDeps) {
                   deps.emit("chat.token", { messageId, delta });
                 },
                 genParams,
-                { conversationId: conv.id },
+                { conversationId: conv.id, snapshot: snapSync() ?? undefined },
               );
               if (attempt.role?.servedBy.kind === "fallback") {
                 assistantMsg.phases = {
@@ -1144,6 +1169,11 @@ export function createRequestHandlers(deps: HandlerDeps) {
     // feature 007: best-effort search — malformed/short queries degrade
     // to empty groups rather than INVALID_PARAMS
     "search.query": ({ q }: { q: string }) => searchIndex().query(q),
+    // feature 010 (US2): snapshot storage surface
+    "snapshot.stats": () =>
+      snapSync()?.stats() ?? { count: 0, usedBytes: 0, maxBytes: 0 },
+    "snapshot.clear": () =>
+      snapSync()?.clear() ?? { removed: 0, freedBytes: 0 },
     // feature 008: export/import — dialogs are injectable (deps.dialogs);
     // absent dep = treat as cancelled, so headless tests stay safe
     "conversation.export": async ({
@@ -1330,7 +1360,18 @@ export function createRequestHandlers(deps: HandlerDeps) {
 
 export type RequestHandlers = ReturnType<typeof createRequestHandlers>;
 
-const registry = new ModelRegistry();
+// feature 010: lazily-built singleton (kvDir under APP_DATA_DIR in
+// tests, userData in prod); policy synced per access in createRequestHandlers
+let snapStore: SnapshotStore | null = null;
+function snapshotStore(): SnapshotStore {
+  snapStore ??= new SnapshotStore();
+  return snapStore;
+}
+
+const registry = new ModelRegistry(undefined, undefined, (slot) =>
+  // FR-008: offer the evicted slot's resident KV to disk before free
+  slot.engine.saveState?.(snapshotStore()),
+);
 const roles = new RolesService({ store });
 const personas = new PersonaService({
   store,
@@ -1368,6 +1409,7 @@ export function createRpc() {
     roles,
     registry,
     personas,
+    snapshots: snapshotStore(),
     emit: (m, p) => emit(m, p),
     store,
     dialogs: {

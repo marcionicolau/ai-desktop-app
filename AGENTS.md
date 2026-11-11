@@ -237,3 +237,24 @@ draft-side; `MessageList` renders `Message.attachments` chips (`·trunc` /
   debounce, seq-guard for stale responses, `<3` = title filter); hit
   click → `selectConversation(cid, mid)` → `scrollTarget` →
   `MessageList` `scrollIntoView` + 2 s ring flash.
+
+## Feature 010 — KV-state persistence
+
+- `kv/store.ts` `SnapshotStore` — manifest `index.json` + `.kv` blobs
+  under `dataDir()/kv`; write protocol = shim `.tmp` → rename →
+  `store.save()`; ctor sweeps torn `.tmp` + orphan blobs + blob-less
+  entries. `policy` is synced from `settings.snapshot` per call
+  (`DEFAULT_SNAPSHOT_POLICY` = on, 2 GiB).
+- `modelFingerprint(path)` = `path|size|sha256(head64K‖tail64K)` — no
+  cache; `lookup` also gates on `ctxSize`.
+- Engine: `generate` opts `{conversationId, roleKey, snapshot}`;
+  `tryRestore` on cold slot → `lls_generate_continue` LCP-resumes;
+  auto-`saveState` in the finally. `roleKey` = `main|planner|executor`
+  (fusion passes it through `genPhase`).
+- Shim: `lls_state_save/load` wrap `llama_state_*_file`; **load must
+  repopulate `kv_tokens` + `pos`** or continue-LCP breaks. `ffi.ts`
+  dlopens with state symbols, falls back to base set on stale shim —
+  snapshot layer no-ops then.
+- `ModelRegistry` 3rd ctor arg `onEvict(slot)` → FR-008 disk offer.
+- `snapshot.stats`/`snapshot.clear` RPC; `deps.snapshots` absent ⇒
+  feature off (tests).
