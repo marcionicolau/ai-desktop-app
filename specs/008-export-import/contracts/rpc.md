@@ -22,7 +22,9 @@ Additions to `src/shared/rpc-contract.ts`. Existing methods unchanged.
   fresh uuid map (D3); persists via `saveConversation`; returns the new
   id. `conversationId: null` when cancelled. Only `kind="conversation"`
   files are accepted (`INVALID_PARAMS` "expected conversation export"
-  on backup).
+  on backup). If the envelope carries more than one entry in
+  `conversations[]`, every entry is imported and the response returns
+  the FIRST imported conversation id.
 - **backup.export**: one envelope with every conversation + settings +
   tags (`kind="backup"`).
 - **backup.import**: accepts only `kind="backup"`; restores all

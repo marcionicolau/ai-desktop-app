@@ -90,8 +90,9 @@ a fresh profile), import — conversations and configuration are restored.
 - Absolute model paths in stored data MUST NOT leak into export files
   (privacy + portability) — bindings export as file names/tag names.
 - Import into an empty library: ids regenerate if collisions exist.
-- Very large conversations: export streams/chunks rather than blocking
-  the UI.
+- Very large conversations: synchronous export is acceptable within the
+  SC-002 envelope (500 messages &lt; 2 s); chunked export is deferred —
+  only needed if backups grow to multi-MB.
 - Import preserves message ordering, variants (if branching exists),
   and phase artifacts.
 
