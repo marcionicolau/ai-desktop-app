@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { MessageSquarePlus, Trash2 } from "lucide-react";
+import { Download, MessageSquarePlus, Trash2, Upload } from "lucide-react";
 import type { ConversationSummary } from "@shared/types";
 import {
   AlertDialog,
@@ -23,6 +23,8 @@ interface Props {
   onNew: () => void;
   onRename: (id: string, title: string) => void;
   onDelete: (id: string) => void;
+  onExport: (id: string, format: "markdown" | "json") => Promise<string | null>;
+  onImport: () => Promise<string | null>;
 }
 
 export function Sidebar({
@@ -32,10 +34,18 @@ export function Sidebar({
   onNew,
   onRename,
   onDelete,
+  onExport,
+  onImport,
 }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
   const [filter, setFilter] = useState("");
+  const [notice, setNotice] = useState<string | null>(null);
+
+  const flash = (text: string) => {
+    setNotice(text);
+    setTimeout(() => setNotice(null), 5000);
+  };
 
   const visible = filter.trim()
     ? conversations.filter((c) =>
@@ -60,12 +70,36 @@ export function Sidebar({
         >
           <MessageSquarePlus /> New chat
         </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-full justify-start gap-2"
+          onClick={() => {
+            void onImport()
+              .then((id) => {
+                if (!id) return; // cancelled
+                flash("Conversation imported.");
+              })
+              .catch((e: unknown) => {
+                flash(
+                  `Import failed: ${e instanceof Error ? e.message : String(e)}`,
+                );
+              });
+          }}
+        >
+          <Upload /> Import…
+        </Button>
         <Input
           placeholder="Filter chats…"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           className="h-7 text-sm"
         />
+        {notice && (
+          <p className="truncate px-1 text-xs text-muted-foreground" title={notice}>
+            {notice}
+          </p>
+        )}
       </div>
       <div className="flex-1 overflow-y-auto">
         {visible.length === 0 && conversations.length > 0 && (
@@ -108,6 +142,46 @@ export function Sidebar({
                 {c.title}
               </button>
             )}
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <button
+                  className="invisible shrink-0 rounded p-1 text-muted-foreground hover:text-foreground group-hover:visible"
+                  title="Export conversation"
+                >
+                  <Download className="size-3.5" />
+                </button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Export conversation</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Choose a format for "{c.title}". You'll pick a folder next;
+                    cancelled pickers are ignored.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => {
+                      void onExport(c.id, "markdown").then((p) => {
+                        if (p) flash(`Exported to ${p}`);
+                      });
+                    }}
+                  >
+                    Markdown
+                  </AlertDialogAction>
+                  <AlertDialogAction
+                    onClick={() => {
+                      void onExport(c.id, "json").then((p) => {
+                        if (p) flash(`Exported to ${p}`);
+                      });
+                    }}
+                  >
+                    JSON
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <button

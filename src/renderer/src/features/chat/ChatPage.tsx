@@ -8,6 +8,7 @@ import { Sidebar } from "./Sidebar";
 import { ModelPicker } from "../models/ModelPicker";
 import { ModelLibrary } from "../models/ModelLibrary";
 import { GenerationSettings } from "../settings/GenerationSettings";
+import { DataPanel } from "../settings/DataPanel";
 import { RolesPanel } from "../roles/RolesPanel";
 import { FusionControls } from "../roles/FusionControls";
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,8 @@ export function ChatPage() {
     newConversation,
     renameConversation,
     deleteConversation,
+    exportConversation,
+    importConversation,
     pickModel,
     saveGeneration,
     regenerate,
@@ -47,6 +50,8 @@ export function ChatPage() {
         onNew={newConversation}
         onRename={(id, t) => void renameConversation(id, t)}
         onDelete={(id) => void deleteConversation(id)}
+        onExport={(id, f) => exportConversation(id, f)}
+        onImport={importConversation}
       />
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex items-center justify-between border-b border-border px-4 py-2">
@@ -94,10 +99,13 @@ export function ChatPage() {
           </div>
         </header>
         {settingsOpen && (
-          <GenerationSettings
-            value={state.generation}
-            onSave={saveGeneration}
-          />
+          <>
+            <GenerationSettings
+              value={state.generation}
+              onSave={saveGeneration}
+            />
+            <DataPanel />
+          </>
         )}
         {rolesOpen && <RolesPanel />}
         {libraryOpen && (

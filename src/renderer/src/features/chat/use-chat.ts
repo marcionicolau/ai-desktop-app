@@ -362,6 +362,25 @@ export function useChat() {
     [refreshList, newConversation],
   );
 
+  // feature 008: returns the written path, or null when the picker cancelled
+  const exportConversation = useCallback(
+    async (id: string, format: "markdown" | "json") => {
+      const r = await invoke("conversation.export", {
+        conversationId: id,
+        format,
+      });
+      return r.path;
+    },
+    [],
+  );
+
+  const importConversation = useCallback(async () => {
+    const r = await invoke("conversation.import", {});
+    await refreshList();
+    if (r.conversationId) await selectConversation(r.conversationId);
+    return r.conversationId;
+  }, [refreshList, selectConversation]);
+
   // bootstrap: restore latest conversation + model status, subscribe to events
   useEffect(() => {
     let cancelled = false;
@@ -686,6 +705,8 @@ export function useChat() {
     newConversation,
     renameConversation,
     deleteConversation,
+    exportConversation,
+    importConversation,
     regenerate,
     editMessage,
     setMode,

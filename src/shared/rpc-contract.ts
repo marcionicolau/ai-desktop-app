@@ -147,6 +147,23 @@ export interface ChatRpcSchema extends ElectrobunRPCSchema {
         params: { conversationId: string };
         response: Record<string, never>;
       };
+      // feature 008: export/import. path null = user cancelled the picker
+      "conversation.export": {
+        params: { conversationId: string; format: "markdown" | "json" };
+        response: { path: string | null };
+      };
+      "conversation.import": {
+        params: Record<string, never>;
+        response: { conversationId: string | null };
+      };
+      "backup.export": {
+        params: Record<string, never>;
+        response: { path: string | null };
+      };
+      "backup.import": {
+        params: Record<string, never>;
+        response: { imported: number | null };
+      };
       "conversation.setMode": {
         params: {
           conversationId: string;
