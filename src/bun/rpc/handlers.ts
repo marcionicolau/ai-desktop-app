@@ -20,7 +20,9 @@ import type {
 import { DEFAULT_GENERATION } from "../../shared/types";
 import { EngineError } from "../llama/engine";
 import { mergeParams, validateParams } from "../llama/params";
-import { buildPrompt, type PromptTurn } from "../llama/prompt";
+import { buildPrompt, composeSystem, type PromptTurn } from "../llama/prompt";
+import { runToolLoop } from "../tools/loop";
+import { ToolService } from "../tools/service";
 import { modelsDir, scanModels } from "../models/library";
 import { runBenchmark } from "../advisor/benchmark";
 import { fingerprint, loadBenchmarks } from "../advisor/store";
@@ -145,6 +147,9 @@ export interface HandlerDeps {
   snapshots?: SnapshotStore;
   // feature 016: metrics ring; absent → panel off in tests
   metrics?: MetricsStore;
+  // feature 015: tool policy/grants/deferrals; absent → tools disabled
+  // (prompt injection off; stray blocks refuse as "disabled")
+  tools?: ToolService;
   // feature 008: file pickers, injectable for headless tests
   dialogs?: {
     pickFolder(): Promise<string | null>;
@@ -186,6 +191,15 @@ export function createRequestHandlers(deps: HandlerDeps) {
   // feature 010: absent dep → snapshot layer off (tests); prod injects
   // the module singleton via createRpc
   const snap = deps.snapshots ?? null;
+  // feature 015: lazily built so tests without the dep get a disabled
+  // service (deny default) rather than a crash
+  let toolsSvc: ToolService | null = null;
+  const tools = () =>
+    (toolsSvc ??=
+      deps.tools ?? new ToolService({ getSettings: () => deps.store.getSettings() }));
+  // feature 015: turn-level busy — covers the approval pause where the
+  // engine itself is not generating
+  const turnBusy = () => deps.engine.isGenerating() || activeMessageId !== null;
   // feature 016: gated on settings.outputPanel — off ⇒ zero entries
   const recordCall = (e: Omit<MetricEntry, "id" | "ts">) => {
     if (!deps.metrics || !deps.store.getSettings().outputPanel) return;
@@ -364,6 +378,11 @@ export function createRequestHandlers(deps: HandlerDeps) {
         if (executor.length === 0) {
           fail("ROLE_UNBOUND", `executor role "${conv.executorTag}" has no bound model`);
         }
+        // feature 015 (FR-009/FR-012): instructions go to the executor's
+        // system prompt only when tools are active; the planner's output
+        // is never scanned — only the executor may issue calls
+        const toolsActive =
+          tools().active() && tools().sandbox() !== null;
         const res = await runFusionTurn({
           planner,
           executor,
@@ -373,7 +392,29 @@ export function createRequestHandlers(deps: HandlerDeps) {
           history,
           current,
           plannerText,
-          executorSystem: persona?.systemPrompt,
+          executorSystem: composeSystem(persona?.systemPrompt, toolsActive),
+          tools: {
+            service: tools(),
+            messageId,
+            isStopped: () => pendingStop === messageId,
+            onBudgetWarning: () =>
+              deps.emit("chat.warning", {
+                messageId,
+                code: "TOOL_BUDGET",
+                message:
+                  "Tool-call limit reached for this turn; the model was told to finish.",
+              }),
+            onCall: (call) => {
+              assistantMsg.toolCalls ??= [];
+              const i = assistantMsg.toolCalls.findIndex(
+                (x) => x.id === call.id,
+              );
+              if (i >= 0) assistantMsg.toolCalls[i] = { ...call };
+              else assistantMsg.toolCalls.push({ ...call });
+              dirty = true;
+              deps.emit("tool.update", { messageId, call: { ...call } });
+            },
+          },
           onTruncated: warnTruncated,
           // feature 016: one entry per phase; persona added here so
           // fusion.ts stays persona-agnostic
@@ -471,20 +512,50 @@ export function createRequestHandlers(deps: HandlerDeps) {
           const chatml = (eng.chatTemplate() ?? "").includes("im_start");
           const costOf = (t: { content: string }) =>
             eng.tokenCount(t.content) + 8; // ~wrapper tokens per turn
+          // feature 015 (FR-012): tool instructions only when the policy
+          // is active AND the sandbox actually exists — deny/unset root
+          // yields the persona-only system prompt (byte-identical)
+          const toolsActive =
+            tools().active() && tools().sandbox() !== null;
           let budget = baseBudget;
           for (;;) {
             const built = buildPrompt(history, current, {
               chatml,
               budget,
               costOf,
-              system: persona?.systemPrompt,
+              system: composeSystem(persona?.systemPrompt, toolsActive),
             });
             if (built.truncated) warnTruncated();
             try {
               // oxlint-disable-next-line no-await-in-loop -- sequential budget-halving retry
-              const r = await eng.generate(
-                built.prompt,
-                (delta) => {
+              const r = await runToolLoop(eng, built.prompt, {
+                tools: tools(),
+                conversationId: conv.id,
+                messageId,
+                genParams,
+                genOpts: {
+                  conversationId: conv.id,
+                  snapshot: snapSync() ?? undefined,
+                },
+                isStopped: () => pendingStop === messageId,
+                onBudgetWarning: () =>
+                  deps.emit("chat.warning", {
+                    messageId,
+                    code: "TOOL_BUDGET",
+                    message:
+                      "Tool-call limit reached for this turn; the model was told to finish.",
+                  }),
+                onCall: (call) => {
+                  assistantMsg.toolCalls ??= [];
+                  const i = assistantMsg.toolCalls.findIndex(
+                    (x) => x.id === call.id,
+                  );
+                  if (i >= 0) assistantMsg.toolCalls[i] = { ...call };
+                  else assistantMsg.toolCalls.push({ ...call });
+                  dirty = true;
+                  deps.emit("tool.update", { messageId, call: { ...call } });
+                },
+                onDelta: (delta) => {
                   if (!emitted) {
                     emitted = true;
                     // surface fallback service in the chat timeline
@@ -505,9 +576,7 @@ export function createRequestHandlers(deps: HandlerDeps) {
                   // a stop queued during load/prefill lands on first token
                   if (pendingStop === messageId) deps.engine.stop();
                 },
-                genParams,
-                { conversationId: conv.id, snapshot: snapSync() ?? undefined },
-              );
+              });
               recordCall({
                 conversationId: conv.id,
                 modelFile:
@@ -677,7 +746,7 @@ export function createRequestHandlers(deps: HandlerDeps) {
       if (!existsSync(path)) {
         fail("MODEL_NOT_FOUND", `model file not found: ${path}`);
       }
-      if (benchmarking || deps.engine.isGenerating()) {
+      if (benchmarking || turnBusy()) {
         fail("ENGINE_BUSY", "a generation or benchmark is already active");
       }
       benchmarking = true;
@@ -896,7 +965,7 @@ export function createRequestHandlers(deps: HandlerDeps) {
     }) => {
       const text = content.trim();
       if (!text) fail("EMPTY_MESSAGE", "message must not be empty");
-      if (deps.engine.isGenerating()) {
+      if (turnBusy()) {
         fail("ENGINE_BUSY", "a generation is already in progress");
       }
       if (deps.engine.status().status !== "ready") {
@@ -985,7 +1054,7 @@ export function createRequestHandlers(deps: HandlerDeps) {
       return pickAndStore(list);
     },
     "chat.regenerate": ({ messageId }: { messageId: string }) => {
-      if (deps.engine.isGenerating()) {
+      if (turnBusy()) {
         fail("ENGINE_BUSY", "a generation is already in progress");
       }
       if (deps.engine.status().status !== "ready") {
@@ -1049,7 +1118,7 @@ export function createRequestHandlers(deps: HandlerDeps) {
     }) => {
       const text = content.trim();
       if (!text) fail("EMPTY_MESSAGE", "message must not be empty");
-      if (deps.engine.isGenerating()) {
+      if (turnBusy()) {
         fail("ENGINE_BUSY", "a generation is already in progress");
       }
       if (deps.engine.status().status !== "ready") {
@@ -1092,7 +1161,7 @@ export function createRequestHandlers(deps: HandlerDeps) {
       return { messageId: assistantMsg.id };
     },
     "message.selectVariant": ({ messageId }: { messageId: string }) => {
-      if (deps.engine.isGenerating()) {
+      if (turnBusy()) {
         fail("ENGINE_BUSY", "a generation is already in progress");
       }
       const found = findMessage(messageId);
@@ -1112,8 +1181,28 @@ export function createRequestHandlers(deps: HandlerDeps) {
       // engine may not have started yet (load/prefill) — flag it so the
       // earliest observable point in run()/onToken turns it into partial
       pendingStop = messageId;
+      // feature 015: a pending tool approval resolves as discarded
+      tools().discardPending(messageId);
       deps.engine.stop();
       return {};
+    },
+    // feature 015: decision on a pending tool call
+    "tool.respond": ({
+      callId,
+      decision,
+    }: {
+      callId: string;
+      decision: "approve" | "deny" | "allowSession";
+    }) => {
+      if (!tools().respond(callId, decision)) {
+        fail("NOT_FOUND", `no pending tool call ${callId}`);
+      }
+      return {};
+    },
+    // feature 015: sandbox-root folder picker; null = cancelled
+    "tool.pickRoot": async () => {
+      const path = (await deps.dialogs?.pickFolder()) ?? null;
+      return { path };
     },
     "settings.get": () => {
       const s = deps.store.getSettings();
@@ -1122,12 +1211,15 @@ export function createRequestHandlers(deps: HandlerDeps) {
         modelOverrides: s.modelOverrides,
         // feature 016: default off
         outputPanel: s.outputPanel ?? false,
+        // feature 015: default {root: null, mode: deny} = inactive
+        tools: s.tools ?? { sandboxRoot: null, mode: "deny" },
       };
     },
     "settings.set": ({
       generation,
       modelOverride,
       outputPanel,
+      tools: toolsPatch,
     }: {
       generation?: Partial<GenerationParams>;
       outputPanel?: boolean;
@@ -1135,6 +1227,7 @@ export function createRequestHandlers(deps: HandlerDeps) {
         fileName: string;
         params: Partial<GenerationParams> | null;
       };
+      tools?: Partial<import("../../shared/types").ToolPolicy>;
     }) => {
       const err =
         (generation ? validateParams(generation) : null) ??
@@ -1146,6 +1239,30 @@ export function createRequestHandlers(deps: HandlerDeps) {
         next.generation = mergeParams(s.generation, generation);
       }
       if (outputPanel !== undefined) next.outputPanel = outputPanel;
+      if (toolsPatch) {
+        // feature 015: merge into existing policy; a set root must be an
+        // existing directory, mode must be a known value
+        const cur = s.tools ?? { sandboxRoot: null, mode: "deny" as const };
+        const merged = { ...cur, ...toolsPatch };
+        if (
+          merged.mode !== "ask" &&
+          merged.mode !== "allow-read-session" &&
+          merged.mode !== "deny"
+        ) {
+          fail("INVALID_PARAMS", `unknown tool mode: ${merged.mode}`);
+        }
+        if (merged.sandboxRoot !== null) {
+          try {
+            if (!statSync(merged.sandboxRoot).isDirectory()) {
+              fail("INVALID_PARAMS", "sandbox root is not a directory");
+            }
+          } catch (e) {
+            if (e instanceof EngineError) throw e;
+            fail("INVALID_PARAMS", "sandbox root does not exist");
+          }
+        }
+        next.tools = merged;
+      }
       if (modelOverride) {
         if (modelOverride.params === null) {
           delete next.modelOverrides[modelOverride.fileName];

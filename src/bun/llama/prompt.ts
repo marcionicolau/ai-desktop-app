@@ -28,6 +28,27 @@ export interface BuildPromptOpts {
 const OVERHEAD_CHARS = 32; // per-turn template wrapper estimate
 const defaultCost = (t: PromptTurn) => t.content.length + OVERHEAD_CHARS;
 
+// feature 015: tool-use instruction injected only when the tool policy
+// is active (FR-012) — deny mode leaves prompts byte-identical
+export const TOOL_INSTRUCTIONS = `You may request read-only filesystem access inside the user's sandbox by emitting exactly one fenced block per request:
+
+\`\`\`tool_call
+{"tool":"read_file","path":"<path inside the sandbox>"}
+\`\`\`
+
+Tools: "read_file" (returns file contents) and "list_dir" (returns entry names, "/" suffix for directories). After the block, stop writing — the result arrives in a \`\`\`tool_result\`\`\` block, then continue your answer. Do not emit more than one block per reply.`;
+
+// persona system prompt + tool instructions share the system slot
+export function composeSystem(
+  persona: string | undefined,
+  toolsActive: boolean,
+): string | undefined {
+  const parts = [persona, toolsActive ? TOOL_INSTRUCTIONS : null].filter(
+    (p): p is string => !!p,
+  );
+  return parts.length ? parts.join("\n\n") : undefined;
+}
+
 // history is newest-first (most recent turn at index 0); the current user
 // message is always kept. Oldest turns are dropped when over budget.
 export function buildPrompt(

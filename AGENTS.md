@@ -282,3 +282,44 @@ draft-side; `MessageList` renders `Message.attachments` chips (`·trunc` /
 - Renderer: `features/metrics/OutputPanel.tsx` — bottom sibling under
   Composer in ChatPage's flex-col (pushes messages up, never overlays);
   model tabs + role→persona groups + Clear; header checkbox toggle.
+
+## Feature 015 — sandboxed local tool use
+
+- Convention: ```` ```tool_call ```` fenced block with one JSON
+  `{tool,path}`; `read_file`/`list_dir` only. Results re-enter the stream
+  as ```` ```tool_result ```` blocks (visible + prompt context).
+- `shared/tool-call.ts` — pure parser: `scanBlocks` (spans for renderer
+  splitting + loop detection), `parseCallBody`, `renderResultBlock`.
+- `tools/sandbox.ts` — realpath root + containment (`isWithin`); relative
+  resolves under root, absolute must stay inside; missing-in-root file →
+  tool error, NOT refusal.
+- `tools/executor.ts` — read_file/list_dir, 8 KiB byte cap with UTF-8
+  boundary fix, `\n…[truncated]` marker.
+- `tools/service.ts` `ToolService` — policy from `settings.tools`
+  (`{sandboxRoot, mode: ask|allow-read-session|deny}`); `autoApprove` =
+  mode allow-read-session OR per-conversation `grants` (in-memory only);
+  `awaitDecision` deferral resolved by `tool.respond`/`discardPending`.
+- `tools/loop.ts` `runToolLoop(eng, prompt, opts)` — the turn driver:
+  stream → complete call block → `eng.stop()` → verdict → (pending →
+  deferred decision) → execute → inject result → `generate` continues on
+  the KV prefix. `TOOL_BUDGET = 5`; on cap → `TOOL_BUDGET` warning +
+  `disarmed` (later blocks get inert `refused/budget` records). Continuation
+  ctx-overflow → `elideResults` once (old `tool_result` bodies become
+  markers) then cold re-prefill. Pending calls register `awaitDecision`
+  BEFORE `onCall` emits — a respond inside emit must find the map entry.
+- `tools/audit.ts` — append-only `dataDir()/tool-audit.jsonl`, one line
+  per executed/errored call; refusals/denials never audit.
+- Handlers: `turnBusy()` = `engine.isGenerating() || activeMessageId` —
+  approval pauses still gate sends/regens. `chat.stop` → `discardPending`
+  then engine stop. `tool.respond`/`tool.pickRoot`/`settings.tools` in
+  the contract; `chat.warning` code `TOOL_BUDGET`.
+- Prompt: `composeSystem(persona, toolsActive)` appends
+  `TOOL_INSTRUCTIONS` only when `service.active() && sandbox() !== null`
+  — deny/unset ⇒ byte-identical prompt.
+- Fusion: `genToolPhase` in fusion.ts mirrors `genPhase` budgeting but
+  runs the executor's answer inside `runToolLoop`; planner output is
+  never scanned (planner blocks stay inert plan text).
+- Renderer: `ToolSegments`/`ToolCallCard` split `m.content` on fences;
+  records zip tool_call blocks by index; pending → Approve / Allow reads
+  this session / Deny via `tool.respond`. `tool.update` reducer action
+  upserts by call.id. `settings/ToolSettings.tsx` — root picker + mode.

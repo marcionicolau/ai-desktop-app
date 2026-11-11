@@ -70,6 +70,7 @@ describe("search.query contract", () => {
     const a = h["conversation.create"]({ title: "Alpha" });
     const b = h["conversation.create"]({ title: "Beta" });
     h["chat.send"]({ conversationId: a.id, content: "what is a widget" });
+    await settle(); // single-flight: the turn must end before the next send
     h["chat.send"]({ conversationId: b.id, content: "explain needles" });
     await settle();
     // "explain" is unique to conv b's user turn — the engine's canned
