@@ -52,3 +52,8 @@ artifacts (`native/linux-x64/` incl. `libllama_shim.so`), metadata channel
 `scripts/build-native.ps1` and the `stage-native.ts` platform map cover
 win32/darwin paths, but no Windows or macOS host is available here. Must be run
 on those hosts before claiming cross-platform support.
+
+## Update — T041/T042 skipped by user decision
+
+Deferred until a Windows/macOS runner is available. All other Phase 6 tasks
+complete; feature status: 42/44 tasks done, 2 deferred (cross-platform builds).
