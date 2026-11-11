@@ -5,6 +5,7 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { RolesService } from "../../src/bun/models/roles";
+import { ModelRegistry, type SlotEngine } from "../../src/bun/models/registry";
 import {
   createRequestHandlers,
   type EngineLike,
@@ -107,5 +108,108 @@ describe("conversation.setMode", () => {
     ).toThrow();
     // single mode needs no bindings
     call("conversation.setMode", { conversationId: "c1", mode: "single" });
+  });
+});
+
+// T019: single-mode runtime cascade — primary slot fails at load, the
+// fallback candidate serves and servedBy surfaces via chat.phase +
+// persisted message.phases.answer.
+describe("single-mode fallback cascade (T019)", () => {
+  test("primary load failure -> fallback serves + notice emitted", async () => {
+    const emitted: { method: string; payload: unknown }[] = [];
+    const settings: Settings = {
+      activeModelPath: null,
+      contextLimitWarning: false,
+      generation: DEFAULT_GENERATION,
+      modelOverrides: {},
+      tags: [
+        {
+          name: "default",
+          binding: "bad.gguf",
+          params: {},
+          fallback: [{ kind: "model", fileName: "e.gguf" }],
+        },
+      ],
+    };
+    writeFileSync(join(dir, "bad.gguf"), "x");
+    const convs = new Map<string, Conversation>();
+    const store: StoreLike = {
+      getConversation: (id) => convs.get(id) ?? null,
+      saveConversation: (c) => void convs.set(c.id, c),
+      listConversations: () =>
+        [...convs.values()].map((c) => ({
+          id: c.id,
+          title: c.title,
+          updatedAt: c.updatedAt,
+        })),
+      deleteConversation: (id) => convs.delete(id),
+      getSettings: () => settings,
+      saveSettings: (n) => Object.assign(settings, n),
+    };
+    let i = 0;
+    const fake = (ok: boolean): SlotEngine =>
+      ({
+        status: () => ({ status: "ready" as const, name: "f" }),
+        loadModel: async () => {
+          if (!ok) throw new Error("corrupt gguf");
+          return { status: "ready" as const, name: "f" };
+        },
+        unloadModel: () => {},
+        isGenerating: () => false,
+        contextSize: () => 4096,
+        chatTemplate: () => null,
+        tokenCount: (t: string) => Math.ceil(t.length / 4),
+        stop: () => {},
+        dispose: () => {},
+        generate: async (_p: string, onToken: (d: string) => void) => {
+          onToken("HI");
+          return { status: "complete" as const, tokens: 1, elapsedMs: 1, warm: false };
+        },
+      }) as unknown as SlotEngine;
+    // first acquired engine (primary) fails to load; second (fallback) serves
+    const registry = new ModelRegistry(2, () => fake(i++ !== 0));
+    const engine: EngineLike = {
+      status: () => ({ status: "ready", name: "e.gguf" }),
+      loadModel: async (p: string) => ({ status: "ready", name: p }),
+      unloadModel: () => {},
+      isGenerating: () => false,
+      contextSize: () => 4096,
+      chatTemplate: () => null,
+      tokenCount: (t: string) => t.length,
+      generate: async () => ({ status: "complete", tokens: 0, elapsedMs: 1, warm: false }),
+      stop: () => {},
+    };
+    const deps = {
+      engine,
+      store,
+      registry,
+      roles: new RolesService({ store, scan: () => [] }),
+      emit: (m: string, p: unknown) => emitted.push({ method: m, payload: p }),
+    } as never;
+    const call = (method: string, params: Record<string, unknown>) =>
+      (createRequestHandlers(deps) as never)[method](params);
+
+    const { messageId } = call("chat.send", {
+      conversationId: "c2",
+      content: "hi",
+    }) as { messageId: string };
+    // generation runs async; wait for chat.done
+    await new Promise<void>((resolve) => {
+      const t = setInterval(() => {
+        if (emitted.some((e) => e.method === "chat.done" || e.method === "chat.error")) {
+          clearInterval(t);
+          resolve();
+        }
+      }, 5);
+    });
+    const phase = emitted.find((e) => e.method === "chat.phase");
+    expect(phase).toBeDefined();
+    expect((phase!.payload as { servedBy: string }).servedBy).toBe("fallback");
+    const conv = convs.get("c2")!;
+    const msg = conv.messages.find((m) => m.id === messageId)!;
+    expect(msg.content).toBe("HI");
+    expect(msg.status).toBe("complete");
+    expect(msg.phases?.answer?.servedBy).toBe("fallback");
+    expect(msg.phases?.answer?.fileName).toBe("e.gguf");
   });
 });

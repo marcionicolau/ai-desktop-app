@@ -126,15 +126,17 @@ export function createRequestHandlers(deps: HandlerDeps) {
     // FR-010: single-mode generation resolves through the `default` tag;
     // when the roles dep is absent (unit-test harness) fall back to the
     // legacy per-model param merge.
-    let resolved: ResolvedRole | null = null;
+    // candidate list for the runtime fallback cascade (T019); legacy
+    // test harness without roles dep gets a single implicit candidate
+    let candidates: ResolvedRole[] = [];
     if (deps.roles) {
       try {
-        resolved = deps.roles.resolve("default");
+        candidates = deps.roles.resolveCandidates("default");
       } catch {
-        resolved = null;
+        candidates = [];
       }
     }
-    const genParams = resolved ? resolved.params : resolveGenParams();
+    const legacyGenParams = resolveGenParams();
     const messageId = assistantMsg.id;
     activeMessageId = messageId;
 
@@ -162,8 +164,14 @@ export function createRequestHandlers(deps: HandlerDeps) {
     const run = async () => {
       // fusion mode: two-phase planner -> executor via the orchestrator
       if (conv.mode === "fusion" && deps.roles && deps.registry) {
-        const planner = deps.roles.resolve(conv.plannerTag);
-        const executor = deps.roles.resolve(conv.executorTag);
+        const planner = deps.roles.resolveCandidates(conv.plannerTag);
+        const executor = deps.roles.resolveCandidates(conv.executorTag);
+        if (planner.length === 0) {
+          fail("ROLE_UNBOUND", `planner role "${conv.plannerTag}" has no bound model`);
+        }
+        if (executor.length === 0) {
+          fail("ROLE_UNBOUND", `executor role "${conv.executorTag}" has no bound model`);
+        }
         const res = await runFusionTurn({
           planner,
           executor,
@@ -192,6 +200,7 @@ export function createRequestHandlers(deps: HandlerDeps) {
                 stats: res.answer.stats,
                 tag: res.answer.tag,
                 fileName: res.answer.fileName,
+                servedBy: res.answer.servedBy,
               }
             : undefined,
         };
@@ -204,51 +213,102 @@ export function createRequestHandlers(deps: HandlerDeps) {
           },
         };
       }
-      // resolve() gave us the path; acquire pins the slot for this turn
-      let eng: EngineLike = deps.engine;
-      let slotPath: string | null = null;
-      if (resolved && deps.registry) {
-        const slot = await deps.registry.acquire(resolved.path);
-        deps.registry.pin(slot.path, conv.id);
-        slotPath = slot.path;
-        eng = slot.engine;
+      // runtime fallback cascade (T019): try each candidate in order;
+      // retry only when failure precedes the first emitted token so a
+      // mid-stream error never produces duplicated output
+      const attempts: { role: ResolvedRole | null; path: string | null }[] =
+        deps.roles && deps.registry
+          ? candidates.map((r) => ({ role: r, path: r.path }))
+          : [{ role: null, path: null }];
+      if (deps.roles && deps.registry && attempts.length === 0) {
+        throw new EngineError(
+          "ROLE_UNBOUND",
+          'role "default" has no bound model',
+        );
       }
-      const ctxSize = eng.contextSize();
-      const reserve = Math.min(512, Math.floor(ctxSize / 2) || 512);
-      const baseBudget = ctxSize > 0 ? ctxSize - reserve : Infinity;
-      const chatml = (eng.chatTemplate() ?? "").includes("im_start");
-      const costOf = (t: { content: string }) =>
-        eng.tokenCount(t.content) + 8; // ~wrapper tokens per turn
-      let budget = baseBudget;
-      try {
-      for (;;) {
-        const built = buildPrompt(history, current, {
-          chatml,
-          budget,
-          costOf,
-        });
-        if (built.truncated) warnTruncated();
+      let lastErr: unknown;
+      for (const attempt of attempts) {
+        let eng: EngineLike = deps.engine;
+        let slotPath: string | null = null;
+        let emitted = false;
+        const genParams = attempt.role
+          ? attempt.role.params
+          : legacyGenParams;
         try {
-          // oxlint-disable-next-line no-await-in-loop -- sequential budget-halving retry
-          const r = await eng.generate(
-            built.prompt,
-            (delta) => {
-              assistantMsg.content += delta;
-              dirty = true;
-              deps.emit("chat.token", { messageId, delta });
-            },
-            genParams,
-            { conversationId: conv.id },
-          );
-          return { status: r.status, tokens: r.tokens, elapsedMs: r.elapsedMs };
+          if (attempt.path && deps.registry) {
+            // oxlint-disable-next-line no-await-in-loop -- sequential candidate cascade
+            const slot = await deps.registry.acquire(attempt.path);
+            deps.registry.pin(slot.path, conv.id);
+            slotPath = slot.path;
+            eng = slot.engine;
+          }
+          const ctxSize = eng.contextSize();
+          const reserve = Math.min(512, Math.floor(ctxSize / 2) || 512);
+          const baseBudget = ctxSize > 0 ? ctxSize - reserve : Infinity;
+          const chatml = (eng.chatTemplate() ?? "").includes("im_start");
+          const costOf = (t: { content: string }) =>
+            eng.tokenCount(t.content) + 8; // ~wrapper tokens per turn
+          let budget = baseBudget;
+          for (;;) {
+            const built = buildPrompt(history, current, {
+              chatml,
+              budget,
+              costOf,
+            });
+            if (built.truncated) warnTruncated();
+            try {
+              // oxlint-disable-next-line no-await-in-loop -- sequential budget-halving retry
+              const r = await eng.generate(
+                built.prompt,
+                (delta) => {
+                  if (!emitted) {
+                    emitted = true;
+                    // surface fallback service in the chat timeline
+                    if (attempt.role?.servedBy.kind === "fallback") {
+                      deps.emit("chat.phase", {
+                        messageId,
+                        phase: "answer",
+                        tag: attempt.role.tag,
+                        fileName: attempt.role.fileName,
+                        servedBy: "fallback",
+                      });
+                    }
+                  }
+                  assistantMsg.content += delta;
+                  dirty = true;
+                  deps.emit("chat.token", { messageId, delta });
+                },
+                genParams,
+                { conversationId: conv.id },
+              );
+              if (attempt.role?.servedBy.kind === "fallback") {
+                assistantMsg.phases = {
+                  answer: {
+                    tag: attempt.role.tag,
+                    fileName: attempt.role.fileName,
+                    servedBy: "fallback",
+                  },
+                };
+              }
+              return {
+                status: r.status,
+                tokens: r.tokens,
+                elapsedMs: r.elapsedMs,
+              };
+            } catch (e) {
+              if (!isCtxOverflow(e) || budget <= 256) throw e;
+              budget = Math.floor(budget / 2);
+            }
+          }
         } catch (e) {
-          if (!isCtxOverflow(e) || budget <= 256) throw e;
-          budget = Math.floor(budget / 2);
+          lastErr = e;
+          if (emitted) throw e;
+          // try next candidate
+        } finally {
+          if (slotPath && deps.registry) deps.registry.release(slotPath);
         }
       }
-      } finally {
-        if (slotPath && deps.registry) deps.registry.release(slotPath);
-      }
+      throw lastErr;
     };
 
     void run()
@@ -759,9 +819,13 @@ export function createRequestHandlers(deps: HandlerDeps) {
       deps.emit("role.changed", { name });
       return {};
     },
-    "role.resolve": ({ name }: { name: string }) => ({
-      resolved: rolesSvc().resolve(name),
-    }),
+    "role.resolve": ({ name }: { name: string }) => {
+      const candidates = rolesSvc().resolveCandidates(name);
+      if (candidates.length === 0) {
+        fail("ROLE_UNBOUND", `role "${name}" has no bound model`);
+      }
+      return { resolved: candidates[0]!, candidates };
+    },
     "conversation.setMode": ({
       conversationId,
       mode,

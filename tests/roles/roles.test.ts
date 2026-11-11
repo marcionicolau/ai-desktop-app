@@ -140,6 +140,34 @@ describe("RolesService", () => {
     });
   });
 
+  test("resolveCandidates returns the full ordered list for runtime cascade", () => {
+    const { store } = makeStore();
+    const r = svc(store);
+    r.create({ name: "main" });
+    r.setFallback("main", [
+      { kind: "model", fileName: "missing.gguf" }, // lazy skip
+      { kind: "model", fileName: "mid.gguf" },
+      { kind: "model", fileName: "small.gguf" },
+    ]);
+    // unbound primary: only fallbacks list
+    let cands = r.resolveCandidates("main");
+    expect(cands.map((c) => c.fileName)).toEqual(["mid.gguf", "small.gguf"]);
+    expect(cands.every((c) => c.servedBy.kind === "fallback")).toBe(true);
+    // bound primary leads the list
+    r.bind("main", "big.gguf");
+    cands = r.resolveCandidates("main");
+    expect(cands.map((c) => c.fileName)).toEqual([
+      "big.gguf",
+      "mid.gguf",
+      "small.gguf",
+    ]);
+    expect(cands[0]!.servedBy.kind).toBe("primary");
+    // nothing resolvable -> empty list (resolve() still throws)
+    r.create({ name: "empty" });
+    expect(r.resolveCandidates("empty")).toEqual([]);
+    expect(() => r.resolve("empty")).toThrow(RoleError);
+  });
+
   test("resolve throws ROLE_UNBOUND when nothing resolves", () => {
     const { store } = makeStore();
     const r = svc(store);

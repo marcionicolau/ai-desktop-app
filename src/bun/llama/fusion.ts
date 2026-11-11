@@ -14,8 +14,10 @@ import { buildExecutorPrompt, buildPlannerPrompt } from "./plan-prompt";
 import { buildPrompt, type PromptTurn } from "./prompt";
 
 export interface FusionTurnOpts {
-  planner: ResolvedRole;
-  executor: ResolvedRole;
+  // ordered candidates per role (T019): load/pre-token failures walk
+  // the list; servedBy on the winner is emitted in chat.phase
+  planner: ResolvedRole[];
+  executor: ResolvedRole[];
   registry: ModelRegistry;
   conversationId: string;
   history: PromptTurn[]; // newest-first, same convention as chat path
@@ -34,11 +36,13 @@ export interface FusionTurnResult {
     stats?: MessageStats | null;
     tag: string;
     fileName: string;
+    servedBy: "primary" | "fallback";
   };
   answer?: {
     stats?: MessageStats | null;
     tag: string;
     fileName: string;
+    servedBy: "primary" | "fallback";
   };
 }
 
@@ -99,69 +103,97 @@ const phaseEvent = (phase: FusionPhase, role: ResolvedRole) => ({
 export async function runFusionTurn(
   o: FusionTurnOpts,
 ): Promise<FusionTurnResult> {
+  // One phase over an ordered candidate list (T019 runtime cascade):
+  // retry the next candidate when a slot fails to load or generation
+  // fails before the first token; once tokens flow, errors propagate.
+  const runPhase = async (
+    kind: "planner" | "executor",
+    cands: ResolvedRole[],
+    history: PromptTurn[],
+    current: string,
+    onDelta: (d: string) => void,
+    phase: FusionPhase,
+  ): Promise<{
+    role: ResolvedRole;
+    res: { status: "complete" | "partial"; tokens: number; elapsedMs: number };
+    content: string;
+  }> => {
+    let lastErr: unknown = new Error(`${kind} role unbound`);
+    for (const role of cands) {
+      let slot;
+      let emitted = false;
+      let content = "";
+      try {
+        // oxlint-disable-next-line no-await-in-loop -- sequential candidate cascade
+        slot = await o.registry.acquire(role.path);
+        o.registry.pin(slot.path, o.conversationId);
+        o.onEvent("chat.phase", phaseEvent(phase, role));
+        // oxlint-disable-next-line no-await-in-loop -- sequential candidate cascade
+        const res = await genPhase({
+          eng: slot.engine,
+          params: role.params,
+          conversationId: o.conversationId,
+          history,
+          current,
+          onToken: (d) => {
+            emitted = true;
+            content += d;
+            onDelta(d);
+            o.onEvent("chat.token", { delta: d, phase });
+          },
+          onTruncated: o.onTruncated,
+        });
+        return { role, res, content };
+      } catch (e) {
+        lastErr = e;
+        if (emitted) throw e; // mid-stream failure: retrying duplicates output
+        // fall through to next candidate
+      } finally {
+        if (slot) o.registry.release(slot.path);
+      }
+    }
+    throw lastErr;
+  };
+
   // ---- plan phase ----
-  const pSlot = await o.registry.acquire(o.planner.path);
-  o.registry.pin(pSlot.path, o.conversationId);
-  let planRes: { status: "complete" | "partial"; tokens: number; elapsedMs: number };
-  let planContent = "";
-  try {
-    o.onEvent("chat.phase", phaseEvent("plan", o.planner));
-    planRes = await genPhase({
-      eng: pSlot.engine,
-      params: o.planner.params,
-      conversationId: o.conversationId,
-      history: [], // planner sees a fresh planning request (D5)
-      current: buildPlannerPrompt(o.current),
-      onToken: (d) => {
-        planContent += d;
-        o.onPlanDelta(d);
-        o.onEvent("chat.token", { delta: d, phase: "plan" });
-      },
-      onTruncated: o.onTruncated,
-    });
-  } finally {
-    o.registry.release(pSlot.path);
-  }
+  const p = await runPhase(
+    "planner",
+    o.planner,
+    [], // planner sees a fresh planning request (D5)
+    buildPlannerPrompt(o.current),
+    o.onPlanDelta,
+    "plan",
+  );
   const plan = {
-    content: planContent,
-    stats: toStats(planRes),
-    tag: o.planner.tag,
-    fileName: o.planner.fileName,
+    content: p.content,
+    stats: toStats(p.res),
+    tag: p.role.tag,
+    fileName: p.role.fileName,
+    servedBy: p.role.servedBy.kind,
   };
   // stop-at-boundary: a stopped/failed plan phase ends the turn partial —
   // the answer phase never runs on an aborted plan
-  if (planRes.status !== "complete") {
+  if (p.res.status !== "complete") {
     return { status: "partial", plan };
   }
 
   // ---- answer phase ----
-  const eSlot = await o.registry.acquire(o.executor.path);
-  o.registry.pin(eSlot.path, o.conversationId);
-  let ansRes: typeof planRes;
-  try {
-    o.onEvent("chat.phase", phaseEvent("answer", o.executor));
-    ansRes = await genPhase({
-      eng: eSlot.engine,
-      params: o.executor.params,
-      conversationId: o.conversationId,
-      history: o.history,
-      current: buildExecutorPrompt(o.current, planContent),
-      onToken: (d) => {
-        o.onAnswerDelta(d);
-        o.onEvent("chat.token", { delta: d, phase: "answer" });
-      },
-      onTruncated: o.onTruncated,
-    });
-  } finally {
-    o.registry.release(eSlot.path);
-  }
+  const a = await runPhase(
+    "executor",
+    o.executor,
+    o.history,
+    buildExecutorPrompt(o.current, p.content),
+    o.onAnswerDelta,
+    "answer",
+  );
   return {
-    status: ansRes.status,
+    status: a.res.status,
     plan,
     answer: {
-      stats: toStats(ansRes),
-      tag: o.executor.tag,
-      fileName: o.executor.fileName,
+      stats: toStats(a.res),
+      tag: a.role.tag,
+      fileName: a.role.fileName,
+      servedBy: a.role.servedBy.kind,
     },
   };
 }

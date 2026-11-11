@@ -54,8 +54,8 @@ FFI/RPC boundary; each story gets a contract/unit suite.
 **Goal**: ordered fallback chains serve turns when primary fails; servedBy visible.
 **Independent test**: VS-5 — primary file deleted → fallback serves + notice; both gone → typed error naming chain.
 
-- [ ] T019 [US3] Runtime fallback cascade in `roles.ts`/`registry.ts`: on primary *load failure* or missing file at generation time (T004's static walk only orders candidates), retry subsequent `RoleRef[]` entries (tag → nested resolve, model → direct), depth-cap 3, record `servedBy`; surface in `chat.phase` (`servedBy:"fallback"`) and `role.resolve` response. Extend `tests/roles/roles.test.ts` + `tests/rpc/fusion.test.ts`.
-- [ ] T020 [US3] UI: fallback notice in chat (which model served which tag) in `MessageList.tsx`/banner; fallback chain editor already in `TagEditor.tsx` from T012 — wire `role.setFallback` + `INVALID_PARAMS` display.
+- [X] T019 [US3] Runtime fallback cascade in `roles.ts`/`registry.ts`: on primary *load failure* or missing file at generation time (T004's static walk only orders candidates), retry subsequent `RoleRef[]` entries (tag → nested resolve, model → direct), depth-cap 3, record `servedBy`; surface in `chat.phase` (`servedBy:"fallback"`) and `role.resolve` response. Extend `tests/roles/roles.test.ts` + `tests/rpc/fusion.test.ts`.
+- [X] T020 [US3] UI: fallback notice in chat (which model served which tag) in `MessageList.tsx`/banner; fallback chain editor already in `TagEditor.tsx` from T012 — wire `role.setFallback` + `INVALID_PARAMS` display.
 
 ## Phase 6: Polish & Cross-Cutting
 

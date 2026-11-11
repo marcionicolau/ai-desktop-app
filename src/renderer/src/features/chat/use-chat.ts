@@ -26,7 +26,12 @@ interface ChatState {
   mode: "single" | "fusion";
   plannerTag: string;
   executorTag: string;
-  activePhase: { phase: FusionPhase; tag: string; fileName: string } | null;
+  activePhase: {
+    phase: FusionPhase;
+    tag: string;
+    fileName: string;
+    servedBy?: "primary" | "fallback";
+  } | null;
 }
 
 type Action =
@@ -40,6 +45,7 @@ type Action =
       phase: FusionPhase;
       tag: string;
       fileName: string;
+      servedBy?: "primary" | "fallback";
     }
   | {
       type: "done";
@@ -119,6 +125,7 @@ function reduce(state: ChatState, action: Action): ChatState {
           phase: action.phase,
           tag: action.tag,
           fileName: action.fileName,
+          servedBy: action.servedBy,
         },
         messages: state.messages.map((m) => {
           if (m.id !== action.messageId) return m;
@@ -130,12 +137,14 @@ function reduce(state: ChatState, action: Action): ChatState {
               ...phases.plan,
               tag: action.tag,
               fileName: action.fileName,
+              servedBy: action.servedBy,
             };
           } else {
             phases.answer = {
               ...phases.answer,
               tag: action.tag,
               fileName: action.fileName,
+              servedBy: action.servedBy,
             };
           }
           return { ...m, phases };
@@ -401,6 +410,7 @@ export function useChat() {
           phase: p.phase,
           tag: p.tag,
           fileName: p.fileName,
+          servedBy: p.servedBy,
         }),
       ),
       on("chat.done", (p) => {

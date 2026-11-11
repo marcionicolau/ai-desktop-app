@@ -154,10 +154,12 @@ export interface MessagePhases {
     stats?: MessageStats | null;
     tag: string;
     fileName: string;
+    servedBy?: "primary" | "fallback";
   };
   answer?: {
     stats?: MessageStats | null;
     tag?: string;
     fileName?: string;
+    servedBy?: "primary" | "fallback";
   };
 }

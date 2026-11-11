@@ -176,7 +176,7 @@ export interface ChatRpcSchema extends ElectrobunRPCSchema {
       };
       "role.resolve": {
         params: { name: string };
-        response: { resolved: ResolvedRole };
+        response: { resolved: ResolvedRole; candidates: ResolvedRole[] };
       };
     };
     messages: Record<string, never>;

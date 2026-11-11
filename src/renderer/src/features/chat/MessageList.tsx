@@ -70,6 +70,7 @@ export function MessageList({
                     Plan
                     {m.phases.plan.tag && ` · ${m.phases.plan.tag}`}
                     {m.phases.plan.fileName && ` (${m.phases.plan.fileName})`}
+                    {m.phases.plan.servedBy === "fallback" && " · via fallback"}
                     {m.phases.plan.stats &&
                       ` · ${m.phases.plan.stats.tokens} tok · ${m.phases.plan.stats.tokensPerSec} tok/s`}
                   </summary>
@@ -126,6 +127,13 @@ export function MessageList({
                     : STATUS_HINT[m.status]}
                 </p>
               )}
+              {m.role === "assistant" &&
+                m.phases?.answer?.servedBy === "fallback" && (
+                  <p className="mt-1 text-xs text-amber-500">
+                    served by fallback {m.phases.answer.fileName}
+                    {m.phases.answer.tag ? ` (${m.phases.answer.tag})` : ""}
+                  </p>
+                )}
               {m.role === "assistant" && m.stats && (
                 <p className="mt-1 text-xs text-muted-foreground">
                   {m.stats.tokens} tokens · {m.stats.tokensPerSec} tok/s

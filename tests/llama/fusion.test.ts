@@ -59,8 +59,8 @@ function registryWith(engines: (SlotEngine & { calls: { prompt: string }[] })[])
 }
 
 const baseOpts = {
-  planner: role("planner", "plan.gguf"),
-  executor: role("executor", "exec.gguf"),
+  planner: [role("planner", "plan.gguf")],
+  executor: [role("executor", "exec.gguf")],
   conversationId: "c1",
   history: [],
   current: "write a poem",
@@ -103,8 +103,8 @@ describe("runFusionTurn", () => {
     const events: unknown[] = [];
     await runFusionTurn({
       ...baseOpts,
-      planner: role("planner", "same.gguf"),
-      executor: role("executor", "same.gguf"),
+      planner: [role("planner", "same.gguf")],
+      executor: [role("executor", "same.gguf")],
       registry: reg,
       onEvent: (m, p) => events.push(p),
       onPlanDelta: () => {},
@@ -132,5 +132,57 @@ describe("runFusionTurn", () => {
     expect(res.answer).toBeUndefined();
     expect(phases).toEqual(["plan"]);
     expect(eEng.calls).toHaveLength(0);
+  });
+
+  test("primary load failure falls back to the next candidate", async () => {
+    const bad = fakeEngine(["BAD"]);
+    bad.loadModel = async () => {
+      throw new Error("corrupt gguf");
+    };
+    const good = fakeEngine(["PLAN"]);
+    const exec = fakeEngine(["ANS"]);
+    const engines = [bad, good, exec];
+    let i = 0;
+    const reg = new ModelRegistry(10, () => engines[i++]!);
+    const res = await runFusionTurn({
+      ...baseOpts,
+      planner: [
+        role("planner", "bad.gguf"),
+        {
+          ...role("planner", "plan.gguf"),
+          servedBy: { kind: "fallback", via: { kind: "model", fileName: "plan.gguf" } },
+        },
+      ],
+      registry: reg,
+      onEvent: () => {},
+      onPlanDelta: () => {},
+      onAnswerDelta: () => {},
+    });
+    expect(res.status).toBe("complete");
+    expect(res.plan?.content).toBe("PLAN");
+    expect(res.plan?.servedBy).toBe("fallback");
+  });
+
+  test("mid-stream failure does NOT retry the next candidate", async () => {
+    const flaky = fakeEngine(["A", "B"]);
+    flaky.generate = async (_p: string, onToken: (d: string) => void) => {
+      onToken("A");
+      throw new Error("boom mid-stream");
+    };
+    const next = fakeEngine(["NEVER"]);
+    const engines = [flaky, next];
+    let i = 0;
+    const reg = new ModelRegistry(10, () => engines[i++]!);
+    await expect(
+      runFusionTurn({
+        ...baseOpts,
+        planner: [role("planner", "a.gguf"), role("planner", "b.gguf")],
+        registry: reg,
+        onEvent: () => {},
+        onPlanDelta: () => {},
+        onAnswerDelta: () => {},
+      }),
+    ).rejects.toThrow("boom mid-stream");
+    expect(next.calls).toHaveLength(0);
   });
 });
