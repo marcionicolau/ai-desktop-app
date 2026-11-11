@@ -7,7 +7,7 @@ Two new requests, no event changes.
 ```ts
 params:  { path: string }                // library or external abs path
 response: { record: BenchmarkRecord }
-errors:  BUSY            engine generating or benchmark already running
+errors:  ENGINE_BUSY              engine generating or benchmark already running
          MODEL_NOT_FOUND path missing/unreadable
 ```
 

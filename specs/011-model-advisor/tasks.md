@@ -12,7 +12,7 @@
   `ModelAdvise`, `FusionAdvise` to `src/shared/types.ts`.
 - [ ] T002 Add `model.benchmark` (`{path}` → `{record}`) and `model.advise`
   (`{plannerTag?, executorTag?}` → `{models, fusion?}`) to the RPC contract in
-  `src/shared/rpc-contract.ts`; add `"BUSY"` to the `EngineError` codes used
+  `src/shared/rpc-contract.ts`; add `"ENGINE_BUSY"` to the `EngineError` codes used
   for refusals.
 - [ ] T003 PREREQ: branch predates the 008+009 merges — rebase onto `main`
   before touching `handlers.ts`/`roles.ts`. Create
@@ -50,13 +50,14 @@ memory that survives restart.
   tokens/elapsed`; `partial: true` when capped; unload + restore previous
   active model afterward (research D1).
 - [ ] T008 [US1] Add `model.benchmark` handler in `src/bun/rpc/handlers.ts`:
-  refuse `BUSY` when `engine.isGenerating()` or a benchmark is already
+  refuse `ENGINE_BUSY` when `engine.isGenerating()` or a benchmark is already
   running (module-level flag); `MODEL_NOT_FOUND` on missing path; emit
   `model.progress` loading/ready/error phases; persist record via
   `saveRecord` before returning.
 - [ ] T009 [US1] Add `tests/rpc/advisor.test.ts`: benchmark → record shape +
-  persisted file; second concurrent benchmark → `BUSY`; benchmark while
-  `isGenerating()` → `BUSY`; missing path → `MODEL_NOT_FOUND`; partial flag
+  persisted file; second concurrent benchmark → `ENGINE_BUSY`; benchmark while
+  `isGenerating()` → `ENGINE_BUSY`; missing path → `MODEL_NOT_FOUND`; partial flag;
+  absolute-path (non-library) benchmark works identically (spec edge case).
   on capped run.
 - [ ] T010 [US1] `src/renderer/src/features/models/ModelLibrary.tsx`: per-row
   "not measured — run benchmark" or measured `tok/s` + memory + `▶` button
@@ -91,7 +92,8 @@ freeMem without loading any model.
 ## Phase 4 — Polish
 
 - [ ] T015 Write `specs/011-model-advisor/validation.md` mapping
-  quickstart VS-1…VS-3 to test evidence + gates.
+  quickstart VS-1…VS-3 to test evidence + gates; note SC-001 (±20% tok/s)
+  is hardware-validated, not unit-testable on the fake engine.
 - [ ] T016 Run all gates (`bun test`, typecheck, lint, build); append module
   notes to `AGENTS.md` (advisor/ dir, benchmarks.json location, measured
   vs estimated basis convention).
