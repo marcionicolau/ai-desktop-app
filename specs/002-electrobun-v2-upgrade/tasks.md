@@ -55,9 +55,9 @@ description: "Task list for Electrobun v2 Upgrade implementation"
 
 ### Implementation for User Story 1
 
-- [ ] T010 [US1] Implement minimal window bootstrap in `src/bun/index.ts`: `new BrowserWindow({ title, url })` loading `views://main/index.html` for packaged runs and the Vite dev-server URL (`http://localhost:5173`) in dev — required for any dev/packaged launch to show the UI (also covers feature-001 T017 bootstrap)
-- [ ] T011 [US1] Wire dev flow so `dev` starts the Vite dev-server alongside `electrobun dev` (per `hutch.config.ts` `dev` script composition in contracts/config.md); verify `hutch pm exec` resolves `node_modules/.bin/vite` — fallback to `bunx vite` or `./node_modules/.bin/vite` in the script string if not; verify `vite build` output is not required in dev
-- [ ] T012 [US1] Verify `bun run build:renderer` then `hutch build --env=dev` produces a launchable app loading `views://main/index.html`; fix `build.copy` semantics if v2 requires per-file entries instead of directory copies (research.md D3)
+- [x] T010 [US1] Implement minimal window bootstrap in `src/bun/index.ts`: `new BrowserWindow({ title, url })` loading `views://main/index.html` for packaged runs and the Vite dev-server URL (`http://localhost:5173`) in dev — required for any dev/packaged launch to show the UI (also covers feature-001 T017 bootstrap)
+- [x] T011 [US1] Wire dev flow so `dev` starts the Vite dev-server alongside `electrobun dev` (per `hutch.config.ts` `dev` script composition in contracts/config.md); verify `hutch pm exec` resolves `node_modules/.bin/vite` — fallback to `bunx vite` or `./node_modules/.bin/vite` in the script string if not; verify `vite build` output is not required in dev
+- [x] T012 [US1] Verify `bun run build:renderer` then `hutch build --env=dev` produces a launchable app loading `views://main/index.html`; fix `build.copy` semantics if v2 requires per-file entries instead of directory copies (research.md D3)
 
 **Checkpoint**: US1 validated — dev window + HMR work under Electrobun 2.x
 
