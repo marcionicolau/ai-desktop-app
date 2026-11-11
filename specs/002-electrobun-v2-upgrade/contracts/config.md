@@ -13,7 +13,12 @@ export default {
   scripts: {
     install: ["hutch", "install", "--frozen-lockfile"],
     "build:renderer": ["hutch", "pm", "exec", "--", "vite", "build", "--config", "src/renderer/vite.config.ts"],
-    dev: "hutch pm exec -- vite --config src/renderer/vite.config.ts & hutch electrobun dev --watch",
+    // `sh -c` (not a Bun.$ string) so `&` backgrounding works; sets VITE_DEV_URL
+    // so src/bun/index.ts loads the Vite dev server for HMR; kills vite on exit.
+    dev: [
+      "sh", "-c",
+      "hutch pm exec -- vite --config src/renderer/vite.config.ts & vite_pid=$!; VITE_DEV_URL=http://localhost:5173 hutch electrobun dev --watch; status=$?; kill \"$vite_pid\" 2>/dev/null; exit $status",
+    ],
     build: ["hutch", "electrobun", "build", "--env=canary"],
     "build:stable": ["hutch", "electrobun", "build", "--env=stable"],
   },
@@ -22,6 +27,8 @@ export default {
 
 Rules:
 - `scripts` is read **only** from `hutch.config.ts` — no npm lifecycle emulation.
+- String scripts run via `Bun.$` — no `&`/job control. Concurrent commands must
+  use an array script wrapping `sh -c` (or a dedicated TS entrypoint).
 - `package.json` scripts kept thin (`bun run typecheck|lint|test|build:renderer`)
   for non-Hutch tooling; `dev`/`build*` delegate to `hutch`.
 

@@ -81,6 +81,11 @@ export interface ChatRpcSchema extends ElectrobunRPCSchema {
         phase: "loading" | "ready" | "error";
         detail?: string;
       };
+      "chat.warning": {
+        messageId: string;
+        code: "CONTEXT_TRUNCATED";
+        message: string;
+      };
     };
   };
 }

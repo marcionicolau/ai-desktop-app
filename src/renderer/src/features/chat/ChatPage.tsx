@@ -47,6 +47,11 @@ export function ChatPage() {
             Model failed to load{state.modelError ? `: ${state.modelError}` : ""}
           </div>
         )}
+        {state.notice && (
+          <div className="border-b border-border bg-amber-950 px-4 py-2 text-center text-sm text-amber-300">
+            {state.notice}
+          </div>
+        )}
         {state.lastError && (
           <div className="border-b border-border bg-red-950 px-4 py-2 text-center text-sm text-red-300">
             {state.lastError.code}: {state.lastError.message}

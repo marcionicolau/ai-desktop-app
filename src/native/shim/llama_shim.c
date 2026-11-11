@@ -229,6 +229,13 @@ int lls_step(lls_ctx * c, char * buf, size_t cap, size_t * out_len) {
     return 1;
 }
 
+int32_t lls_ctx_size(lls_ctx * c) {
+    if (c == NULL || c->handle == NULL) {
+        return 0;
+    }
+    return (int32_t) llama_n_ctx(c->handle);
+}
+
 void lls_free_string(char * s) {
     free(s);
 }

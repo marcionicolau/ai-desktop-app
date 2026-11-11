@@ -18,6 +18,7 @@ interface ChatState {
   modelName: string | null;
   modelError: string | null;
   lastError: { code: RpcErrorCode; message: string } | null;
+  notice: string | null;
 }
 
 type Action =
@@ -27,7 +28,8 @@ type Action =
   | { type: "token"; messageId: string; delta: string }
   | { type: "done"; messageId: string; status: "complete" | "partial" }
   | { type: "error"; messageId: string; code: RpcErrorCode; message: string }
-  | { type: "model"; status: ModelStatus; name?: string; error?: string };
+  | { type: "model"; status: ModelStatus; name?: string; error?: string }
+  | { type: "notice"; message: string };
 
 function reduce(state: ChatState, action: Action): ChatState {
   switch (action.type) {
@@ -88,6 +90,8 @@ function reduce(state: ChatState, action: Action): ChatState {
         modelName: action.name ?? state.modelName,
         modelError: action.error ?? null,
       };
+    case "notice":
+      return { ...state, notice: action.message };
   }
 }
 
@@ -100,6 +104,7 @@ const initial: ChatState = {
   modelName: null,
   modelError: null,
   lastError: null,
+  notice: null,
 };
 
 export function useChat() {
@@ -201,6 +206,9 @@ export function useChat() {
           code: p.code,
           message: p.message,
         }),
+      ),
+      on("chat.warning", (p) =>
+        dispatch({ type: "notice", message: p.message }),
       ),
       on("model.progress", (p) =>
         dispatch({

@@ -17,6 +17,7 @@ function makeDeps() {
     loadModel: async () => ({ status: "ready" as const, name: "f.gguf" }),
     unloadModel: () => {},
     isGenerating: () => false,
+    contextSize: () => 4096,
     generate: async () => "complete",
     stop: () => {},
   };

@@ -16,12 +16,14 @@ function makeDeps(opts: {
   genResult?: "complete" | "partial";
   genError?: Error;
   tokens?: string[];
+  ctxSize?: number;
   onStop?: () => void;
 }) {
   const emitted: { method: string; payload: unknown }[] = [];
   const convs = new Map<string, Conversation>();
   let generating = opts.generating ?? false;
   let stopped = false;
+  let lastPrompt = "";
 
   const engine: EngineLike = {
     status: () => ({
@@ -31,11 +33,13 @@ function makeDeps(opts: {
     loadModel: async () => ({ status: "ready" as const, name: "fake.gguf" }),
     unloadModel: () => {},
     isGenerating: () => generating,
+    contextSize: () => opts.ctxSize ?? 4096,
     stop: () => {
       stopped = true;
       opts.onStop?.();
     },
-    generate: async (_prompt, onToken) => {
+    generate: async (prompt, onToken) => {
+      lastPrompt = prompt;
       generating = true;
       for (const t of opts.tokens ?? ["a", "b", "c"]) {
         if (stopped) break;
@@ -69,7 +73,7 @@ function makeDeps(opts: {
     store,
     emit: (method, payload) => emitted.push({ method, payload }),
   };
-  return { deps, emitted, convs, engine };
+  return { deps, emitted, convs, engine, getLastPrompt: () => lastPrompt };
 }
 
 const CONV = "conv-1";
@@ -131,6 +135,24 @@ describe("chat.send contract", () => {
     } catch (e) {
       expect((e as EngineError).code).toBe("NO_MODEL");
     }
+  });
+
+  test("over-limit prompt emits chat.warning and truncates oldest content (FR-011)", async () => {
+    // ctxSize 520 -> maxTokens 8 -> 32 chars kept from the tail
+    const { deps, emitted, getLastPrompt } = makeDeps({ ctxSize: 520 });
+    const h = createRequestHandlers(deps);
+    const { messageId } = h["chat.send"]({
+      conversationId: CONV,
+      content: `head-${"x".repeat(100)}-tail`,
+    });
+    await flush();
+    const warning = emitted.find((e) => e.method === "chat.warning");
+    expect(warning).toBeDefined();
+    const payload = warning!.payload as { messageId: string; code: string };
+    expect(payload.messageId).toBe(messageId);
+    expect(payload.code).toBe("CONTEXT_TRUNCATED");
+    expect(getLastPrompt().length).toBe(32);
+    expect(getLastPrompt()).toMatch(/-tail$/);
   });
 });
 

@@ -15,6 +15,7 @@ export interface EngineLike {
   loadModel(path: string): Promise<{ status: "ready"; name: string }>;
   unloadModel(): void;
   isGenerating(): boolean;
+  contextSize(): number;
   generate(
     prompt: string,
     onToken: (delta: string) => void,
@@ -100,6 +101,21 @@ export function createRequestHandlers(deps: HandlerDeps) {
         fail("NO_MODEL", "no model is loaded");
       }
 
+      // FR-011: estimate prompt tokens (chars/4) and truncate the oldest
+      // content from the head when it would overflow the context window.
+      const ctxSize = deps.engine.contextSize();
+      const RESERVE_TOKENS = 512;
+      let prompt = text;
+      let truncated = false;
+      if (ctxSize > 0) {
+        const maxTokens = ctxSize - RESERVE_TOKENS;
+        const estTokens = Math.ceil(text.length / 4);
+        if (estTokens > maxTokens) {
+          prompt = text.slice(-maxTokens * 4);
+          truncated = true;
+        }
+      }
+
       let conv = deps.store.getConversation(conversationId);
       if (!conv) {
         conv = {
@@ -136,6 +152,15 @@ export function createRequestHandlers(deps: HandlerDeps) {
       const messageId = assistantMsg.id;
       activeMessageId = messageId;
 
+      if (truncated) {
+        deps.emit("chat.warning", {
+          messageId,
+          code: "CONTEXT_TRUNCATED",
+          message:
+            "Message exceeded the model's context window; the oldest content was truncated.",
+        });
+      }
+
       // token-flush checkpoint: persist accumulated content ~every 500ms
       // during generation so a crash keeps near-complete state (T030)
       let dirty = false;
@@ -147,7 +172,7 @@ export function createRequestHandlers(deps: HandlerDeps) {
       }, 500);
 
       void deps.engine
-        .generate(text, (delta) => {
+        .generate(prompt, (delta) => {
           assistantMsg.content += delta;
           dirty = true;
           deps.emit("chat.token", { messageId, delta });

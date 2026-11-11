@@ -19,6 +19,7 @@
 #define LLAMA_SHIM_H
 
 #include <stddef.h>
+#include <stdint.h>
 
 #if defined(_WIN32)
 #  define LLS_API __declspec(dllexport)
@@ -47,6 +48,9 @@ LLS_API lls_ctx * lls_ctx_create(lls_model * m, char ** err);
 
 // NULL-safe; requires lls_generate_end first if generation is active
 LLS_API void lls_ctx_free(lls_ctx * c);
+
+// configured context-window size in tokens; 0 on NULL
+LLS_API int32_t lls_ctx_size(lls_ctx * c);
 
 // tokenizes the prompt, clears the KV cache, primes generation
 // returns 0 on success, nonzero on failure (err is set)

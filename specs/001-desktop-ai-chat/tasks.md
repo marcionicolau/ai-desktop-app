@@ -128,12 +128,12 @@ defines automated checks (typecheck, FFI lifecycle, vite build).
 
 **Purpose**: Edge cases, quality gates, and release validation
 
-- [ ] T039 Implement context-limit warning in `src/bun/rpc/handlers.ts`: when conversation token estimate approaches model context limit, warn user and apply oldest-turn truncation (FR-011, documented assumption)
-- [ ] T040 [P] Wire `oxlint` config and verify gates: `bun run typecheck` (strict), `bun test`, `vite build` all pass (constitution quality gates)
+- [x] T039 Implement context-limit warning in `src/bun/rpc/handlers.ts`: when conversation token estimate approaches model context limit, warn user and apply oldest-turn truncation (FR-011, documented assumption)
+- [x] T040 [P] Wire `oxlint` config and verify gates: `bun run typecheck` (strict), `bun test`, `vite build` all pass (constitution quality gates)
 - [ ] T041 [P] Verify `scripts/build-native.ps1` on Windows produces `llama_shim.dll` + deps and `build.copy` stages them correctly
 - [ ] T042 [P] Verify macOS build produces `*.dylib` set with `@rpath` names resolving inside `Resources/app/native/` in the packaged bundle
-- [ ] T043 Run full `quickstart.md` validation (VS-1 through VS-4) offline and record results
-- [ ] T044 Package canary build (`bun electrobun build --env=canary`) and smoke-test installer artifact per OS runner available
+- [x] T043 Run full `quickstart.md` validation (VS-1 through VS-4) offline and record results
+- [x] T044 Package canary build (`bun electrobun build --env=canary`) and smoke-test installer artifact per OS runner available
 
 ---
 

@@ -35,6 +35,7 @@ function makeDeps(loadBehavior: "ok" | "not_found" | "invalid") {
       loaded = false;
     },
     isGenerating: () => false,
+    contextSize: () => 4096,
     generate: async () => "complete",
     stop: () => {},
   };

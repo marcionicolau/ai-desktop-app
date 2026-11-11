@@ -104,6 +104,12 @@ export class LlamaEngine {
     return this.generating;
   }
 
+  // configured context-window size in tokens; 0 when no model is loaded
+  contextSize(): number {
+    if (this.ctx === null || this.shim === null) return 0;
+    return this.shim.symbols.lls_ctx_size(this.ctx);
+  }
+
   // Drives the pull loop. onToken receives raw byte-chunks decoded as text.
   // Resolves "complete" on natural end, "partial" when stop() was called.
   async generate(

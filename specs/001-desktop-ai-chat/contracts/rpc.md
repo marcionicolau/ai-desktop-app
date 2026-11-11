@@ -28,6 +28,7 @@ processes — this document is the human-readable version.
 | `chat.done` | `{ messageId, status: "complete" \| "partial" }` | stream finished; `partial` = stopped |
 | `chat.error` | `{ messageId, code, message }` | inference failed mid-generation |
 | `model.progress` | `{ phase: "loading" \| "ready" \| "error", detail? }` | model lifecycle updates |
+| `chat.warning` | `{ messageId, code: "CONTEXT_TRUNCATED", message }` | non-fatal notice emitted before generation starts |
 
 ## Rules
 
@@ -36,3 +37,7 @@ processes — this document is the human-readable version.
 - `chat.token` order is guaranteed per `messageId`; renderer appends deltas.
 - All payloads are JSON-serializable; no pointers or handles cross the bridge.
 - Errors carry `{ code, message }` — `message` is human-readable (FR-007).
+- FR-011 strategy: the sent prompt is token-estimated (chars/4) against
+  `lls_ctx_size` minus a generation reserve; on overflow the oldest content
+  is truncated from the head and `chat.warning {code:"CONTEXT_TRUNCATED"}`
+  is emitted before the stream starts.
