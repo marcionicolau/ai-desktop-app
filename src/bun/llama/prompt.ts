@@ -50,7 +50,9 @@ export function buildPrompt(
 }
 
 export function render(turns: PromptTurn[], chatml: boolean): string {
+  // oxlint-disable-next-line no-useless-concat -- kept split: tooling strips the literal token
   const open = "<" + "|im_start|>";
+  // oxlint-disable-next-line no-useless-concat -- kept split: tooling strips the literal token
   const close = "<" + "|im_end|>";
   return chatml
     ? turns.map((t) => open + t.role + "\n" + t.content + close + "\n").join("") +

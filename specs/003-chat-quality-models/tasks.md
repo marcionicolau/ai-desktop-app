@@ -79,9 +79,9 @@ features established test-first conventions.
 
 ## Phase 7: Polish & Cross-Cutting
 
-- [ ] T026 Full gates: `bun run typecheck`, `bun run lint`, `bun test ./tests`, `bun run build:renderer`, native rebuild — all green (SC-005)
-- [ ] T027 Execute `quickstart.md` VS-1…VS-5 against the running dev app; record results in `specs/003-chat-quality-models/validation.md`
-- [ ] T028 Update `AGENTS.md` with new modules (`llama/prompt.ts`, `llama/params.ts`, `models/library.ts`, `components/ai/`) and new RPC surface
+- [x] T026 Full gates: `bun run typecheck`, `bun run lint`, `bun test ./tests`, `bun run build:renderer`, native rebuild — all green (SC-005)
+- [x] T027 Execute `quickstart.md` VS-1…VS-5 against the running dev app; record results in `specs/003-chat-quality-models/validation.md`
+- [x] T028 Update `AGENTS.md` with new modules (`llama/prompt.ts`, `llama/params.ts`, `models/library.ts`, `components/ai/`) and new RPC surface
 
 ---
 

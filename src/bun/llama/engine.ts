@@ -203,6 +203,7 @@ export class LlamaEngine {
           onToken(new TextDecoder().decode(this.tokenBuf.subarray(0, n)));
         }
         // macrotask yield: keeps the event loop responsive for RPC
+        // oxlint-disable-next-line no-await-in-loop -- sequential pull/step decode is required
         await new Promise((resolve) => setTimeout(resolve, 0));
       }
     } finally {

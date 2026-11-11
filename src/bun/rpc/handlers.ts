@@ -65,6 +65,21 @@ function fail(code: RpcErrorCode, message: string): never {
 const now = () => new Date().toISOString();
 const newId = () => crypto.randomUUID();
 
+// turns strictly before the given message, newest-first, usable as
+// buildPrompt history
+const turnsBefore = (conv: Conversation, msgId: string): PromptTurn[] =>
+  conv.messages
+    .slice(
+      0,
+      conv.messages.findIndex((m) => m.id === msgId),
+    )
+    .filter((m) => m.status === "complete" || m.status === "partial")
+    .toReversed()
+    .map((m) => ({ role: m.role, content: m.content }));
+
+const isCtxOverflow = (e: unknown) =>
+  e instanceof Error && e.message.includes("context window");
+
 export function createRequestHandlers(deps: HandlerDeps) {
   let activeMessageId: string | null = null;
 
@@ -78,18 +93,6 @@ export function createRequestHandlers(deps: HandlerDeps) {
       modelKey ? settings.modelOverrides?.[modelKey] : undefined,
     );
   };
-
-  // turns strictly before the given message, newest-first, usable as
-  // buildPrompt history
-  const turnsBefore = (conv: Conversation, msgId: string): PromptTurn[] =>
-    conv.messages
-      .slice(
-        0,
-        conv.messages.findIndex((m) => m.id === msgId),
-      )
-      .filter((m) => m.status === "complete" || m.status === "partial")
-      .reverse()
-      .map((m) => ({ role: m.role, content: m.content }));
 
   const findMessage = (messageId: string) => {
     for (const summary of deps.store.listConversations()) {
@@ -141,9 +144,6 @@ export function createRequestHandlers(deps: HandlerDeps) {
           "Message exceeded the model's context window; the oldest content was truncated.",
       });
     };
-    const isCtxOverflow = (e: unknown) =>
-      e instanceof Error && e.message.includes("context window");
-
     const run = async () => {
       let budget = baseBudget;
       for (;;) {
@@ -154,6 +154,7 @@ export function createRequestHandlers(deps: HandlerDeps) {
         });
         if (built.truncated) warnTruncated();
         try {
+          // oxlint-disable-next-line no-await-in-loop -- sequential budget-halving retry
           return await deps.engine.generate(
             built.prompt,
             (delta) => {
@@ -272,14 +273,6 @@ export function createRequestHandlers(deps: HandlerDeps) {
       }
 
       void (async () => {
-        const emitDl = (phase: "progress" | "done" | "error", extra = {}) =>
-          deps.emit("model.download", {
-            fileName: safeName,
-            phase,
-            downloadedBytes: 0,
-            totalBytes: null,
-            ...extra,
-          });
         let writer: ReturnType<ReturnType<typeof Bun.file>["writer"]> | null =
           null;
         try {
@@ -298,13 +291,23 @@ export function createRequestHandlers(deps: HandlerDeps) {
             downloaded += chunk.byteLength;
             if (downloaded - lastEmit >= 4 * 1024 * 1024) {
               lastEmit = downloaded;
-              emitDl("progress", { downloadedBytes: downloaded, totalBytes: total });
+              deps.emit("model.download", {
+                fileName: safeName,
+                phase: "progress",
+                downloadedBytes: downloaded,
+                totalBytes: total,
+              });
             }
           }
           await writer.end();
           writer = null;
           renameSync(part, target);
-          emitDl("done", { downloadedBytes: downloaded, totalBytes: downloaded });
+          deps.emit("model.download", {
+            fileName: safeName,
+            phase: "done",
+            downloadedBytes: downloaded,
+            totalBytes: downloaded,
+          });
         } catch (e) {
           try {
             writer?.end();
@@ -316,7 +319,11 @@ export function createRequestHandlers(deps: HandlerDeps) {
           } catch {
             // .part may not exist yet
           }
-          emitDl("error", {
+          deps.emit("model.download", {
+            fileName: safeName,
+            phase: "error",
+            downloadedBytes: 0,
+            totalBytes: null,
             error: e instanceof Error ? e.message : String(e),
           });
         }
@@ -354,7 +361,7 @@ export function createRequestHandlers(deps: HandlerDeps) {
 
       const history = conv.messages
         .filter((m) => m.status === "complete" || m.status === "partial")
-        .reverse()
+        .toReversed()
         .map((m) => ({ role: m.role, content: m.content }));
 
       const userMsg: Message = {
@@ -482,7 +489,7 @@ export function createRequestHandlers(deps: HandlerDeps) {
           delete next.modelOverrides[modelOverride.fileName];
         } else {
           next.modelOverrides[modelOverride.fileName] = {
-            ...(next.modelOverrides[modelOverride.fileName] ?? {}),
+            ...next.modelOverrides[modelOverride.fileName],
             ...modelOverride.params,
           };
         }
@@ -505,7 +512,7 @@ export function createRequestHandlers(deps: HandlerDeps) {
         delete next.modelOverrides[fileName];
       } else {
         next.modelOverrides[fileName] = {
-          ...(next.modelOverrides[fileName] ?? {}),
+          ...next.modelOverrides[fileName],
           ...params,
         };
       }
@@ -576,6 +583,7 @@ async function bootstrapModel(emit: Emit): Promise<void> {
 }
 
 export function createRpc() {
+  // oxlint-disable-next-line consistent-function-scoping -- placeholder reassigned below
   let emit: Emit = () => {};
   const handlers = createRequestHandlers({
     engine,

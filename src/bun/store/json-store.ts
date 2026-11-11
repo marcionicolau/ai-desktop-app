@@ -48,7 +48,7 @@ export function getSettings(): Settings {
     return {
       ...DEFAULT_SETTINGS,
       ...parsed,
-      generation: { ...DEFAULT_GENERATION, ...(parsed.generation ?? {}) },
+      generation: { ...DEFAULT_GENERATION, ...parsed.generation },
       modelOverrides: parsed.modelOverrides ?? {},
     };
   } catch {
@@ -75,7 +75,7 @@ export function listConversations(): ConversationSummary[] {
       // skip unreadable/corrupt files
     }
   }
-  return out.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  return out.toSorted((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 
 export function getConversation(id: string): Conversation | null {

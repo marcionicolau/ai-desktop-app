@@ -28,7 +28,7 @@ export const rpc = Electroview.defineRPC<ChatRpcSchema>({
 });
 
 // Attaches the webview transport (native bridge + pending-message flush).
-new Electroview({ rpc });
+void new Electroview({ rpc });
 
 export function on<M extends keyof Events>(
   method: M,

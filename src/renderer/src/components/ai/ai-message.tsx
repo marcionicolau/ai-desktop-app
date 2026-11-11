@@ -27,7 +27,7 @@ export function AiMessage({ content }: Props) {
           const text = String(codeEl?.props?.children ?? "").replace(/\n$/, "");
           return <CodeBlock language={lang} code={text} />;
         },
-        code({ className, children }) {
+        code({ children }) {
           // inline code only — fenced blocks are handled by <pre>
           return (
             <code className="rounded bg-zinc-800 px-1 py-0.5 text-xs text-zinc-100">

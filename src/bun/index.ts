@@ -7,7 +7,7 @@ const url = DEV_URL ?? "views://main/index.html";
 
 const { rpc, start } = createRpc();
 
-new BrowserWindow({
+void new BrowserWindow({
   title: "AI Desktop App",
   url,
   rpc,

@@ -15,7 +15,7 @@ export function mergeParams(
   base: GenerationParams,
   override?: Partial<GenerationParams> | null,
 ): GenerationParams {
-  return { ...base, ...(override ?? {}) };
+  return { ...base, ...override };
 }
 
 // Returns the first validation error, or null when all fields are in range.
