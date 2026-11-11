@@ -1,0 +1,31 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noFallthroughCasesInSwitch": true,
+    "verbatimModuleSyntax": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "types": ["bun-types"],
+    "paths": {
+      "electrobun": ["./.hutch/devkit/api/sdks/main/index.ts"],
+      "electrobun/main": ["./.hutch/devkit/api/sdks/main/index.ts"],
+      "electrobun/main/*": ["./.hutch/devkit/api/sdks/main/entries/*.ts"],
+      "electrobun/bun": ["./.hutch/devkit/api/sdks/main/index.ts"],
+      "electrobun/bun/*": ["./.hutch/devkit/api/sdks/main/entries/*.ts"],
+      "electrobun/rpc": ["./.hutch/devkit/api/sdks/main/entries/rpc.ts"],
+      "electrobun/view": ["./.hutch/devkit/api/browser/index.ts"],
+      "@shared/*": ["./src/shared/*"],
+      "@/*": ["./src/renderer/src/*"]
+    }
+  },
+  "include": ["src", "electrobun.config.ts", "hutch.config.ts"],
+  "exclude": ["src/native/vendor", "node_modules", ".hutch", "dist", "build", "artifacts"]
+}

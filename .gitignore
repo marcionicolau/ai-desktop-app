@@ -1,0 +1,8 @@
+node_modules/
+.hutch/devkit/
+.hutch/locks/
+dist/
+build/
+artifacts/
+native/out/
+*.log
