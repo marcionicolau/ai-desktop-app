@@ -94,6 +94,7 @@ export function ChatPage() {
         onDelete={(id) => void deleteConversation(id)}
         onExport={(id, f) => exportConversation(id, f)}
         onImport={importConversation}
+        onSelectHit={(cid, mid) => void selectConversation(cid, mid)}
       />
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex items-center justify-between border-b border-border px-4 py-2">
@@ -239,6 +240,7 @@ export function ChatPage() {
           messages={path}
           variants={variants}
           generating={state.generatingId !== null}
+          scrollToId={state.scrollTarget}
           onRegenerate={(id) => void regenerate(id)}
           onEdit={(id, c) => void editMessage(id, c)}
           onSelectVariant={selectVariant}

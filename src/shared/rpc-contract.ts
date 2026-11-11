@@ -14,6 +14,7 @@ import type {
   ResolvedRole,
   RoleRef,
   RoleView,
+  SearchGroup,
   TurnStats,
   ModelStatus,
   Persona,
@@ -272,6 +273,11 @@ export interface ChatRpcSchema extends ElectrobunRPCSchema {
       "conversation.setPersona": {
         params: { conversationId: string; personaName: string | null };
         response: { suggestedTag?: string };
+      };
+      // feature 007: literal substring search over all conversations
+      "search.query": {
+        params: { q: string };
+        response: { groups: SearchGroup[] };
       };
     };
     messages: Record<string, never>;

@@ -19,6 +19,8 @@ interface Props {
   messages: Message[]; // displayed path only (feature 005)
   variants: Map<string, { pos: number; ids: string[] }>;
   generating: boolean;
+  // feature 007: search-jump target — scrolled into view + flashed
+  scrollToId?: string | null;
   onRegenerate: (messageId: string) => void;
   onEdit: (messageId: string, content: string) => void;
   onSelectVariant: (messageId: string) => void;
@@ -28,6 +30,7 @@ export function MessageList({
   messages,
   variants,
   generating,
+  scrollToId,
   onRegenerate,
   onEdit,
   onSelectVariant,
@@ -35,10 +38,23 @@ export function MessageList({
   const endRef = useRef<HTMLDivElement>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
+  const [flashId, setFlashId] = useState<string | null>(null);
 
   useEffect(() => {
+    // a search jump owns the scroll — skip the tail-follow that render
+    if (scrollToId) return;
     endRef.current?.scrollIntoView({ behavior: "instant", block: "end" });
-  }, [messages.length, messages.at(-1)?.content.length]);
+  }, [messages.length, messages.at(-1)?.content.length, scrollToId]);
+
+  useEffect(() => {
+    if (!scrollToId) return;
+    const el = document.getElementById(`msg-${scrollToId}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "instant", block: "center" });
+    setFlashId(scrollToId);
+    const t = setTimeout(() => setFlashId(null), 2000);
+    return () => clearTimeout(t);
+  }, [scrollToId]);
 
   const commitEdit = (m: Message) => {
     const t = draft.trim();
@@ -61,8 +77,10 @@ export function MessageList({
           return (
             <div
               key={m.id}
+              id={`msg-${m.id}`}
               className={cn(
                 "group rounded-lg px-4 py-2 text-sm leading-relaxed",
+                flashId === m.id && "ring-2 ring-amber-500/60",
                 m.role === "user"
                   ? "ml-12 self-end bg-accent text-accent-foreground"
                   : "mr-12 self-start bg-muted",

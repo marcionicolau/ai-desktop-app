@@ -1,6 +1,13 @@
-import { useState } from "react";
-import { Download, MessageSquarePlus, Trash2, Upload } from "lucide-react";
-import type { ConversationSummary } from "@shared/types";
+import { useEffect, useRef, useState } from "react";
+import {
+  Download,
+  MessageSquarePlus,
+  Search,
+  Trash2,
+  Upload,
+} from "lucide-react";
+import type { ConversationSummary, SearchGroup } from "@shared/types";
+import { invoke } from "@/lib/rpc";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,6 +32,8 @@ interface Props {
   onDelete: (id: string) => void;
   onExport: (id: string, format: "markdown" | "json") => Promise<string | null>;
   onImport: () => Promise<string | null>;
+  // feature 007: search-hit navigation (conversationId, messageId)
+  onSelectHit: (conversationId: string, messageId: string) => void;
 }
 
 export function Sidebar({
@@ -36,11 +45,45 @@ export function Sidebar({
   onDelete,
   onExport,
   onImport,
+  onSelectHit,
 }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
   const [filter, setFilter] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
+  // feature 007: ≥3 chars flips the sidebar into grouped search results;
+  // seq-guard drops stale responses (US2 debounce correctness)
+  const [results, setResults] = useState<SearchGroup[] | null>(null);
+  const [searching, setSearching] = useState(false);
+  const seq = useRef(0);
+  const query = filter.trim();
+  const searchMode = query.length >= 3;
+
+  useEffect(() => {
+    if (!searchMode) {
+      setResults(null);
+      setSearching(false);
+      return;
+    }
+    setSearching(true);
+    const mine = ++seq.current;
+    const t = setTimeout(() => {
+      void invoke("search.query", { q: query })
+        .then((r) => {
+          if (seq.current === mine) {
+            setResults(r.groups);
+            setSearching(false);
+          }
+        })
+        .catch(() => {
+          if (seq.current === mine) {
+            setResults([]);
+            setSearching(false);
+          }
+        });
+    }, 250);
+    return () => clearTimeout(t);
+  }, [query, searchMode]);
 
   const flash = (text: string) => {
     setNotice(text);
@@ -89,12 +132,19 @@ export function Sidebar({
         >
           <Upload /> Import…
         </Button>
-        <Input
-          placeholder="Filter chats…"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          className="h-7 text-sm"
-        />
+        <div className="relative">
+          <Search className="absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Search all chats…"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") setFilter("");
+            }}
+            className="h-7 pl-7 text-sm"
+            aria-label="Search conversations"
+          />
+        </div>
         {notice && (
           <p className="truncate px-1 text-xs text-muted-foreground" title={notice}>
             {notice}
@@ -102,12 +152,61 @@ export function Sidebar({
         )}
       </div>
       <div className="flex-1 overflow-y-auto">
-        {visible.length === 0 && conversations.length > 0 && (
+        {searchMode ? (
+          <div className="p-1">
+            {searching && results === null && (
+              <p className="px-3 py-2 text-xs text-muted-foreground">
+                Searching…
+              </p>
+            )}
+            {results !== null && results.length === 0 && !searching && (
+              <p className="px-3 py-2 text-xs text-muted-foreground">
+                No results for "{query}".
+              </p>
+            )}
+            {results?.map((g) => (
+              <div key={g.conversationId} className="mb-1">
+                <button
+                  className="w-full truncate rounded px-2 py-1 text-left text-xs font-medium hover:bg-muted"
+                  title={g.title}
+                  onClick={() =>
+                    g.hits[0]
+                      ? onSelectHit(g.conversationId, g.hits[0].messageId)
+                      : onSelect(g.conversationId)
+                  }
+                >
+                  {g.title}
+                  {g.titleMatched && (
+                    <span className="ml-1 text-[10px] text-muted-foreground">
+                      (title)
+                    </span>
+                  )}
+                </button>
+                {g.hits.map((h) => (
+                  <button
+                    key={h.messageId}
+                    className="block w-full truncate rounded px-4 py-0.5 text-left text-[11px] text-muted-foreground hover:bg-muted"
+                    onClick={() => onSelectHit(g.conversationId, h.messageId)}
+                    title={h.snippet}
+                  >
+                    {h.snippet.slice(0, h.matchStart)}
+                    <mark className="rounded-sm bg-amber-500/40 text-inherit">
+                      {h.snippet.slice(h.matchStart, h.matchEnd)}
+                    </mark>
+                    {h.snippet.slice(h.matchEnd)}
+                  </button>
+                ))}
+              </div>
+            ))}
+          </div>
+        ) : null}
+        {!searchMode && visible.length === 0 && conversations.length > 0 && (
           <p className="px-3 py-2 text-xs text-muted-foreground">
             No chats match "{filter.trim()}".
           </p>
         )}
-        {visible.map((c) => (
+        {!searchMode &&
+          visible.map((c) => (
           <div
             key={c.id}
             className={cn(
