@@ -25,14 +25,17 @@ export interface EngineLike {
   isGenerating(): boolean;
   contextSize(): number;
   chatTemplate(): string | null;
+  tokenCount(text: string): number;
   generate(
     prompt: string,
     onToken: (delta: string) => void,
     params?: GenerationParams | null,
+    opts?: { conversationId?: string },
   ): Promise<{
     status: "complete" | "partial";
     tokens: number;
     elapsedMs: number;
+    warm: boolean;
   }>;
   stop(): void;
 }
@@ -142,8 +145,12 @@ export function createRequestHandlers(deps: HandlerDeps) {
 
       const ctxSize = deps.engine.contextSize();
       const reserve = Math.min(512, Math.floor(ctxSize / 2) || 512);
-      const baseBudget = ctxSize > 0 ? (ctxSize - reserve) * 4 : Infinity;
+      // budget is in real tokens now (FR-004); the estimate fallback lives
+      // inside engine.tokenCount when no model is loaded
+      const baseBudget = ctxSize > 0 ? ctxSize - reserve : Infinity;
       const chatml = (deps.engine.chatTemplate() ?? "").includes("im_start");
+      const costOf = (t: { content: string }) =>
+        deps.engine.tokenCount(t.content) + 8; // ~wrapper tokens per turn
 
       const history = conv.messages
         .filter((m) => m.status === "complete" || m.status === "partial")
@@ -204,7 +211,8 @@ export function createRequestHandlers(deps: HandlerDeps) {
         for (;;) {
           const built = buildPrompt(history, text, {
             chatml,
-            budgetChars: charBudget,
+            budget: charBudget,
+            costOf,
           });
           if (built.truncated) warnTruncated();
           try {
@@ -216,6 +224,7 @@ export function createRequestHandlers(deps: HandlerDeps) {
                 deps.emit("chat.token", { messageId, delta });
               },
               genParams,
+              { conversationId },
             );
           } catch (e) {
             if (!isCtxOverflow(e) || charBudget <= 256) throw e;

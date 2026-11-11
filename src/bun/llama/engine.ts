@@ -28,6 +28,7 @@ export class LlamaEngine {
   private modelName: string | null = null;
   private generating = false;
   private stopRequested = false;
+  private kvConvId: string | null = null;
   private tokenBuf = new Uint8Array(TOKEN_BUF_CAP);
   private outLen = new BigUint64Array(1);
 
@@ -96,6 +97,7 @@ export class LlamaEngine {
     this.modelName = null;
     this.generating = false;
     this.stopRequested = false;
+    this.kvConvId = null;
   }
 
   stop(): void {
@@ -117,6 +119,16 @@ export class LlamaEngine {
     return this.shim.symbols.lls_chat_template(this.model);
   }
 
+  // real token count via the model's tokenizer; chars/4 estimate when no
+  // model is loaded (fallback keeps budgeting sane pre-load)
+  tokenCount(text: string): number {
+    if (this.ctx === null || this.shim === null) {
+      return Math.ceil(text.length / 4);
+    }
+    const n = this.shim.symbols.lls_token_count(this.ctx, text);
+    return n > 0 ? n : Math.ceil(text.length / 4);
+  }
+
   // Drives the pull loop. onToken receives raw byte-chunks decoded as text.
   // params == null selects shim defaults (greedy + LLS_MAX_GEN/512 cap).
   // Resolves status "complete" on natural end, "partial" when stop() was
@@ -125,10 +137,12 @@ export class LlamaEngine {
     prompt: string,
     onToken: (delta: string) => void,
     params?: GenerationParams | null,
+    opts?: { conversationId?: string },
   ): Promise<{
     status: "complete" | "partial";
     tokens: number;
     elapsedMs: number;
+    warm: boolean;
   }> {
     if (this.ctx === null || this.shim === null) {
       throw new EngineError("NO_MODEL", "no model is loaded");
@@ -140,17 +154,21 @@ export class LlamaEngine {
     const err = newErrSlot();
     const pbuf = params ? packParams(params) : null;
 
-    if (
-      symbols.lls_generate_begin(
-        this.ctx,
-        prompt,
-        pbuf ? ptr(pbuf) : null,
-        ptr(err),
-      ) !== 0
-    ) {
+    // KV reuse: continue-path when the conversation matches the last one;
+    // the shim verifies the token prefix and falls back to a full decode
+    // on any mismatch (correctness is guaranteed in C)
+    const convId = opts?.conversationId;
+    const resume = convId !== undefined && convId === this.kvConvId;
+    const pptr = pbuf ? ptr(pbuf) : null;
+    const rc = resume
+      ? symbols.lls_generate_continue(this.ctx, prompt, pptr, ptr(err))
+      : symbols.lls_generate_begin(this.ctx, prompt, pptr, ptr(err));
+    if (rc !== 0 && rc !== 2) {
       const msg = readErr(this.shim, err) ?? "failed to begin generation";
       throw new EngineError("ENGINE_ERROR", msg);
     }
+    const warm = resume && rc === 0;
+    this.kvConvId = convId ?? this.kvConvId;
 
     const started = performance.now();
     let tokens = 0;
@@ -163,6 +181,7 @@ export class LlamaEngine {
             status: "partial",
             tokens,
             elapsedMs: performance.now() - started,
+            warm,
           };
         }
         this.outLen[0] = 0n;
@@ -172,6 +191,7 @@ export class LlamaEngine {
             status: "complete",
             tokens,
             elapsedMs: performance.now() - started,
+            warm,
           };
         }
         if (r < 0) {

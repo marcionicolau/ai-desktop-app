@@ -32,3 +32,11 @@ Notes:
 store) ↔ `src/shared` (RPC contract + domain types) ↔ `src/renderer` (React +
 Tailwind v4 + shadcn via Vite) ; `src/native/shim` = pull-based C ABI over
 vendored llama.cpp. Feature docs under `specs/`.
+
+## Commit convention
+
+Spec Kit hooks only fire at command boundaries (no per-task hook event).
+Convention: commit after each completed task or small task group during
+implementation via
+`.specify/extensions/git/scripts/bash/auto-commit.sh <phase> --message-file <f>`
+with a conventional-commit message.

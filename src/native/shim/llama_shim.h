@@ -75,6 +75,15 @@ typedef struct lls_gen_params {
 LLS_API int lls_generate_begin(lls_ctx * c, const char * prompt,
                                const lls_gen_params * p, char ** err);
 
+// like lls_generate_begin but reuses the KV prefix when the new prompt's
+// leading tokens match the previous decode exactly (verified by hash).
+// returns 0 = prefix reused, 2 = fell back to full decode, nonzero = error
+LLS_API int lls_generate_continue(lls_ctx * c, const char * prompt,
+                                  const lls_gen_params * p, char ** err);
+
+// token count for text (special tokens included); <= 0 on error
+LLS_API int32_t lls_token_count(lls_ctx * c, const char * text);
+
 // 1 = token written to buf (out_len = byte count), 0 = done, <0 = error
 LLS_API int lls_step(lls_ctx * c, char * buf, size_t cap, size_t * out_len);
 

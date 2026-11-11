@@ -38,7 +38,13 @@ function makeDeps(loadBehavior: "ok" | "not_found" | "invalid") {
     isGenerating: () => false,
     contextSize: () => 4096,
     chatTemplate: () => null,
-    generate: async () => ({ status: "complete" as const, tokens: 1, elapsedMs: 1 }),
+    tokenCount: (t: string) => Math.ceil(t.length / 4),
+    generate: async () => ({
+      status: "complete" as const,
+      tokens: 1,
+      elapsedMs: 1,
+      warm: false,
+    }),
     stop: () => {},
   };
 

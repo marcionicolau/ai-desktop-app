@@ -23,6 +23,9 @@ struct lls_ctx {
     int32_t pos; // KV position; generation ends cleanly when it reaches n_ctx
     int32_t n_gen; // tokens produced since generate_begin
     int32_t max_gen; // generation cap; LLS_MAX_GEN env, default 512
+    llama_token * kv_tokens; // copy of every token currently in KV (seq 0)
+    int32_t kv_count; // number of valid entries in kv_tokens
+    int32_t kv_cap; // allocated capacity
 };
 
 static int backend_ready = 0;
@@ -36,6 +39,14 @@ static void set_err(char ** err, const char * msg) {
     if (*err != NULL) {
         memcpy(*err, msg, n);
     }
+}
+
+// appends a token to the KV mirror (best-effort; OOM disables reuse)
+static void kv_append(lls_ctx * c, llama_token t) {
+    if (c->kv_tokens == NULL || c->kv_count >= c->kv_cap) {
+        return;
+    }
+    c->kv_tokens[c->kv_count++] = t;
 }
 
 static void ensure_backend(void) {
@@ -107,6 +118,12 @@ lls_ctx * lls_ctx_create(lls_model * m, char ** err) {
     }
     c->handle = handle;
     c->vocab = llama_model_get_vocab(m->handle);
+    c->kv_cap = (int32_t) llama_n_ctx(handle);
+    c->kv_tokens =
+        (llama_token *) malloc(sizeof(llama_token) * (size_t) c->kv_cap);
+    if (c->kv_tokens == NULL) {
+        c->kv_cap = 0;
+    }
     return c;
 }
 
@@ -126,14 +143,19 @@ void lls_ctx_free(lls_ctx * c) {
         return;
     }
     lls_generate_end(c);
+    free(c->kv_tokens);
+    c->kv_tokens = NULL;
     if (c->handle != NULL) {
         llama_free(c->handle);
     }
     free(c);
 }
 
-int lls_generate_begin(lls_ctx * c, const char * prompt,
-                       const lls_gen_params * p, char ** err) {
+// shared begin/continue implementation. try_reuse=1 keeps the longest
+// common token prefix between the new prompt and the KV mirror; any
+// mismatch falls back to a full clear+decode. 0=reused, 2=full decode, 1=err.
+static int gen_start(lls_ctx * c, const char * prompt,
+                     const lls_gen_params * p, char ** err, int try_reuse) {
     if (c == NULL) {
         set_err(err, "context is NULL");
         return 1;
@@ -175,11 +197,30 @@ int lls_generate_begin(lls_ctx * c, const char * prompt,
         return 1;
     }
 
-    llama_memory_clear(llama_get_memory(c->handle), true);
+    llama_memory_t mem = llama_get_memory(c->handle);
+    int32_t lcp = 0;
+    if (try_reuse && c->kv_count > 0) {
+        // longest common prefix of the new prompt and the KV mirror
+        const int32_t lim =
+            c->kv_count < n_tokens ? c->kv_count : n_tokens;
+        while (lcp < lim && tokens[lcp] == c->kv_tokens[lcp]) {
+            lcp++;
+        }
+    }
+    int reused = 0;
+    if (lcp > 0) {
+        // keep the shared prefix; drop everything after it
+        llama_memory_seq_rm(mem, 0, lcp, -1);
+        c->kv_count = lcp;
+        reused = 1;
+    } else {
+        llama_memory_clear(mem, true);
+        c->kv_count = 0;
+    }
 
-    // decode the prompt in n_batch-sized chunks
+    // decode the non-reused suffix in n_batch-sized chunks
     const uint32_t n_batch = llama_n_batch(c->handle);
-    int32_t offset = 0;
+    int32_t offset = reused ? lcp : 0;
     while (offset < n_tokens) {
         int32_t chunk = n_tokens - offset;
         if (chunk > (int32_t) n_batch) {
@@ -190,6 +231,9 @@ int lls_generate_begin(lls_ctx * c, const char * prompt,
             free(tokens);
             set_err(err, "prompt decode failed");
             return 1;
+        }
+        for (int32_t i = 0; i < chunk; i++) {
+            kv_append(c, tokens[offset + i]);
         }
         offset += chunk;
     }
@@ -240,7 +284,31 @@ int lls_generate_begin(lls_ctx * c, const char * prompt,
     c->smpl = smpl;
     c->cur = llama_sampler_sample(smpl, c->handle, -1);
     c->generating = 1;
-    return 0;
+    return reused ? 0 : 2;
+}
+
+int lls_generate_begin(lls_ctx * c, const char * prompt,
+                       const lls_gen_params * p, char ** err) {
+    const int rc = gen_start(c, prompt, p, err, /* try_reuse */ 0);
+    return rc == 1 ? 1 : 0;
+}
+
+// 0 = KV prefix reused, 2 = full decode fallback, 1 = error (err set)
+int lls_generate_continue(lls_ctx * c, const char * prompt,
+                          const lls_gen_params * p, char ** err) {
+    return gen_start(c, prompt, p, err, /* try_reuse */ 1);
+}
+
+// token count including special tokens; <= 0 on NULL/error
+int32_t lls_token_count(lls_ctx * c, const char * text) {
+    if (c == NULL || text == NULL) {
+        return -1;
+    }
+    const int32_t n = llama_tokenize(c->vocab, text, (int32_t) strlen(text),
+                                     NULL, 0,
+                                     /* add_special */ true,
+                                     /* parse_special */ true);
+    return n < 0 ? -n : n;
 }
 
 int lls_step(lls_ctx * c, char * buf, size_t cap, size_t * out_len) {
@@ -268,6 +336,7 @@ int lls_step(lls_ctx * c, char * buf, size_t cap, size_t * out_len) {
     if (llama_decode(c->handle, llama_batch_get_one(&c->cur, 1)) != 0) {
         return -1;
     }
+    kv_append(c, c->cur);
     c->pos += 1;
     c->n_gen += 1;
     c->cur = llama_sampler_sample(c->smpl, c->handle, -1);

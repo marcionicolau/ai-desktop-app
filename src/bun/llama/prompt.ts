@@ -15,12 +15,15 @@ export interface PromptResult {
 
 export interface BuildPromptOpts {
   chatml: boolean;
-  // max characters the rendered turn list may occupy (heuristic budget;
-  // the caller still retries on real token-level overflow)
-  budgetChars: number;
+  // max cost units the rendered turn list may occupy (tokens when costOf
+  // is supplied, else chars — the caller still retries on real overflow)
+  budget: number;
+  // per-turn cost; default is a chars/4-ish heuristic
+  costOf?: (t: PromptTurn) => number;
 }
 
-const OVERHEAD = 32; // per-turn template wrapper estimate
+const OVERHEAD_CHARS = 32; // per-turn template wrapper estimate
+const defaultCost = (t: PromptTurn) => t.content.length + OVERHEAD_CHARS;
 
 // history is newest-first (most recent turn at index 0); the current user
 // message is always kept. Oldest turns are dropped when over budget.
@@ -29,12 +32,14 @@ export function buildPrompt(
   current: string,
   opts: BuildPromptOpts,
 ): PromptResult {
-  const sel: PromptTurn[] = [{ role: "user", content: current }];
-  let used = current.length + OVERHEAD;
+  const costOf = opts.costOf ?? defaultCost;
+  const cur: PromptTurn = { role: "user", content: current };
+  const sel: PromptTurn[] = [cur];
+  let used = costOf(cur);
   let truncated = false;
   for (const t of history) {
-    const cost = t.content.length + OVERHEAD;
-    if (used + cost > opts.budgetChars) {
+    const cost = costOf(t);
+    if (used + cost > opts.budget) {
       truncated = true;
       break;
     }

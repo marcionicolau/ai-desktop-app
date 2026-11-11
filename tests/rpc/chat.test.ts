@@ -37,6 +37,7 @@ function makeDeps(opts: {
     isGenerating: () => generating,
     contextSize: () => opts.ctxSize ?? 4096,
     chatTemplate: () => null,
+    tokenCount: (t: string) => Math.ceil(t.length / 4),
     stop: () => {
       stopped = true;
       opts.onStop?.();
@@ -59,6 +60,7 @@ function makeDeps(opts: {
         status: stopped ? "partial" : (opts.genResult ?? "complete"),
         tokens,
         elapsedMs: 1,
+        warm: false,
       };
     },
   };

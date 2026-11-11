@@ -44,10 +44,10 @@ features established test-first conventions.
 
 **Independent Test**: VS-2 — turn ≥2 TTFT visibly lower; truncation/switch triggers clean full-decode fallback.
 
-- [ ] T014 [P] [US2] Write `tests/bun/prompt.test.ts`: `buildPrompt` formats (chatml/plain), oldest-turn drop, delta-prompt extraction for continue path
-- [ ] T015 [US2] Add to shim + ffi.ts: `lls_generate_continue(ctx, prompt_delta, params, err)` (no `memory_clear`, `add_special=false`) and `lls_token_count(ctx, text) → int32` (NULL-buffer `llama_tokenize`); declare in `llama_shim.h`
-- [ ] T016 [US2] Implement `KVSession` in `engine.ts`: `{modelPath, conversationId, turnsHash, kvPos}`; `generate` chooses continue vs begin by fingerprint match; invalidate on conv switch, model unload, truncation, regenerate/edit, restart; expose `warm` flag for tests
-- [ ] T017 [US2] Update `handlers.ts` `chat.send`: replace `chars/4` estimate with `lls_token_count` budgeting (fallback to estimate when no model loaded); keep retry-on-overflow as safety net; pass `conversationId` so engine can fingerprint
+- [x] T014 [P] [US2] Write `tests/bun/prompt.test.ts`: `buildPrompt` formats (chatml/plain), oldest-turn drop, delta-prompt extraction for continue path
+- [x] T015 [US2] Add to shim + ffi.ts: `lls_generate_continue(ctx, prompt_delta, params, err)` (no `memory_clear`, `add_special=false`) and `lls_token_count(ctx, text) → int32` (NULL-buffer `llama_tokenize`); declare in `llama_shim.h`
+- [x] T016 [US2] Implement `KVSession` in `engine.ts`: `{modelPath, conversationId, turnsHash, kvPos}`; `generate` chooses continue vs begin by fingerprint match; invalidate on conv switch, model unload, truncation, regenerate/edit, restart; expose `warm` flag for tests
+- [x] T017 [US2] Update `handlers.ts` `chat.send`: replace `chars/4` estimate with `lls_token_count` budgeting (fallback to estimate when no model loaded); keep retry-on-overflow as safety net; pass `conversationId` so engine can fingerprint
 
 **Checkpoint**: US1+US2 both working; warm turns measurably faster (SC-002).
 
