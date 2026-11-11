@@ -61,6 +61,24 @@ export function MessageList({
                   : "mr-12 self-start bg-muted",
               )}
             >
+              {m.role === "assistant" && m.phases?.plan && (
+                <details
+                  className="mb-2 rounded border border-border bg-background/50 px-2 py-1 text-xs"
+                  open={m.status === "generating" && !m.content}
+                >
+                  <summary className="cursor-pointer select-none text-muted-foreground">
+                    Plan
+                    {m.phases.plan.tag && ` · ${m.phases.plan.tag}`}
+                    {m.phases.plan.fileName && ` (${m.phases.plan.fileName})`}
+                    {m.phases.plan.servedBy === "fallback" && " · via fallback"}
+                    {m.phases.plan.stats &&
+                      ` · ${m.phases.plan.stats.tokens} tok · ${m.phases.plan.stats.tokensPerSec} tok/s`}
+                  </summary>
+                  <p className="mt-1 whitespace-pre-wrap break-words">
+                    {m.phases.plan.content}
+                  </p>
+                </details>
+              )}
               {m.role === "assistant" ? (
                 <div className="break-words">
                   {m.status === "generating" && !m.content ? (
@@ -102,9 +120,20 @@ export function MessageList({
               )}
               {STATUS_HINT[m.status] && (
                 <p className="mt-1 text-xs text-muted-foreground">
-                  {STATUS_HINT[m.status]}
+                  {m.status === "generating" && m.phases
+                    ? m.phases.answer
+                      ? `answering… (${m.phases.answer.tag ?? "executor"})`
+                      : `planning… (${m.phases.plan?.tag ?? "planner"})`
+                    : STATUS_HINT[m.status]}
                 </p>
               )}
+              {m.role === "assistant" &&
+                m.phases?.answer?.servedBy === "fallback" && (
+                  <p className="mt-1 text-xs text-amber-500">
+                    served by fallback {m.phases.answer.fileName}
+                    {m.phases.answer.tag ? ` (${m.phases.answer.tag})` : ""}
+                  </p>
+                )}
               {m.role === "assistant" && m.stats && (
                 <p className="mt-1 text-xs text-muted-foreground">
                   {m.stats.tokens} tokens · {m.stats.tokensPerSec} tok/s

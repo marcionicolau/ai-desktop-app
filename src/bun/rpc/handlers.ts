@@ -8,12 +8,17 @@ import type {
   GenerationParams,
   Message,
   ModelStatus,
+  ResolvedRole,
+  RoleRef,
 } from "../../shared/types";
 import { DEFAULT_GENERATION } from "../../shared/types";
-import { EngineError, LlamaEngine } from "../llama/engine";
+import { EngineError } from "../llama/engine";
 import { mergeParams, validateParams } from "../llama/params";
 import { buildPrompt, type PromptTurn } from "../llama/prompt";
 import { modelsDir, scanModels } from "../models/library";
+import { ModelRegistry, createRegistryEngine } from "../models/registry";
+import { RolesService } from "../models/roles";
+import { runFusionTurn } from "../llama/fusion";
 import * as store from "../store/json-store";
 import { existsSync, mkdirSync, renameSync, unlinkSync } from "node:fs";
 import { basename, join } from "node:path";
@@ -56,6 +61,9 @@ export interface HandlerDeps {
   engine: EngineLike;
   emit: Emit;
   store: StoreLike;
+  // feature 004: optional so existing tests keep a two-dep harness
+  roles?: RolesService;
+  registry?: ModelRegistry;
 }
 
 function fail(code: RpcErrorCode, message: string): never {
@@ -94,6 +102,8 @@ export function createRequestHandlers(deps: HandlerDeps) {
     );
   };
 
+  const rolesSvc = () => deps.roles ?? new RolesService({ store: deps.store });
+
   const findMessage = (messageId: string) => {
     for (const summary of deps.store.listConversations()) {
       const conv = deps.store.getConversation(summary.id);
@@ -113,13 +123,20 @@ export function createRequestHandlers(deps: HandlerDeps) {
     history: PromptTurn[],
     current: string,
   ): void => {
-    const genParams = resolveGenParams();
-    const ctxSize = deps.engine.contextSize();
-    const reserve = Math.min(512, Math.floor(ctxSize / 2) || 512);
-    const baseBudget = ctxSize > 0 ? ctxSize - reserve : Infinity;
-    const chatml = (deps.engine.chatTemplate() ?? "").includes("im_start");
-    const costOf = (t: { content: string }) =>
-      deps.engine.tokenCount(t.content) + 8; // ~wrapper tokens per turn
+    // FR-010: single-mode generation resolves through the `default` tag;
+    // when the roles dep is absent (unit-test harness) fall back to the
+    // legacy per-model param merge.
+    // candidate list for the runtime fallback cascade (T019); legacy
+    // test harness without roles dep gets a single implicit candidate
+    let candidates: ResolvedRole[] = [];
+    if (deps.roles) {
+      try {
+        candidates = deps.roles.resolveCandidates("default");
+      } catch {
+        candidates = [];
+      }
+    }
+    const legacyGenParams = resolveGenParams();
     const messageId = assistantMsg.id;
     activeMessageId = messageId;
 
@@ -145,31 +162,153 @@ export function createRequestHandlers(deps: HandlerDeps) {
       });
     };
     const run = async () => {
-      let budget = baseBudget;
-      for (;;) {
-        const built = buildPrompt(history, current, {
-          chatml,
-          budget,
-          costOf,
+      // fusion mode: two-phase planner -> executor via the orchestrator
+      if (conv.mode === "fusion" && deps.roles && deps.registry) {
+        const planner = deps.roles.resolveCandidates(conv.plannerTag);
+        const executor = deps.roles.resolveCandidates(conv.executorTag);
+        if (planner.length === 0) {
+          fail("ROLE_UNBOUND", `planner role "${conv.plannerTag}" has no bound model`);
+        }
+        if (executor.length === 0) {
+          fail("ROLE_UNBOUND", `executor role "${conv.executorTag}" has no bound model`);
+        }
+        const res = await runFusionTurn({
+          planner,
+          executor,
+          registry: deps.registry,
+          conversationId: conv.id,
+          history,
+          current,
+          onTruncated: warnTruncated,
+          onEvent: (m, p) =>
+            deps.emit(
+              m as never,
+              { messageId, ...(p as Record<string, unknown>) } as never,
+            ),
+          onPlanDelta: () => {
+            dirty = true;
+          },
+          onAnswerDelta: (d) => {
+            assistantMsg.content += d;
+            dirty = true;
+          },
         });
-        if (built.truncated) warnTruncated();
+        assistantMsg.phases = {
+          plan: res.plan,
+          answer: res.answer
+            ? {
+                stats: res.answer.stats,
+                tag: res.answer.tag,
+                fileName: res.answer.fileName,
+                servedBy: res.answer.servedBy,
+              }
+            : undefined,
+        };
+        return {
+          status: res.status,
+          turnStats: {
+            plan: res.plan?.stats ?? undefined,
+            answer: res.answer?.stats ?? undefined,
+            total: res.answer?.stats ?? res.plan?.stats ?? undefined,
+          },
+        };
+      }
+      // runtime fallback cascade (T019): try each candidate in order;
+      // retry only when failure precedes the first emitted token so a
+      // mid-stream error never produces duplicated output
+      const attempts: { role: ResolvedRole | null; path: string | null }[] =
+        deps.roles && deps.registry
+          ? candidates.map((r) => ({ role: r, path: r.path }))
+          : [{ role: null, path: null }];
+      if (deps.roles && deps.registry && attempts.length === 0) {
+        throw new EngineError(
+          "ROLE_UNBOUND",
+          'role "default" has no bound model',
+        );
+      }
+      let lastErr: unknown;
+      for (const attempt of attempts) {
+        let eng: EngineLike = deps.engine;
+        let slotPath: string | null = null;
+        let emitted = false;
+        const genParams = attempt.role
+          ? attempt.role.params
+          : legacyGenParams;
         try {
-          // oxlint-disable-next-line no-await-in-loop -- sequential budget-halving retry
-          return await deps.engine.generate(
-            built.prompt,
-            (delta) => {
-              assistantMsg.content += delta;
-              dirty = true;
-              deps.emit("chat.token", { messageId, delta });
-            },
-            genParams,
-            { conversationId: conv.id },
-          );
+          if (attempt.path && deps.registry) {
+            // oxlint-disable-next-line no-await-in-loop -- sequential candidate cascade
+            const slot = await deps.registry.acquire(attempt.path);
+            deps.registry.pin(slot.path, conv.id);
+            slotPath = slot.path;
+            eng = slot.engine;
+          }
+          const ctxSize = eng.contextSize();
+          const reserve = Math.min(512, Math.floor(ctxSize / 2) || 512);
+          const baseBudget = ctxSize > 0 ? ctxSize - reserve : Infinity;
+          const chatml = (eng.chatTemplate() ?? "").includes("im_start");
+          const costOf = (t: { content: string }) =>
+            eng.tokenCount(t.content) + 8; // ~wrapper tokens per turn
+          let budget = baseBudget;
+          for (;;) {
+            const built = buildPrompt(history, current, {
+              chatml,
+              budget,
+              costOf,
+            });
+            if (built.truncated) warnTruncated();
+            try {
+              // oxlint-disable-next-line no-await-in-loop -- sequential budget-halving retry
+              const r = await eng.generate(
+                built.prompt,
+                (delta) => {
+                  if (!emitted) {
+                    emitted = true;
+                    // surface fallback service in the chat timeline
+                    if (attempt.role?.servedBy.kind === "fallback") {
+                      deps.emit("chat.phase", {
+                        messageId,
+                        phase: "answer",
+                        tag: attempt.role.tag,
+                        fileName: attempt.role.fileName,
+                        servedBy: "fallback",
+                      });
+                    }
+                  }
+                  assistantMsg.content += delta;
+                  dirty = true;
+                  deps.emit("chat.token", { messageId, delta });
+                },
+                genParams,
+                { conversationId: conv.id },
+              );
+              if (attempt.role?.servedBy.kind === "fallback") {
+                assistantMsg.phases = {
+                  answer: {
+                    tag: attempt.role.tag,
+                    fileName: attempt.role.fileName,
+                    servedBy: "fallback",
+                  },
+                };
+              }
+              return {
+                status: r.status,
+                tokens: r.tokens,
+                elapsedMs: r.elapsedMs,
+              };
+            } catch (e) {
+              if (!isCtxOverflow(e) || budget <= 256) throw e;
+              budget = Math.floor(budget / 2);
+            }
+          }
         } catch (e) {
-          if (!isCtxOverflow(e) || budget <= 256) throw e;
-          budget = Math.floor(budget / 2);
+          lastErr = e;
+          if (emitted) throw e;
+          // try next candidate
+        } finally {
+          if (slotPath && deps.registry) deps.registry.release(slotPath);
         }
       }
+      throw lastErr;
     };
 
     void run()
@@ -177,19 +316,26 @@ export function createRequestHandlers(deps: HandlerDeps) {
         assistantMsg.status = res.status;
         assistantMsg.completedAt = now();
         const stats =
-          res.tokens > 0
-            ? {
-                tokens: res.tokens,
-                tokensPerSec:
-                  Math.round((res.tokens / (res.elapsedMs / 1000)) * 10) / 10,
-              }
-            : null;
+          "turnStats" in res
+            ? null
+            : res.tokens > 0
+              ? {
+                  tokens: res.tokens,
+                  tokensPerSec:
+                    Math.round((res.tokens / (res.elapsedMs / 1000)) * 10) / 10,
+                }
+              : null;
         assistantMsg.stats = stats;
         persist(conv);
         deps.emit("chat.done", {
           messageId,
           status: res.status,
-          stats: stats ?? undefined,
+          stats:
+            "turnStats" in res
+              ? res.turnStats
+              : stats
+                ? { answer: stats, total: stats }
+                : undefined,
         });
       })
       .catch((e: unknown) => {
@@ -208,14 +354,34 @@ export function createRequestHandlers(deps: HandlerDeps) {
       });
   };
 
+  const requireBound = (kind: string, tag: string) => {
+    try {
+      rolesSvc().resolve(tag);
+    } catch (e) {
+      if (e instanceof EngineError && e.code === "ROLE_UNBOUND") {
+        fail(
+          "ROLE_UNBOUND",
+          `${kind} role "${tag}" has no bound model — bind it in the Roles panel`,
+        );
+      }
+      throw e;
+    }
+  };
+
   return {
     "model.load": async ({ path }: { path: string }) => {
       deps.emit("model.progress", { phase: "loading" });
       try {
         const res = await deps.engine.loadModel(path);
         deps.emit("model.progress", { phase: "ready", detail: res.name });
-        const settings = deps.store.getSettings();
-        deps.store.saveSettings({ ...settings, activeModelPath: path });
+        if (deps.roles) {
+          // bind("default") also syncs activeModelPath (FR-010)
+          deps.roles.bind("default", path);
+          deps.emit("role.changed", { name: "default" });
+        } else {
+          const settings = deps.store.getSettings();
+          deps.store.saveSettings({ ...settings, activeModelPath: path });
+        }
         return res;
       } catch (e) {
         deps.emit("model.progress", {
@@ -227,8 +393,13 @@ export function createRequestHandlers(deps: HandlerDeps) {
     },
     "model.unload": () => {
       deps.engine.unloadModel();
-      const settings = deps.store.getSettings();
-      deps.store.saveSettings({ ...settings, activeModelPath: null });
+      if (deps.roles) {
+        deps.roles.bind("default", null);
+        deps.emit("role.changed", { name: "default" });
+      } else {
+        const settings = deps.store.getSettings();
+        deps.store.saveSettings({ ...settings, activeModelPath: null });
+      }
       return {};
     },
     "model.pick": async () => {
@@ -247,9 +418,11 @@ export function createRequestHandlers(deps: HandlerDeps) {
     "model.download": ({
       url,
       fileName,
+      tagName,
     }: {
       url: string;
       fileName: string;
+      tagName?: string;
     }) => {
       // allowlist: huggingface.co/<org>/<repo>/resolve/<rev>/<file>.gguf
       const HF_RE =
@@ -263,6 +436,13 @@ export function createRequestHandlers(deps: HandlerDeps) {
       const safeName = basename(fileName.trim());
       if (!safeName.endsWith(".gguf") || safeName !== fileName.trim()) {
         fail("INVALID_URL", "fileName must be a plain .gguf basename");
+      }
+      // validate the tag exists before the download starts (FR-004)
+      if (tagName !== undefined) {
+        const known = rolesSvc()
+          .list()
+          .some((t) => t.name === tagName);
+        if (!known) fail("NOT_FOUND", `role tag not found: ${tagName}`);
       }
       const dir = modelsDir();
       mkdirSync(dir, { recursive: true });
@@ -308,6 +488,15 @@ export function createRequestHandlers(deps: HandlerDeps) {
             downloadedBytes: downloaded,
             totalBytes: downloaded,
           });
+          // FR-004: bind only after the file lands; .part/error never bind
+          if (tagName !== undefined) {
+            try {
+              rolesSvc().bind(tagName, safeName);
+              deps.emit("role.changed", { name: tagName });
+            } catch {
+              // file downloaded; binding failure surfaces on next role.list
+            }
+          }
         } catch (e) {
           try {
             writer?.end();
@@ -334,10 +523,16 @@ export function createRequestHandlers(deps: HandlerDeps) {
       conversationId,
       content,
       userMessageId,
+      mode,
+      plannerTag,
+      executorTag,
     }: {
       conversationId: string;
       content: string;
       userMessageId?: string;
+      mode?: "single" | "fusion";
+      plannerTag?: string;
+      executorTag?: string;
     }) => {
       const text = content.trim();
       if (!text) fail("EMPTY_MESSAGE", "message must not be empty");
@@ -356,7 +551,14 @@ export function createRequestHandlers(deps: HandlerDeps) {
           createdAt: now(),
           updatedAt: now(),
           messages: [],
+          mode: mode ?? "single",
+          plannerTag: plannerTag ?? "planner",
+          executorTag: executorTag ?? "executor",
         };
+        if (conv.mode === "fusion" && deps.roles) {
+          requireBound("planner", conv.plannerTag);
+          requireBound("executor", conv.executorTag);
+        }
       }
 
       const history = conv.messages
@@ -532,6 +734,9 @@ export function createRequestHandlers(deps: HandlerDeps) {
         createdAt: now(),
         updatedAt: now(),
         messages: [],
+        mode: "single",
+        plannerTag: "planner",
+        executorTag: "executor",
       };
       persist(conv);
       return { id: conv.id, title: conv.title, updatedAt: conv.updatedAt };
@@ -558,12 +763,109 @@ export function createRequestHandlers(deps: HandlerDeps) {
       }
       return {};
     },
+    "role.list": () => ({ tags: rolesSvc().list() }),
+    "role.create": ({
+      name,
+      label,
+      description,
+    }: {
+      name: string;
+      label?: string;
+      description?: string;
+    }) => {
+      const tag = rolesSvc().create({ name, label, description });
+      deps.emit("role.changed", { name });
+      return { tag };
+    },
+    "role.update": ({
+      name,
+      label,
+      description,
+      params,
+    }: {
+      name: string;
+      label?: string;
+      description?: string;
+      params?: Partial<GenerationParams> | null;
+    }) => {
+      rolesSvc().update({ name, label, description, params });
+      deps.emit("role.changed", { name });
+      return {};
+    },
+    "role.delete": ({ name, force }: { name: string; force?: boolean }) => {
+      rolesSvc().delete(name, force ?? false);
+      deps.emit("role.changed", { name });
+      return {};
+    },
+    "role.bind": ({
+      name,
+      fileName,
+    }: {
+      name: string;
+      fileName: string | null;
+    }) => {
+      rolesSvc().bind(name, fileName);
+      deps.emit("role.changed", { name });
+      return {};
+    },
+    "role.setFallback": ({
+      name,
+      chain,
+    }: {
+      name: string;
+      chain: RoleRef[];
+    }) => {
+      rolesSvc().setFallback(name, chain);
+      deps.emit("role.changed", { name });
+      return {};
+    },
+    "role.resolve": ({ name }: { name: string }) => {
+      const candidates = rolesSvc().resolveCandidates(name);
+      if (candidates.length === 0) {
+        fail("ROLE_UNBOUND", `role "${name}" has no bound model`);
+      }
+      return { resolved: candidates[0]!, candidates };
+    },
+    "conversation.setMode": ({
+      conversationId,
+      mode,
+      plannerTag,
+      executorTag,
+    }: {
+      conversationId: string;
+      mode: "single" | "fusion";
+      plannerTag?: string;
+      executorTag?: string;
+    }) => {
+      const conv = deps.store.getConversation(conversationId);
+      if (!conv) fail("NOT_FOUND", `conversation ${conversationId} not found`);
+      if (mode !== "single" && mode !== "fusion") {
+        fail("INVALID_PARAMS", `invalid mode: ${mode}`);
+      }
+      const pTag = plannerTag ?? conv.plannerTag;
+      const eTag = executorTag ?? conv.executorTag;
+      if (mode === "fusion" && deps.roles) {
+        requireBound("planner", pTag);
+        requireBound("executor", eTag);
+      }
+      conv.mode = mode;
+      conv.plannerTag = pTag;
+      conv.executorTag = eTag;
+      conv.updatedAt = now();
+      persist(conv);
+      return {};
+    },
   };
 }
 
 export type RequestHandlers = ReturnType<typeof createRequestHandlers>;
 
-const engine = new LlamaEngine();
+const registry = new ModelRegistry();
+const roles = new RolesService({ store });
+const engine = createRegistryEngine({
+  registry,
+  activePath: () => store.getSettings().activeModelPath,
+});
 
 // Attempts initial model load from settings.activeModelPath or MODEL_PATH
 // (MVP bootstrap before US3's model picker).
@@ -587,6 +889,8 @@ export function createRpc() {
   let emit: Emit = () => {};
   const handlers = createRequestHandlers({
     engine,
+    roles,
+    registry,
     emit: (m, p) => emit(m, p),
     store,
   });

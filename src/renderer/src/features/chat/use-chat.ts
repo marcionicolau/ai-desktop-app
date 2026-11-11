@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useReducer, useRef } from "react";
 import type {
   ConversationSummary,
+  FusionPhase,
   GenerationParams,
   Message,
   ModelStatus,
@@ -22,18 +23,42 @@ interface ChatState {
   lastError: { code: RpcErrorCode; message: string } | null;
   notice: string | null;
   generation: GenerationParams;
+  mode: "single" | "fusion";
+  plannerTag: string;
+  executorTag: string;
+  activePhase: {
+    phase: FusionPhase;
+    tag: string;
+    fileName: string;
+    servedBy?: "primary" | "fallback";
+  } | null;
 }
 
 type Action =
   | { type: "list"; conversations: ConversationSummary[] }
   | { type: "hydrate"; conversationId: string | null; messages: Message[] }
   | { type: "append"; message: Message }
-  | { type: "token"; messageId: string; delta: string }
+  | { type: "token"; messageId: string; delta: string; phase?: FusionPhase }
+  | {
+      type: "phase";
+      messageId: string;
+      phase: FusionPhase;
+      tag: string;
+      fileName: string;
+      servedBy?: "primary" | "fallback";
+    }
   | {
       type: "done";
       messageId: string;
       status: "complete" | "partial";
       stats?: Message["stats"];
+      phases?: Message["phases"];
+    }
+  | {
+      type: "mode";
+      mode: "single" | "fusion";
+      plannerTag: string;
+      executorTag: string;
     }
   | { type: "error"; messageId: string; code: RpcErrorCode; message: string }
   | { type: "model"; status: ModelStatus; name?: string; error?: string }
@@ -58,6 +83,7 @@ function reduce(state: ChatState, action: Action): ChatState {
         conversationId: action.conversationId,
         messages: action.messages,
         generatingId: null,
+        activePhase: null,
       };
     case "append":
       return {
@@ -71,31 +97,106 @@ function reduce(state: ChatState, action: Action): ChatState {
     case "token":
       return {
         ...state,
-        messages: state.messages.map((m) =>
-          m.id === action.messageId
-            ? { ...m, content: m.content + action.delta }
-            : m,
-        ),
+        messages: state.messages.map((m) => {
+          if (m.id !== action.messageId) return m;
+          if (action.phase === "plan") {
+            // plan-phase tokens accumulate on phases.plan, not the answer body
+            const plan = {
+              content: "",
+              tag: "",
+              fileName: "",
+              ...m.phases?.plan,
+            };
+            return {
+              ...m,
+              phases: {
+                ...m.phases,
+                plan: { ...plan, content: plan.content + action.delta },
+              },
+            };
+          }
+          return { ...m, content: m.content + action.delta };
+        }),
+      };
+    case "phase":
+      return {
+        ...state,
+        activePhase: {
+          phase: action.phase,
+          tag: action.tag,
+          fileName: action.fileName,
+          servedBy: action.servedBy,
+        },
+        messages: state.messages.map((m) => {
+          if (m.id !== action.messageId) return m;
+          const phases = { ...m.phases };
+          if (action.phase === "plan") {
+            phases.plan = {
+              content: "",
+              stats: null,
+              ...phases.plan,
+              tag: action.tag,
+              fileName: action.fileName,
+              servedBy: action.servedBy,
+            };
+          } else {
+            phases.answer = {
+              ...phases.answer,
+              tag: action.tag,
+              fileName: action.fileName,
+              servedBy: action.servedBy,
+            };
+          }
+          return { ...m, phases };
+        }),
+      };
+    case "mode":
+      return {
+        ...state,
+        mode: action.mode,
+        plannerTag: action.plannerTag,
+        executorTag: action.executorTag,
       };
     case "done":
       return {
         ...state,
         generatingId: null,
-        messages: state.messages.map((m) =>
-          m.id === action.messageId
+        activePhase: null,
+        messages: state.messages.map((m) => {
+          if (m.id !== action.messageId) return m;
+          // merge per-phase stats onto phases accumulated by token/phase events
+          const phases = action.phases
             ? {
-                ...m,
-                status: action.status,
-                completedAt: new Date().toISOString(),
-                stats: action.stats ?? m.stats,
+                ...m.phases,
+                ...(m.phases?.plan
+                  ? {
+                      plan: { ...m.phases.plan, stats: action.phases.plan?.stats },
+                    }
+                  : {}),
+                ...(m.phases?.answer || action.phases.answer
+                  ? {
+                      answer: {
+                        ...m.phases?.answer,
+                        stats: action.phases.answer?.stats,
+                      },
+                    }
+                  : {}),
               }
-            : m,
-        ),
+            : m.phases;
+          return {
+            ...m,
+            status: action.status,
+            completedAt: new Date().toISOString(),
+            stats: action.stats ?? m.stats,
+            phases,
+          };
+        }),
       };
     case "error":
       return {
         ...state,
         generatingId: null,
+        activePhase: null,
         lastError: { code: action.code, message: action.message },
         messages: state.messages.map((m) =>
           m.id === action.messageId ? { ...m, status: "failed" } : m,
@@ -125,6 +226,7 @@ function reduce(state: ChatState, action: Action): ChatState {
                 status: "generating",
                 completedAt: null,
                 stats: null,
+                phases: null,
               }
             : m,
         ),
@@ -166,6 +268,10 @@ const initial: ChatState = {
   lastError: null,
   notice: null,
   generation: DEFAULT_GENERATION,
+  mode: "single",
+  plannerTag: "planner",
+  executorTag: "executor",
+  activePhase: null,
 };
 
 export function useChat() {
@@ -184,13 +290,39 @@ export function useChat() {
   const selectConversation = useCallback(async (id: string) => {
     const conv = await invoke("conversation.get", { conversationId: id });
     convRef.current = conv.id;
-    dispatch({ type: "hydrate", conversationId: conv.id, messages: conv.messages });
+    dispatch({
+      type: "hydrate",
+      conversationId: conv.id,
+      messages: conv.messages,
+    });
+    dispatch({
+      type: "mode",
+      mode: conv.mode ?? "single",
+      plannerTag: conv.plannerTag ?? "planner",
+      executorTag: conv.executorTag ?? "executor",
+    });
   }, []);
 
   const newConversation = useCallback(() => {
     convRef.current = null; // draft: created on first send (T032)
     dispatch({ type: "hydrate", conversationId: null, messages: [] });
   }, []);
+
+  const setMode = useCallback(
+    async (mode: "single" | "fusion", plannerTag: string, executorTag: string) => {
+      if (convRef.current) {
+        await invoke("conversation.setMode", {
+          conversationId: convRef.current,
+          mode,
+          plannerTag,
+          executorTag,
+        });
+      }
+      // drafts (no id yet): mode travels with chat.send on creation
+      dispatch({ type: "mode", mode, plannerTag, executorTag });
+    },
+    [],
+  );
 
   const renameConversation = useCallback(
     async (id: string, title: string) => {
@@ -229,6 +361,12 @@ export function useChat() {
               conversationId: conv.id,
               messages: conv.messages,
             });
+            dispatch({
+              type: "mode",
+              mode: conv.mode ?? "single",
+              plannerTag: conv.plannerTag ?? "planner",
+              executorTag: conv.executorTag ?? "executor",
+            });
           }
         }
         const status = await invoke("model.status", {});
@@ -258,14 +396,41 @@ export function useChat() {
 
     const unsubs = [
       on("chat.token", (p) =>
-        dispatch({ type: "token", messageId: p.messageId, delta: p.delta }),
+        dispatch({
+          type: "token",
+          messageId: p.messageId,
+          delta: p.delta,
+          phase: p.phase,
+        }),
+      ),
+      on("chat.phase", (p) =>
+        dispatch({
+          type: "phase",
+          messageId: p.messageId,
+          phase: p.phase,
+          tag: p.tag,
+          fileName: p.fileName,
+          servedBy: p.servedBy,
+        }),
       ),
       on("chat.done", (p) => {
         dispatch({
           type: "done",
           messageId: p.messageId,
           status: p.status,
-          stats: p.stats,
+          stats: p.stats?.answer ?? p.stats?.total ?? null,
+          phases: p.stats?.plan
+            ? {
+                // stats merge into phases accumulated by token/phase events
+                plan: {
+                  content: "",
+                  tag: "",
+                  fileName: "",
+                  stats: p.stats.plan,
+                },
+                answer: { stats: p.stats.answer ?? null },
+              }
+            : undefined,
         });
         void refreshList(); // new/updated conversation appears in sidebar
       }),
@@ -323,6 +488,9 @@ export function useChat() {
         conversationId,
         content,
         userMessageId,
+        mode: state.mode,
+        plannerTag: state.plannerTag,
+        executorTag: state.executorTag,
       });
       dispatch({
         type: "append",
@@ -337,7 +505,7 @@ export function useChat() {
         },
       });
     },
-    [state.messages],
+    [state.messages, state.mode, state.plannerTag, state.executorTag],
   );
 
   const stop = useCallback(() => {
@@ -428,5 +596,6 @@ export function useChat() {
     deleteConversation,
     regenerate,
     editMessage,
+    setMode,
   };
 }

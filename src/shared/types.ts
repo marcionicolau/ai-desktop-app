@@ -20,7 +20,11 @@ export interface Message {
   createdAt: string;
   completedAt: string | null;
   stats?: MessageStats | null;
+  // fusion turns only: plan artifact + per-phase provenance
+  phases?: MessagePhases | null;
 }
+
+export type ConversationMode = "single" | "fusion";
 
 export interface Conversation {
   id: string;
@@ -28,6 +32,9 @@ export interface Conversation {
   createdAt: string;
   updatedAt: string;
   messages: Message[];
+  mode: ConversationMode;
+  plannerTag: string;
+  executorTag: string;
 }
 
 export interface ConversationSummary {
@@ -92,4 +99,67 @@ export interface Settings {
   generation: GenerationParams;
   // per-model overrides keyed by model file basename
   modelOverrides: Record<string, Partial<GenerationParams>>;
+  // named model roles; "default" is provisioned and synced to
+  // activeModelPath (feature 004, FR-010)
+  tags: ModelTag[];
+}
+
+// ---- Feature 004: tagged model roles & fusion ----
+
+export type RoleRef =
+  | { kind: "tag"; name: string }
+  | { kind: "model"; fileName: string };
+
+export type RoleState = "bound" | "unbound" | "broken";
+
+export interface ModelTag {
+  name: string; // unique slug /^[a-z0-9]+(-[a-z0-9]+)*$/, 1-32 chars
+  label?: string;
+  description?: string;
+  binding: string | null; // bound file basename; null = unbound
+  params: Partial<GenerationParams>; // per-tag overrides (top of cascade)
+  fallback: RoleRef[]; // ordered, max 3, cycle-checked
+}
+
+export type RoleServedBy =
+  | { kind: "primary" }
+  | { kind: "fallback"; via: RoleRef };
+
+export interface ResolvedRole {
+  tag: string;
+  fileName: string;
+  path: string;
+  params: GenerationParams; // DEFAULT < global < file < tag (final)
+  servedBy: RoleServedBy;
+}
+
+// role.list view: tag + derived state + bound model metadata
+export interface RoleView extends ModelTag {
+  state: RoleState;
+  resolvedFile?: ModelMeta;
+}
+
+export type FusionPhase = "plan" | "answer";
+
+// chat.done stats: flat MessageStats in single mode nests under `answer`+`total`
+export interface TurnStats {
+  plan?: MessageStats;
+  answer?: MessageStats;
+  total?: MessageStats;
+}
+
+export interface MessagePhases {
+  plan?: {
+    content: string;
+    stats?: MessageStats | null;
+    tag: string;
+    fileName: string;
+    servedBy?: "primary" | "fallback";
+  };
+  answer?: {
+    stats?: MessageStats | null;
+    tag?: string;
+    fileName?: string;
+    servedBy?: "primary" | "fallback";
+  };
 }
