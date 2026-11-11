@@ -11,6 +11,19 @@ calls, token counts (sent, received), execution time, toggleable with a
 switch button; output shown per model (tabs component), divided by roles
 and personas."
 
+## Clarifications
+
+### Session 2026-01-10
+
+- Q: Should new methods be added wherever needed (e.g., to expose actual
+  prompt-token counts)? → A: Yes — add necessary methods.
+- Q: Where is the panel located and how does the layout react? → A: A
+  bottom dock panel; when open it pushes the message area up (messages
+  stay fully visible, not overlaid).
+- Q: Do entries show only metrics, or also call content? → A: Metrics
+  plus a truncated one-line preview of the request text — no full prompt
+  or response bodies retained.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Inspect per-call model metrics (Priority: P1)
@@ -105,7 +118,9 @@ the next call shows as entry #1.
 
 - **FR-001**: The system MUST record one metrics entry per generation
   call: serving model file, prompt tokens sent, completion tokens
-  received, elapsed milliseconds, timestamp, conversation, and status.
+  received, elapsed milliseconds, timestamp, conversation, status, and a
+  truncated one-line preview (≤120 chars) of the request text. Full
+  prompt/response bodies MUST NOT be retained.
 - **FR-002**: Token counts MUST be the actual counts observed by the
   engine (prompt tokens tokenized, tokens generated) — not estimates.
 - **FR-003**: Fusion turns MUST produce one entry per phase, each tagged
@@ -115,7 +130,9 @@ the next call shows as entry #1.
   fallback marker.
 - **FR-005**: A switch MUST toggle the panel's visibility and the
   collection of new entries; the toggle state MUST persist across
-  restarts.
+  restarts. The panel MUST dock at the **bottom** of the chat view; when
+  open it MUST push the message area up (no overlay, no obscured
+  messages).
 - **FR-006**: The panel MUST present entries in tabs keyed by model file,
   subdivided by role and persona within each tab.
 - **FR-007**: The metrics buffer MUST be bounded (≈500 entries,
@@ -128,7 +145,8 @@ the next call shows as entry #1.
 
 - **Metric entry**: `{ id, ts, conversationId, modelFile, roleKey,
   tag?, personaName?, promptTokens, outputTokens, elapsedMs, warm,
-  status, fallback? }`.
+  status, fallback?, promptPreview }` — `promptPreview` ≤120 chars,
+  single line (newlines collapsed).
 - **Panel setting**: `settings.outputPanel: boolean` — switch state.
 
 ## Success Criteria *(mandatory)*
@@ -150,5 +168,7 @@ the next call shows as entry #1.
   scope.
 - Token counting is already exact at the engine boundary (feature 003's
   `TurnStats` plumbing) — this feature surfaces it, not re-derives it.
+  New engine/shim methods MAY be added where needed to expose actual
+  prompt-token counts (per clarification).
 - "Per model" means the model file that served the call, not the bound
   role/tag name.
