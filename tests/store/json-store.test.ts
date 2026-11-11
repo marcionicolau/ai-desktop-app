@@ -90,14 +90,12 @@ describe("json-store", () => {
   });
 
   test("settings round-trip and defaults", () => {
-    expect(store.getSettings()).toEqual({
-      activeModelPath: null,
-      contextLimitWarning: false,
-    });
-    store.saveSettings({
-      activeModelPath: "/tmp/m.gguf",
-      contextLimitWarning: true,
-    });
+    const defaults = store.getSettings();
+    expect(defaults.activeModelPath).toBeNull();
+    expect(defaults.generation.maxTokens).toBe(512);
+    expect(defaults.modelOverrides).toEqual({});
+    store.saveSettings(defaults);
+    store.saveSettings({ ...defaults, activeModelPath: "/tmp/m.gguf" });
     expect(store.getSettings().activeModelPath).toBe("/tmp/m.gguf");
     expect(existsSync(settingsFile())).toBe(true);
   });

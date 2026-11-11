@@ -5,7 +5,9 @@ import { accessSync, constants, existsSync } from "node:fs";
 import { ptr } from "bun:ffi";
 import { basename } from "node:path";
 import type { RpcErrorCode } from "../../shared/rpc-contract";
+import type { GenerationParams } from "../../shared/types";
 import { loadLlamaShim, newErrSlot, readErr, type LlamaShim } from "./ffi";
+import { packParams } from "./params";
 
 export class EngineError extends Error {
   constructor(
@@ -26,6 +28,7 @@ export class LlamaEngine {
   private modelName: string | null = null;
   private generating = false;
   private stopRequested = false;
+  private kvConvId: string | null = null;
   private tokenBuf = new Uint8Array(TOKEN_BUF_CAP);
   private outLen = new BigUint64Array(1);
 
@@ -94,6 +97,7 @@ export class LlamaEngine {
     this.modelName = null;
     this.generating = false;
     this.stopRequested = false;
+    this.kvConvId = null;
   }
 
   stop(): void {
@@ -115,12 +119,31 @@ export class LlamaEngine {
     return this.shim.symbols.lls_chat_template(this.model);
   }
 
+  // real token count via the model's tokenizer; chars/4 estimate when no
+  // model is loaded (fallback keeps budgeting sane pre-load)
+  tokenCount(text: string): number {
+    if (this.ctx === null || this.shim === null) {
+      return Math.ceil(text.length / 4);
+    }
+    const n = this.shim.symbols.lls_token_count(this.ctx, text);
+    return n > 0 ? n : Math.ceil(text.length / 4);
+  }
+
   // Drives the pull loop. onToken receives raw byte-chunks decoded as text.
-  // Resolves "complete" on natural end, "partial" when stop() was called.
+  // params == null selects shim defaults (greedy + LLS_MAX_GEN/512 cap).
+  // Resolves status "complete" on natural end, "partial" when stop() was
+  // called; tokens counts generated tokens (one per lls_step).
   async generate(
     prompt: string,
     onToken: (delta: string) => void,
-  ): Promise<"complete" | "partial"> {
+    params?: GenerationParams | null,
+    opts?: { conversationId?: string },
+  ): Promise<{
+    status: "complete" | "partial";
+    tokens: number;
+    elapsedMs: number;
+    warm: boolean;
+  }> {
     if (this.ctx === null || this.shim === null) {
       throw new EngineError("NO_MODEL", "no model is loaded");
     }
@@ -129,32 +152,58 @@ export class LlamaEngine {
     }
     const { symbols } = this.shim;
     const err = newErrSlot();
+    const pbuf = params ? packParams(params) : null;
 
-    if (symbols.lls_generate_begin(this.ctx, prompt, ptr(err)) !== 0) {
+    // KV reuse: continue-path when the conversation matches the last one;
+    // the shim verifies the token prefix and falls back to a full decode
+    // on any mismatch (correctness is guaranteed in C)
+    const convId = opts?.conversationId;
+    const resume = convId !== undefined && convId === this.kvConvId;
+    const pptr = pbuf ? ptr(pbuf) : null;
+    const rc = resume
+      ? symbols.lls_generate_continue(this.ctx, prompt, pptr, ptr(err))
+      : symbols.lls_generate_begin(this.ctx, prompt, pptr, ptr(err));
+    if (rc !== 0 && rc !== 2) {
       const msg = readErr(this.shim, err) ?? "failed to begin generation";
       throw new EngineError("ENGINE_ERROR", msg);
     }
+    const warm = resume && rc === 0;
+    this.kvConvId = convId ?? this.kvConvId;
 
+    const started = performance.now();
+    let tokens = 0;
     this.generating = true;
     this.stopRequested = false;
     try {
       for (;;) {
         if (this.stopRequested) {
-          return "partial";
+          return {
+            status: "partial",
+            tokens,
+            elapsedMs: performance.now() - started,
+            warm,
+          };
         }
         this.outLen[0] = 0n;
         const r = symbols.lls_step(this.ctx, ptr(this.tokenBuf), TOKEN_BUF_CAP, ptr(this.outLen));
         if (r === 0) {
-          return "complete";
+          return {
+            status: "complete",
+            tokens,
+            elapsedMs: performance.now() - started,
+            warm,
+          };
         }
         if (r < 0) {
           throw new EngineError("ENGINE_ERROR", "decode step failed");
         }
+        tokens += 1;
         const n = Number(this.outLen[0]);
         if (n > 0) {
           onToken(new TextDecoder().decode(this.tokenBuf.subarray(0, n)));
         }
         // macrotask yield: keeps the event loop responsive for RPC
+        // oxlint-disable-next-line no-await-in-loop -- sequential pull/step decode is required
         await new Promise((resolve) => setTimeout(resolve, 0));
       }
     } finally {

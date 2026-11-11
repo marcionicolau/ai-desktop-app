@@ -30,7 +30,7 @@ suite("ffi lifecycle", () => {
       if (tokens.length >= 5) engine.stop();
     });
     expect(tokens.length).toBeGreaterThanOrEqual(1);
-    expect(result).toBe("partial");
+    expect(result.status).toBe("partial");
   }, 120_000);
 
   test("unload then reload succeeds (ownership round-trip)", async () => {

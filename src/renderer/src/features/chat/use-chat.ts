@@ -3,9 +3,11 @@
 import { useCallback, useEffect, useReducer, useRef } from "react";
 import type {
   ConversationSummary,
+  GenerationParams,
   Message,
   ModelStatus,
 } from "@shared/types";
+import { DEFAULT_GENERATION } from "@shared/types";
 import type { RpcErrorCode } from "@shared/rpc-contract";
 import { invoke, on } from "@/lib/rpc";
 
@@ -19,6 +21,7 @@ interface ChatState {
   modelError: string | null;
   lastError: { code: RpcErrorCode; message: string } | null;
   notice: string | null;
+  generation: GenerationParams;
 }
 
 type Action =
@@ -26,10 +29,24 @@ type Action =
   | { type: "hydrate"; conversationId: string | null; messages: Message[] }
   | { type: "append"; message: Message }
   | { type: "token"; messageId: string; delta: string }
-  | { type: "done"; messageId: string; status: "complete" | "partial" }
+  | {
+      type: "done";
+      messageId: string;
+      status: "complete" | "partial";
+      stats?: Message["stats"];
+    }
   | { type: "error"; messageId: string; code: RpcErrorCode; message: string }
   | { type: "model"; status: ModelStatus; name?: string; error?: string }
-  | { type: "notice"; message: string };
+  | { type: "notice"; message: string }
+  | { type: "generation"; params: GenerationParams }
+  | { type: "reset"; messageId: string }
+  | {
+      type: "editApplied";
+      messageId: string;
+      content: string;
+      assistantId: string;
+      conversationId: string;
+    };
 
 function reduce(state: ChatState, action: Action): ChatState {
   switch (action.type) {
@@ -70,6 +87,7 @@ function reduce(state: ChatState, action: Action): ChatState {
                 ...m,
                 status: action.status,
                 completedAt: new Date().toISOString(),
+                stats: action.stats ?? m.stats,
               }
             : m,
         ),
@@ -92,6 +110,48 @@ function reduce(state: ChatState, action: Action): ChatState {
       };
     case "notice":
       return { ...state, notice: action.message };
+    case "generation":
+      return { ...state, generation: action.params };
+    case "reset":
+      return {
+        ...state,
+        generatingId: action.messageId,
+        lastError: null,
+        messages: state.messages.map((m) =>
+          m.id === action.messageId
+            ? {
+                ...m,
+                content: "",
+                status: "generating",
+                completedAt: null,
+                stats: null,
+              }
+            : m,
+        ),
+      };
+    case "editApplied": {
+      const idx = state.messages.findIndex((m) => m.id === action.messageId);
+      if (idx === -1) return state;
+      const kept = state.messages.slice(0, idx);
+      kept.push({ ...state.messages[idx]!, content: action.content });
+      return {
+        ...state,
+        generatingId: action.assistantId,
+        lastError: null,
+        messages: [
+          ...kept,
+          {
+            id: action.assistantId,
+            conversationId: action.conversationId,
+            role: "assistant",
+            content: "",
+            status: "generating",
+            createdAt: new Date().toISOString(),
+            completedAt: null,
+          },
+        ],
+      };
+    }
   }
 }
 
@@ -105,6 +165,7 @@ const initial: ChatState = {
   modelError: null,
   lastError: null,
   notice: null,
+  generation: DEFAULT_GENERATION,
 };
 
 export function useChat() {
@@ -179,6 +240,10 @@ export function useChat() {
             error: status.error,
           });
         }
+        const s = await invoke("settings.get", {});
+        if (!cancelled) {
+          dispatch({ type: "generation", params: s.generation });
+        }
       } catch (e) {
         if (!cancelled) {
           dispatch({
@@ -196,7 +261,12 @@ export function useChat() {
         dispatch({ type: "token", messageId: p.messageId, delta: p.delta }),
       ),
       on("chat.done", (p) => {
-        dispatch({ type: "done", messageId: p.messageId, status: p.status });
+        dispatch({
+          type: "done",
+          messageId: p.messageId,
+          status: p.status,
+          stats: p.stats,
+        });
         void refreshList(); // new/updated conversation appears in sidebar
       }),
       on("chat.error", (p) =>
@@ -231,6 +301,7 @@ export function useChat() {
       convRef.current ??= crypto.randomUUID();
       const conversationId = convRef.current;
       const now = new Date().toISOString();
+      const userMessageId = crypto.randomUUID();
       dispatch({
         type: "hydrate",
         conversationId,
@@ -239,7 +310,7 @@ export function useChat() {
       dispatch({
         type: "append",
         message: {
-          id: crypto.randomUUID(),
+          id: userMessageId,
           conversationId,
           role: "user",
           content,
@@ -251,6 +322,7 @@ export function useChat() {
       const { messageId } = await invoke("chat.send", {
         conversationId,
         content,
+        userMessageId,
       });
       dispatch({
         type: "append",
@@ -274,6 +346,57 @@ export function useChat() {
     }
   }, [state.generatingId]);
 
+  const regenerate = useCallback(
+    async (messageId: string) => {
+      if (!convRef.current) return;
+      dispatch({ type: "reset", messageId });
+      try {
+        await invoke("chat.regenerate", { messageId });
+      } catch (e) {
+        dispatch({
+          type: "error",
+          messageId,
+          code:
+            e && typeof e === "object" && "code" in e
+              ? (e.code as RpcErrorCode)
+              : "ENGINE_ERROR",
+          message: e instanceof Error ? e.message : String(e),
+        });
+      }
+    },
+    [],
+  );
+
+  const editMessage = useCallback(
+    async (messageId: string, content: string) => {
+      if (!convRef.current) return;
+      try {
+        const { messageId: assistantId } = await invoke("chat.edit", {
+          messageId,
+          content,
+        });
+        dispatch({
+          type: "editApplied",
+          messageId,
+          content,
+          assistantId,
+          conversationId: convRef.current,
+        });
+      } catch (e) {
+        dispatch({
+          type: "error",
+          messageId,
+          code:
+            e && typeof e === "object" && "code" in e
+              ? (e.code as RpcErrorCode)
+              : "ENGINE_ERROR",
+          message: e instanceof Error ? e.message : String(e),
+        });
+      }
+    },
+    [],
+  );
+
   const loadModel = useCallback(async (path: string) => {
     await invoke("model.load", { path });
   }, []);
@@ -283,15 +406,27 @@ export function useChat() {
     if (path) await invoke("model.load", { path });
   }, []);
 
+  const saveGeneration = useCallback(
+    async (patch: Partial<GenerationParams>) => {
+      const next = { ...state.generation, ...patch };
+      dispatch({ type: "generation", params: next });
+      await invoke("settings.set", { generation: patch });
+    },
+    [state.generation],
+  );
+
   return {
     state,
     send,
     stop,
     loadModel,
     pickModel,
+    saveGeneration,
     selectConversation,
     newConversation,
     renameConversation,
     deleteConversation,
+    regenerate,
+    editMessage,
   };
 }

@@ -45,9 +45,22 @@ export interface LlamaShimSymbols {
   lls_ctx_free(ctx: number): void;
   lls_ctx_size(ctx: number): number;
   lls_chat_template(model: number): string | null;
-  lls_generate_begin(ctx: number, prompt: string, err: number): number;
+  lls_generate_begin(
+    ctx: number,
+    prompt: string,
+    params: number | null,
+    err: number,
+  ): number;
+  lls_generate_continue(
+    ctx: number,
+    prompt: string,
+    params: number | null,
+    err: number,
+  ): number;
+  lls_token_count(ctx: number, text: string): number;
   lls_step(ctx: number, buf: number, cap: number | bigint, outLen: number): number;
   lls_generate_end(ctx: number): void;
+  lls_gguf_meta(path: string, err: number): number | null;
   lls_free_string(s: number): void;
 }
 
@@ -69,7 +82,15 @@ export function loadLlamaShim() {
     lls_ctx_size: { args: [FFIType.ptr], returns: FFIType.i32 },
     lls_chat_template: { args: [FFIType.ptr], returns: FFIType.cstring },
     lls_generate_begin: {
-      args: [FFIType.ptr, FFIType.cstring, FFIType.ptr],
+      args: [FFIType.ptr, FFIType.cstring, FFIType.ptr, FFIType.ptr],
+      returns: FFIType.i32,
+    },
+    lls_generate_continue: {
+      args: [FFIType.ptr, FFIType.cstring, FFIType.ptr, FFIType.ptr],
+      returns: FFIType.i32,
+    },
+    lls_token_count: {
+      args: [FFIType.ptr, FFIType.cstring],
       returns: FFIType.i32,
     },
     lls_step: {
@@ -77,6 +98,7 @@ export function loadLlamaShim() {
       returns: FFIType.i32,
     },
     lls_generate_end: { args: [FFIType.ptr], returns: FFIType.void },
+    lls_gguf_meta: { args: [FFIType.cstring, FFIType.ptr], returns: FFIType.ptr },
     lls_free_string: { args: [FFIType.ptr], returns: FFIType.void },
   });
 

@@ -15,9 +15,12 @@ export default {
     "build:renderer": ["hutch", "pm", "exec", "--", "vite", "build", "--config", "src/renderer/vite.config.ts"],
     // `sh -c` (not a Bun.$ string) so `&` backgrounding works; sets VITE_DEV_URL
     // so src/bun/index.ts loads the Vite dev server for HMR; kills vite on exit.
+    // The pgrep guard fails fast — a second `electrobun dev` would otherwise
+    // hang forever on .hutch/locks (dev --watch holds a reader lease for its
+    // whole lifetime; dev sessions are mutually exclusive).
     dev: [
       "sh", "-c",
-      "hutch pm exec -- vite --config src/renderer/vite.config.ts & vite_pid=$!; VITE_DEV_URL=http://localhost:5173 hutch electrobun dev --watch; status=$?; kill \"$vite_pid\" 2>/dev/null; exit $status",
+      "running=$(pgrep -f 'hutch-engine [e]lectrobun dev' | tr '\\n' ' '); if [ -n \"$running\" ]; then echo \"hutch dev: another electrobun dev session is already running (pids: $running) — stop it first\" >&2; exit 1; fi; hutch pm exec -- vite --config src/renderer/vite.config.ts & vite_pid=$!; VITE_DEV_URL=http://localhost:5173 hutch electrobun dev --watch; status=$?; kill \"$vite_pid\" 2>/dev/null; exit $status",
     ],
     build: ["hutch", "electrobun", "build", "--env=canary"],
     "build:stable": ["hutch", "electrobun", "build", "--env=stable"],

@@ -9,6 +9,7 @@ import {
   type StoreLike,
 } from "../../src/bun/rpc/handlers";
 import type { Conversation, Settings } from "../../src/shared/types";
+import { DEFAULT_GENERATION } from "../../src/shared/types";
 
 function makeDeps(opts: {
   generating?: boolean;
@@ -23,6 +24,7 @@ function makeDeps(opts: {
   const convs = new Map<string, Conversation>();
   let generating = opts.generating ?? false;
   let stopped = false;
+  let lastParams: unknown = null;
   let lastPrompt = "";
 
   const engine: EngineLike = {
@@ -35,22 +37,31 @@ function makeDeps(opts: {
     isGenerating: () => generating,
     contextSize: () => opts.ctxSize ?? 4096,
     chatTemplate: () => null,
+    tokenCount: (t: string) => Math.ceil(t.length / 4),
     stop: () => {
       stopped = true;
       opts.onStop?.();
     },
-    generate: async (prompt, onToken) => {
+    generate: async (prompt, onToken, params) => {
       lastPrompt = prompt;
+      lastParams = params ?? null;
       generating = true;
+      let tokens = 0;
       for (const t of opts.tokens ?? ["a", "b", "c"]) {
         if (stopped) break;
+        tokens += 1;
         onToken(t);
         // suspend like the real engine's event-loop yield
         await new Promise((r) => setTimeout(r, 0));
       }
       generating = false;
       if (opts.genError) throw opts.genError;
-      return stopped ? "partial" : (opts.genResult ?? "complete");
+      return {
+        status: stopped ? "partial" : (opts.genResult ?? "complete"),
+        tokens,
+        elapsedMs: 1,
+        warm: false,
+      };
     },
   };
 
@@ -65,7 +76,12 @@ function makeDeps(opts: {
       })),
     deleteConversation: (id) => convs.delete(id),
     getSettings: () =>
-      ({ activeModelPath: null, contextLimitWarning: false }) as Settings,
+      ({
+        activeModelPath: null,
+        contextLimitWarning: false,
+        generation: DEFAULT_GENERATION,
+        modelOverrides: {},
+      }) as Settings,
     saveSettings: () => {},
   };
 
@@ -103,6 +119,18 @@ describe("chat.send contract", () => {
     expect(assistant.content).toBe("Hello!");
     expect(assistant.status).toBe("complete");
     expect(assistant.completedAt).not.toBeNull();
+  });
+
+  test("persists the client-supplied userMessageId (edit/resend needs it)", async () => {
+    const { deps, convs } = makeDeps({});
+    const h = createRequestHandlers(deps);
+    h["chat.send"]({
+      conversationId: CONV,
+      content: "hi",
+      userMessageId: "client-uid-1",
+    });
+    await flush();
+    expect(convs.get(CONV)!.messages[0].id).toBe("client-uid-1");
   });
 
   test("rejects empty/whitespace message with EMPTY_MESSAGE", () => {
@@ -169,6 +197,115 @@ describe("chat.send contract", () => {
     // oldest turn dropped; current message kept
     expect(getLastPrompt()).toContain("hi");
     expect(getLastPrompt()).not.toContain("old-question");
+  });
+});
+
+describe("chat.regenerate / chat.edit contract", () => {
+  const msg = (
+    id: string,
+    role: "user" | "assistant",
+    content: string,
+  ): Conversation["messages"][number] => ({
+    id,
+    conversationId: CONV,
+    role,
+    content,
+    status: "complete",
+    createdAt: "t",
+    completedAt: "t",
+  });
+
+  test("regenerate reuses the assistant messageId and re-streams", async () => {
+    const { deps, emitted, convs, getLastPrompt } = makeDeps({
+      tokens: ["new"],
+    });
+    convs.set(CONV, {
+      id: CONV,
+      title: "seed",
+      createdAt: "t",
+      updatedAt: "t",
+      messages: [msg("m1", "user", "hi"), msg("m2", "assistant", "old")],
+    });
+    const h = createRequestHandlers(deps);
+    const res = h["chat.regenerate"]({ messageId: "m2" });
+    expect(res.messageId).toBe("m2");
+    await flush();
+    const m2 = convs.get(CONV)!.messages[1];
+    expect(m2.content).toBe("new");
+    expect(m2.status).toBe("complete");
+    expect(getLastPrompt()).toContain("hi");
+    expect(emitted.at(-1)!.method).toBe("chat.done");
+  });
+
+  test("regenerate rejects non-assistant / non-last message", () => {
+    const { deps, convs } = makeDeps({});
+    convs.set(CONV, {
+      id: CONV,
+      title: "seed",
+      createdAt: "t",
+      updatedAt: "t",
+      messages: [msg("m1", "user", "hi"), msg("m2", "assistant", "a")],
+    });
+    const h = createRequestHandlers(deps);
+    try {
+      h["chat.regenerate"]({ messageId: "m1" });
+      expect.unreachable();
+    } catch (e) {
+      expect((e as EngineError).code).toBe("NOT_FOUND");
+    }
+  });
+
+  test("edit truncates the tail and creates a fresh assistant turn", async () => {
+    const { deps, convs, getLastPrompt } = makeDeps({ tokens: ["x"] });
+    convs.set(CONV, {
+      id: CONV,
+      title: "seed",
+      createdAt: "t",
+      updatedAt: "t",
+      messages: [
+        msg("m1", "user", "q1"),
+        msg("m2", "assistant", "a1"),
+        msg("m3", "user", "q2"),
+        msg("m4", "assistant", "a2"),
+      ],
+    });
+    const h = createRequestHandlers(deps);
+    const res = h["chat.edit"]({ messageId: "m3", content: "q2-edited" });
+    await flush();
+    const msgs = convs.get(CONV)!.messages;
+    expect(msgs.map((m) => m.id)).toEqual(["m1", "m2", "m3", res.messageId]);
+    expect(res.messageId).not.toBe("m4");
+    expect(msgs[2].content).toBe("q2-edited");
+    expect(msgs[3].role).toBe("assistant");
+    expect(msgs[3].status).toBe("complete");
+    // prompt rebuilds from the surviving history + edited text
+    expect(getLastPrompt()).toContain("q1");
+    expect(getLastPrompt()).toContain("q2-edited");
+    expect(getLastPrompt()).not.toContain("q2\n");
+  });
+
+  test("edit rejects assistant-role and empty content", () => {
+    const { deps, convs } = makeDeps({});
+    convs.set(CONV, {
+      id: CONV,
+      title: "seed",
+      createdAt: "t",
+      updatedAt: "t",
+      messages: [msg("m1", "user", "hi"), msg("m2", "assistant", "a")],
+    });
+    const h = createRequestHandlers(deps);
+    try {
+      h["chat.edit"]({ messageId: "m2", content: "x" });
+      expect.unreachable();
+    } catch (e) {
+      expect((e as EngineError).code).toBe("NOT_FOUND");
+    }
+    try {
+      h["chat.edit"]({ messageId: "m1", content: "  " });
+      expect.unreachable();
+    } catch (e) {
+      expect((e as EngineError).code).toBe("EMPTY_MESSAGE");
+    }
   });
 });
 
