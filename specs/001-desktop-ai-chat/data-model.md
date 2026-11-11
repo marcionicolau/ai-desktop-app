@@ -53,7 +53,7 @@ only `path`/`name` survive restart in settings; status always starts
 
 | Field | Type | Rules |
 |-------|------|-------|
-| `activeModelPath` | string \| null | restored on launch; does not auto-load |
+| `activeModelPath` | string \| null | persisted on `model.load`, cleared on `model.unload`; bootstrap-loads on launch (MVP path to a ready model before the US3 picker — supersedes the earlier "no auto-load" note) |
 | `contextLimitWarning` | boolean | whether FR-011 warning was acknowledged for the session |
 
 ## Validation rules (traceable to requirements)

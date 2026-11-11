@@ -43,7 +43,7 @@ stream updates (< 1s perceived stalls); stop acknowledged ≤ 1s.
 **Constraints**: fully offline chat; bun:ffi is experimental → thin FFI
 surface + lifecycle tests mandated; no N-API/node-gyp (constitution).
 
-**Scale/Scope**: single-window chat app — 10 RPC methods + 4 events, 8 FFI
+**Scale/Scope**: single-window chat app — 11 RPC methods + 4 events, 9 FFI
 symbols (pull-based step loop, no cross-thread callbacks), 3 OS targets.
 
 ## Constitution Check
