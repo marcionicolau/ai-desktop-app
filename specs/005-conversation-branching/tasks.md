@@ -31,7 +31,7 @@ navigation switches the displayed subtree.
 **Independent Test**: regenerate twice → 3 variants reachable, send
 continues from the displayed one (VS-1).
 
-- [ ] T007 [US1] Create `tests/rpc/branch.test.ts`: regenerate creates sibling (original untouched), `activeLeaf` advances to newest variant, `message.selectVariant` round-trips and returns `activeLeaf`, selectVariant during generation → `ENGINE_BUSY`, regenerate on non-last message → `NOT_FOUND`.
+- [ ] T007 [US1] Create `tests/rpc/branch.test.ts`: regenerate creates sibling (original untouched — content, status, stats, phases intact per FR-009; fusion sibling keeps its own `phases.plan` per FR-008), `activeLeaf` advances to newest variant, `message.selectVariant` round-trips and returns `activeLeaf`, selectVariant during generation → `ENGINE_BUSY`, regenerate on non-last message → `NOT_FOUND`, regenerate of a partial/failed answer also creates a sibling (edge case).
 - [ ] T008 [US1] `src/bun/rpc/handlers.ts`: `chat.regenerate` creates a NEW assistant sibling (same `parentId`, fresh id, `status:"generating"`), sets `activeLeaf` to it, streams via `streamAssistant` — remove in-place content reset.
 - [ ] T009 [US1] `src/bun/rpc/handlers.ts`: implement `message.selectVariant` — `activeLeaf = deepestLeaf(target)`; `NOT_FOUND` if msg/conv missing; `ENGINE_BUSY` while generating; persist.
 - [ ] T010 [US1] `src/renderer/src/features/chat/use-chat.ts`: hydrate stores flat messages + `activeLeaf`; client-side `pathOf`/`siblings` helpers (mirror of tree.ts); reducer derives displayed path; `selectVariant` callback → invoke + local update; block while `generatingId`.
@@ -45,8 +45,8 @@ answer; original subtree stays reachable (VS-2).
 **Independent Test**: edit mid-conversation → user message shows 2
 variants; switching restores the original sub-tree.
 
-- [ ] T012 [US2] Extend `tests/rpc/branch.test.ts`: `chat.edit` produces a user sibling (original content intact), new assistant child with `parentId` = new user msg, `activeLeaf` on the new leaf; switching the user variant swaps the whole displayed subtree.
-- [ ] T013 [US2] `src/bun/rpc/handlers.ts`: `chat.edit` — create user sibling (edited text, same `parentId` as target) + new assistant child; DO NOT splice/delete tail; set `activeLeaf` to new assistant id; history = `pathOf` up to the new user msg.
+- [ ] T012 [US2] Extend `tests/rpc/branch.test.ts`: `chat.edit` produces a user sibling (original message preserved verbatim — content/status/timestamps/stats per FR-009), new assistant child with `parentId` = new user msg, `activeLeaf` on the new leaf; switching the user variant swaps the whole displayed subtree incl. original descendants.
+- [ ] T013 [US2] `src/bun/rpc/handlers.ts`: `chat.edit` — create user sibling (edited text, same `parentId` as target) + new assistant child; DO NOT splice/delete tail (`deleteMessagesAfter` is no longer on the edit path — keep export for existing tests/cleanup); set `activeLeaf` to new assistant id; history = `pathOf` up to the new user msg.
 - [ ] T014 [US2] `src/renderer/src/features/chat/use-chat.ts` + `MessageList.tsx`: `editApplied` reducer appends user variant + new assistant leaf instead of truncating; edit affordance stays on the displayed variant; whole-subtree swap on variant switch verified in UI state.
 - [ ] T015 [US2] Adapt `tests/rpc/chat.test.ts`: update edit/regenerate expectations to sibling semantics (original preserved, `activeLeaf` moved); keep all non-branch assertions green.
 
@@ -63,7 +63,7 @@ variant counts + previews; click selects that variant.
 
 ## Phase 5: Polish & Cross-Cutting
 
-- [ ] T018 Validation: legacy-conversation backfill verified end-to-end (VS-4 step 3); VS-1…VS-3 walkthrough results written to `specs/005-conversation-branching/validation.md`.
+- [ ] T018 Validation: legacy-conversation backfill verified end-to-end (VS-4 step 3); VS-1…VS-3 walkthrough results + a measured variant-switch timing on a 1k-message fixture (SC-002 <100 ms target) written to `specs/005-conversation-branching/validation.md`.
 - [ ] T019 Gates + docs: `bun run typecheck`, `bun run lint`, `bun test ./tests`, `bun run build:renderer`, `bun run build:native` all green; update `AGENTS.md` (tree.ts module, parentId/activeLeaf, selectVariant contract, sibling-semantics note for edit/regenerate).
 
 ## Dependencies
