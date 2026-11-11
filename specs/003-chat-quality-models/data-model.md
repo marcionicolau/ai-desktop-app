@@ -37,6 +37,8 @@ interface ModelMeta {
 ```
 
 Derived per file via `lls_gguf_meta` — never persisted (recomputed on scan).
+Any field is `null` when the GGUF header omits the key or the header fails to
+parse; `null` fields render as unknown in the library.
 
 ### KV reuse state (new, runtime only — inside the shim)
 
@@ -73,6 +75,8 @@ Carried by the `model.download` event while a fetch is active.
 
 ```ts
 stats?: { tokens: number; tokensPerSec: number } | null;
+  // present on complete AND partial turns when tokens > 0;
+  // null on failed turns or zero-token generations
 ```
 
 Optional, persisted with the assistant turn on `chat.done`.

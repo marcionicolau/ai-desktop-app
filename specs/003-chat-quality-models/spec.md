@@ -127,6 +127,17 @@ with progress and becomes loadable.
   a corrupt download must never be presented as loadable.
 - Regenerate while a generation is in-flight is rejected (single-engine).
 - Edited message mid-history → subsequent turns re-generate consistently.
+- `chat.edit` on a non-user turn, and `chat.regenerate` on a non-last
+  assistant turn → `NOT_FOUND`; either during an in-flight generation →
+  `ENGINE_BUSY`.
+- A single message that alone exceeds the context budget → budget retry
+  halves, then surfaces `ENGINE_ERROR` — never silent output.
+- History rewrites (edit/regenerate) leave a divergent KV state → the next
+  turn keeps only the shared token prefix automatically (partial reuse is
+  always token-verified; correctness is preserved by construction).
+- A download running while the loaded model is unloaded or switched →
+  unaffected; downloads write files only and are independent of model
+  lifecycle.
 - Model folder missing or empty → library shows an empty state with
   guidance, not an error.
 
@@ -141,8 +152,9 @@ with progress and becomes loadable.
   tokens. (Context size, thread count, and GPU layers are declared in the
   params surface as reserved fields but are not wired — see Assumptions.)
 - **FR-003**: Generation MUST end cleanly at the token cap or context limit
-  (no hard error); over-long history MUST continue to be truncated with the
-  existing warning.
+  (no hard error): a capped turn lands as `complete`; only a user-stopped
+  turn lands as `partial`. Over-long history MUST continue to be truncated
+  with the existing warning.
 - **FR-004**: Token estimation for context budgeting MUST use the model's
   actual tokenizer, not a character heuristic, where a tokenizer is
   available.
@@ -152,19 +164,28 @@ with progress and becomes loadable.
   switch).
 - **FR-006**: Assistant replies MUST render markdown with syntax-highlighted
   code blocks; UI components MUST follow the existing shadcn/Radix stack.
+  Copy actions MUST yield the stored message content (markdown source), not
+  rendered text.
 - **FR-007**: Users MUST be able to copy a message, regenerate the last
   assistant reply, and edit+resend a user message (deleting later turns).
+  Action availability: copy on every turn; regenerate only on the last
+  `complete|partial` assistant turn; edit only on `complete` user turns;
+  all actions hidden while a generation is in flight.
 - **FR-008**: Users MUST be able to filter conversations in the sidebar by
-  title substring.
+  case-insensitive title substring.
 - **FR-009**: Each completed assistant reply SHOULD display generation stats
   (token count, tokens/second).
 - **FR-010**: The app MUST provide a model library listing local GGUF files
   with metadata parsed from each file (name, architecture, parameter count,
-  quantization, trained context length).
+  quantization, trained context length). Files whose headers fail to parse
+  MUST still list with unknown metadata fields — never silently dropped or
+  fatal.
 - **FR-011**: Users MUST be able to download a GGUF from a HuggingFace
-  resolve URL with visible progress; partial downloads MUST be detectable
-  (`.part` suffix, excluded from the library) and are removed automatically
-  on failure/abort — in-app cancel/delete is out of scope for v1.
+  resolve URL with visible progress; the target filename is the URL tail
+  unless the user supplies one (plain `.gguf` basename only). Partial
+  downloads MUST be detectable (`.part` suffix, excluded from the library)
+  and are removed automatically on failure/abort (HTTP error, mid-transfer
+  abort, disk full) — in-app cancel/delete is out of scope for v1.
 - **FR-012**: Users MUST be able to set per-model default generation
   parameters that override global defaults when that model loads.
 - **FR-013**: All new behavior MUST preserve existing guarantees: typed RPC,
@@ -175,7 +196,7 @@ with progress and becomes loadable.
 ### Measurable Outcomes
 
 - **SC-001**: With temperature > 0, two identical prompts produce different
-  outputs; with a fixed seed and greedy sampling they produce identical
+  outputs; with a fixed seed and greedy sampling they produce byte-identical
   outputs.
 - **SC-002**: On a repeated same-conversation turn (unchanged model+conv),
   KV prefix reuse engages (observable `warm` flag) and only the divergent
@@ -208,3 +229,9 @@ with progress and becomes loadable.
   into `lls_ctx_create` is deferred to a later feature — CPU remains the
   guaranteed path.
 - Token/sec stats are display-only (main-process measured, event-carried).
+- The models directory is `<repo>/models` in dev and `<userData>/models`
+  when packaged (`MODELS_DIR` env overrides; tests use it).
+- Model file management (rename/delete from the library UI) is out of scope
+  for v1 — files are managed externally or via download.
+- Downloads are an optional convenience: core chat, persistence, and model
+  loading work fully offline (constitution §I is not violated).
