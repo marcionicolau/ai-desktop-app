@@ -4,7 +4,7 @@ import { readdirSync, statSync, mkdirSync } from "node:fs";
 import { join, basename } from "node:path";
 import { dataDir } from "../store/paths";
 import { loadLlamaShim, newErrSlot, readErr } from "../llama/ffi";
-import { CString, ptr, read } from "bun:ffi";
+import { CString, ptr } from "bun:ffi";
 import type { ModelMeta } from "../../shared/types";
 
 // dev layout puts models in <repo>/models; packaged runs use

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { GitBranch, Library, Settings2, Tags } from "lucide-react";
+import { GitBranch, Library, Settings2, Tags, Users } from "lucide-react";
 import { useChat } from "./use-chat";
 import { MessageList } from "./MessageList";
 import { BranchOverview } from "./BranchOverview";
@@ -11,6 +11,9 @@ import { GenerationSettings } from "../settings/GenerationSettings";
 import { DataPanel } from "../settings/DataPanel";
 import { RolesPanel } from "../roles/RolesPanel";
 import { FusionControls } from "../roles/FusionControls";
+import { PersonasPanel } from "../personas/PersonasPanel";
+import { usePersonas } from "../personas/use-personas";
+import { invoke } from "@/lib/rpc";
 import { Button } from "@/components/ui/button";
 
 export function ChatPage() {
@@ -33,6 +36,7 @@ export function ChatPage() {
     editMessage,
     loadModel,
     setMode,
+    setPersona,
     selectVariant,
   } = useChat();
   const modelReady = state.modelStatus === "ready";
@@ -40,6 +44,44 @@ export function ChatPage() {
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [rolesOpen, setRolesOpen] = useState(false);
   const [branchesOpen, setBranchesOpen] = useState(false);
+  const [personasOpen, setPersonasOpen] = useState(false);
+  // feature 006: preferred-tag offer from conversation.setPersona —
+  // suggestion only; the user applies or dismisses
+  const [tagOffer, setTagOffer] = useState<string | null>(null);
+  const { personas, snippets } = usePersonas();
+
+  const onPersona = async (name: string | null) => {
+    const r = await setPersona(name);
+    // hide the offer for unbound tags — there's nothing to apply
+    if (r?.suggestedTag) {
+      try {
+        await invoke("role.resolve", { name: r.suggestedTag });
+        setTagOffer(r.suggestedTag);
+      } catch {
+        setTagOffer(null);
+      }
+    } else {
+      setTagOffer(null);
+    }
+  };
+
+  // apply path differs by mode: single loads the tag's resolved model,
+  // fusion re-picks the executor tag (persona steers the executor)
+  const applyTagOffer = async () => {
+    const tag = tagOffer;
+    setTagOffer(null);
+    if (!tag) return;
+    try {
+      if (state.mode === "fusion") {
+        await setMode("fusion", state.plannerTag, tag);
+      } else {
+        const r = await invoke("role.resolve", { name: tag });
+        await loadModel(r.resolved.path);
+      }
+    } catch {
+      // tag went unbound between offer and apply — drop quietly
+    }
+  };
 
   return (
     <main className="flex h-screen bg-background text-foreground">
@@ -55,8 +97,33 @@ export function ChatPage() {
       />
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex items-center justify-between border-b border-border px-4 py-2">
-          <h1 className="text-sm font-semibold">AI Desktop App</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-sm font-semibold">AI Desktop App</h1>
+            {/* feature 006 (FR-006): per-conversation persona badge/select */}
+            <select
+              value={state.personaName ?? ""}
+              onChange={(e) => void onPersona(e.target.value || null)}
+              className="h-7 max-w-36 rounded border border-border bg-background px-1.5 text-xs"
+              title="Persona for this conversation"
+              aria-label="Persona"
+            >
+              <option value="">No persona</option>
+              {personas.map((p) => (
+                <option key={p.name} value={p.name}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </div>
           <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Personas"
+              onClick={() => setPersonasOpen((v) => !v)}
+            >
+              <Users className="h-4 w-4" />
+            </Button>
             <Button
               variant="ghost"
               size="icon"
@@ -108,6 +175,25 @@ export function ChatPage() {
           </>
         )}
         {rolesOpen && <RolesPanel />}
+        {personasOpen && <PersonasPanel />}
+        {tagOffer && (
+          <div className="flex items-center justify-center gap-2 border-b border-border bg-muted px-4 py-2 text-xs">
+            <span>
+              This persona prefers the "{tagOffer}" role — apply it to this
+              conversation?
+            </span>
+            <Button size="sm" onClick={() => void applyTagOffer()}>
+              Apply
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setTagOffer(null)}
+            >
+              Dismiss
+            </Button>
+          </div>
+        )}
         {libraryOpen && (
           <ModelLibrary
             activeName={state.modelName}
@@ -160,6 +246,7 @@ export function ChatPage() {
         <Composer
           generating={state.generatingId !== null}
           modelReady={modelReady}
+          snippets={snippets}
           onSend={(c, ids, chips) => void send(c, ids, chips)}
           onStop={stop}
         />

@@ -118,7 +118,7 @@ export class ModelRegistry {
   }
 
   shutdown(): void {
-    for (const path of [...this.slots.keys()]) this.evict(path);
+    for (const path of this.slots.keys()) this.evict(path);
   }
 }
 

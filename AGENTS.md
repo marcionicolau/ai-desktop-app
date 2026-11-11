@@ -202,3 +202,22 @@ draft-side; `MessageList` renders `Message.attachments` chips (`·trunc` /
   `model.progress` with `detail: "benchmarking"`. `model.advise` — pure
   live call, `basis` is `measured` only with a fingerprinted record.
 - `models/library.ts` — `scanModels` tolerates a missing shim (null metas).
+
+## Feature 006 — personas & prompt presets
+
+- `personas/service.ts` — settings-resident CRUD (`settings.personas` /
+  `settings.snippets`); seed-on-read (`undefined` → starters, `[]` stays
+  empty); delete clears `Conversation.personaName` and returns `cleared`;
+  personas + snippets share the `/`-picker namespace (collision check).
+- `prompt.ts` — `buildPrompt` `system` opt: charged first, always kept,
+  hard-truncated only if it alone overflows; renders `im_start|system`
+  (ChatML) / `System: …` (plain).
+- Cascade is `DEFAULT < global < persona < modelOverride < tag` — persona
+  is the optional 3rd arg on `roles.resolveCandidates`/`resolve`; fusion
+  passes it (and `executorSystem`) to the executor only (FR-009).
+- `conversation.setPersona` returns `{suggestedTag}`; the renderer offers
+  to re-bind (single → `model.load`, fusion → executor tag pick), hidden
+  when the tag is unbound. Draft conversations stash the pick in
+  `pendingPersona` until `chat.send` creates the record.
+- UI: header persona `<select>` + sidebar `personaName` badge +
+  `PersonasPanel` (CRUD incl. snippets) + Composer `/` picker.

@@ -100,7 +100,12 @@ export function listConversations(): ConversationSummary[] {
       const conv = JSON.parse(
         readFileSync(join(dir, entry), "utf8"),
       ) as Conversation;
-      out.push({ id: conv.id, title: conv.title, updatedAt: conv.updatedAt });
+      out.push({
+        id: conv.id,
+        title: conv.title,
+        updatedAt: conv.updatedAt,
+        personaName: conv.personaName ?? null, // feature 006 sidebar badge
+      });
     } catch {
       // skip unreadable/corrupt files
     }

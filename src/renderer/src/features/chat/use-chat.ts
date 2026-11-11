@@ -37,6 +37,8 @@ interface ChatState {
   mode: "single" | "fusion";
   plannerTag: string;
   executorTag: string;
+  // feature 006: persona assigned to the open conversation (null = none)
+  personaName: string | null;
   activePhase: {
     phase: FusionPhase;
     tag: string;
@@ -52,6 +54,7 @@ type Action =
       conversationId: string | null;
       messages: Message[];
       activeLeaf: string | null;
+      personaName?: string | null;
     }
   | { type: "selectVariant"; activeLeaf: string }
   | { type: "append"; message: Message }
@@ -77,6 +80,7 @@ type Action =
       plannerTag: string;
       executorTag: string;
     }
+  | { type: "persona"; name: string | null }
   | { type: "error"; messageId: string; code: RpcErrorCode; message: string }
   | { type: "model"; status: ModelStatus; name?: string; error?: string }
   | { type: "notice"; message: string }
@@ -102,7 +106,13 @@ function reduce(state: ChatState, action: Action): ChatState {
         activeLeaf: action.activeLeaf,
         generatingId: null,
         activePhase: null,
+        personaName:
+          action.personaName !== undefined
+            ? action.personaName
+            : state.personaName,
       };
+    case "persona":
+      return { ...state, personaName: action.name };
     case "selectVariant":
       return { ...state, activeLeaf: action.activeLeaf };
     case "append":
@@ -287,12 +297,15 @@ const initial: ChatState = {
   mode: "single",
   plannerTag: "planner",
   executorTag: "executor",
+  personaName: null,
   activePhase: null,
 };
 
 export function useChat() {
   const [state, dispatch] = useReducer(reduce, initial);
   const convRef = useRef<string | null>(null);
+  // persona picked on a draft conversation, applied once chat.send creates it
+  const pendingPersona = useRef<string | null>(null);
 
   const refreshList = useCallback(async () => {
     try {
@@ -311,6 +324,7 @@ export function useChat() {
       conversationId: conv.id,
       messages: conv.messages,
       activeLeaf: conv.activeLeaf ?? conv.messages.at(-1)?.id ?? null,
+      personaName: conv.personaName ?? null,
     });
     dispatch({
       type: "mode",
@@ -327,8 +341,28 @@ export function useChat() {
       conversationId: null,
       messages: [],
       activeLeaf: null,
+      personaName: null,
     });
   }, []);
+
+  // feature 006: assign/clear the conversation's persona. Drafts have no
+  // server record yet — the pick is stashed and applied on first send.
+  // Returns the RPC response ({suggestedTag}) so the caller can offer a
+  // preferred-tag re-bind (never automatic).
+  const setPersona = useCallback(
+    async (name: string | null) => {
+      pendingPersona.current = name;
+      dispatch({ type: "persona", name });
+      if (!convRef.current) return {};
+      const r = await invoke("conversation.setPersona", {
+        conversationId: convRef.current,
+        personaName: name,
+      });
+      void refreshList(); // sidebar badge updates
+      return r;
+    },
+    [refreshList],
+  );
 
   const setMode = useCallback(
     async (mode: "single" | "fusion", plannerTag: string, executorTag: string) => {
@@ -402,6 +436,7 @@ export function useChat() {
               conversationId: conv.id,
               messages: conv.messages,
               activeLeaf: conv.activeLeaf ?? conv.messages.at(-1)?.id ?? null,
+              personaName: conv.personaName ?? null,
             });
             dispatch({
               type: "mode",
@@ -545,6 +580,15 @@ export function useChat() {
         executorTag: state.executorTag,
         attachmentIds: attachmentIds.length ? attachmentIds : undefined,
       });
+      // feature 006: apply a persona picked on the draft now that the
+      // conversation exists server-side
+      if (pendingPersona.current) {
+        void invoke("conversation.setPersona", {
+          conversationId,
+          personaName: pendingPersona.current,
+        });
+        pendingPersona.current = null;
+      }
       dispatch({
         type: "append",
         message: {
@@ -717,6 +761,7 @@ export function useChat() {
     regenerate,
     editMessage,
     setMode,
+    setPersona,
     selectVariant,
   };
 }

@@ -16,6 +16,8 @@ import type {
   RoleView,
   TurnStats,
   ModelStatus,
+  Persona,
+  Snippet,
 } from "./types";
 
 export const RPC_ERROR_CODES = [
@@ -237,6 +239,39 @@ export interface ChatRpcSchema extends ElectrobunRPCSchema {
       "role.resolve": {
         params: { name: string };
         response: { resolved: ResolvedRole; candidates: ResolvedRole[] };
+      };
+      // feature 006: personas + snippets + per-conversation assignment
+      "persona.list": {
+        params: Record<string, never>;
+        response: { personas: Persona[] };
+      };
+      "persona.upsert": {
+        params: { persona: Persona };
+        response: { persona: Persona };
+      };
+      "persona.delete": {
+        params: { name: string };
+        response: { cleared: number }; // conversations unassigned
+      };
+      "persona.usage": {
+        params: { name: string };
+        response: { count: number; titles: string[] };
+      };
+      "snippet.list": {
+        params: Record<string, never>;
+        response: { snippets: Snippet[] };
+      };
+      "snippet.upsert": {
+        params: { snippet: Snippet };
+        response: { snippet: Snippet };
+      };
+      "snippet.delete": {
+        params: { name: string };
+        response: { deleted: boolean };
+      };
+      "conversation.setPersona": {
+        params: { conversationId: string; personaName: string | null };
+        response: { suggestedTag?: string };
       };
     };
     messages: Record<string, never>;

@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Paperclip, Send, Square, X } from "lucide-react";
-import type { MessageAttachment } from "@shared/types";
+import type { MessageAttachment, Snippet } from "@shared/types";
 import { invoke } from "@/lib/rpc";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -19,6 +19,7 @@ const fmtSize = (n: number) =>
 interface Props {
   generating: boolean;
   modelReady: boolean;
+  snippets?: Snippet[];
   onSend: (
     content: string,
     attachmentIds: string[],
@@ -27,11 +28,56 @@ interface Props {
   onStop: () => void;
 }
 
-export function Composer({ generating, modelReady, onSend, onStop }: Props) {
+// feature 006 (T013): "/name" at the caret opens a filtered snippet picker;
+// arrows cycle, Enter inserts the fragment in place of the token, Esc/blur
+// dismisses. The picker namespace is shared with personas (collision rule).
+interface Pick {
+  start: number; // index of the "/" in value
+  query: string;
+  idx: number; // highlighted row
+}
+
+export function Composer({
+  generating,
+  modelReady,
+  snippets = [],
+  onSend,
+  onStop,
+}: Props) {
   const [value, setValue] = useState("");
   const [drafts, setDrafts] = useState<DraftAttachment[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
+  const [pick, setPick] = useState<Pick | null>(null);
+  const areaRef = useRef<HTMLTextAreaElement | null>(null);
   const canSend = modelReady && !generating && value.trim().length > 0;
+
+  const matches = pick
+    ? snippets.filter((s) => s.name.startsWith(pick.query)).slice(0, 8)
+    : [];
+
+  const trackPick = (v: string, caret: number) => {
+    const before = v.slice(0, caret);
+    const m = /(?:^|\s)\/([a-z0-9-]*)$/.exec(before);
+    const query = m?.[1];
+    setPick(
+      m && query !== undefined
+        ? { start: caret - query.length - 1, query, idx: 0 }
+        : null,
+    );
+  };
+
+  const insertSnippet = (s: Snippet) => {
+    if (!pick) return;
+    const caret = areaRef.current?.selectionStart ?? value.length;
+    const next = value.slice(0, pick.start) + s.text + value.slice(caret);
+    setValue(next);
+    const pos = pick.start + s.text.length;
+    setPick(null);
+    requestAnimationFrame(() => {
+      areaRef.current?.setSelectionRange(pos, pos);
+      areaRef.current?.focus();
+    });
+  };
 
   const submit = () => {
     if (!canSend) return;
@@ -51,7 +97,7 @@ export function Composer({ generating, modelReady, onSend, onStop }: Props) {
     setDrafts([]);
   };
 
-  const pick = async () => {
+  const pickAttachments = async () => {
     try {
       const r = await invoke("attachment.pick", {});
       if (!r) return; // cancelled
@@ -100,20 +146,73 @@ export function Composer({ generating, modelReady, onSend, onStop }: Props) {
           )}
         </div>
       )}
+      {pick && matches.length > 0 && (
+        <div className="mx-auto mb-2 max-w-2xl rounded-md border border-border bg-background shadow-lg">
+          {matches.map((s, i) => (
+            <button
+              key={s.name}
+              className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs ${
+                i === pick.idx ? "bg-muted" : "hover:bg-muted/50"
+              }`}
+              // onMouseDown so the pick lands before textarea blur dismisses it
+              onMouseDown={(e) => {
+                e.preventDefault();
+                insertSnippet(s);
+              }}
+            >
+              <span className="font-medium">/{s.name}</span>
+              <span className="truncate text-muted-foreground">{s.text}</span>
+            </button>
+          ))}
+        </div>
+      )}
       <div className="mx-auto flex max-w-2xl items-end gap-2">
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => void pick()}
+          onClick={() => void pickAttachments()}
           disabled={!modelReady}
           title="Attach files"
         >
           <Paperclip />
         </Button>
         <Textarea
+          ref={areaRef}
           value={value}
-          onChange={(e) => setValue(e.target.value)}
+          onChange={(e) => {
+            setValue(e.target.value);
+            trackPick(e.target.value, e.target.selectionStart);
+          }}
+          onSelect={(e) =>
+            trackPick(value, e.currentTarget.selectionStart)
+          }
+          onBlur={() => setPick(null)}
           onKeyDown={(e) => {
+            // "/" picker navigation swallows keys while open (feature 006)
+            if (pick && matches.length) {
+              if (e.key === "ArrowDown") {
+                e.preventDefault();
+                setPick({ ...pick, idx: (pick.idx + 1) % matches.length });
+                return;
+              }
+              if (e.key === "ArrowUp") {
+                e.preventDefault();
+                setPick({
+                  ...pick,
+                  idx: (pick.idx - 1 + matches.length) % matches.length,
+                });
+                return;
+              }
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                insertSnippet(matches[pick.idx] ?? matches[0]!);
+                return;
+              }
+              if (e.key === "Escape") {
+                setPick(null);
+                return;
+              }
+            }
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
               submit();
