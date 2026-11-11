@@ -34,6 +34,7 @@ function makeDeps(opts: {
     unloadModel: () => {},
     isGenerating: () => generating,
     contextSize: () => opts.ctxSize ?? 4096,
+    chatTemplate: () => null,
     stop: () => {
       stopped = true;
       opts.onStop?.();
@@ -137,22 +138,37 @@ describe("chat.send contract", () => {
     }
   });
 
-  test("over-limit prompt emits chat.warning and truncates oldest content (FR-011)", async () => {
-    // ctxSize 520 -> maxTokens 8 -> 32 chars kept from the tail
-    const { deps, emitted, getLastPrompt } = makeDeps({ ctxSize: 520 });
-    const h = createRequestHandlers(deps);
-    const { messageId } = h["chat.send"]({
-      conversationId: CONV,
-      content: `head-${"x".repeat(100)}-tail`,
+  test("over-limit history emits chat.warning and drops oldest turns (FR-011)", async () => {
+    // ctxSize 520 -> reserve 260 -> budget 1040 chars; seed a 2000-char turn
+    const { deps, emitted, convs, getLastPrompt } = makeDeps({ ctxSize: 520 });
+    convs.set(CONV, {
+      id: CONV,
+      title: "seed",
+      createdAt: "t",
+      updatedAt: "t",
+      messages: [
+        {
+          id: "m1",
+          conversationId: CONV,
+          role: "user",
+          content: "old-question-" + "x".repeat(2000),
+          status: "complete",
+          createdAt: "t",
+          completedAt: "t",
+        },
+      ],
     });
+    const h = createRequestHandlers(deps);
+    const { messageId } = h["chat.send"]({ conversationId: CONV, content: "hi" });
     await flush();
     const warning = emitted.find((e) => e.method === "chat.warning");
     expect(warning).toBeDefined();
     const payload = warning!.payload as { messageId: string; code: string };
     expect(payload.messageId).toBe(messageId);
     expect(payload.code).toBe("CONTEXT_TRUNCATED");
-    expect(getLastPrompt().length).toBe(32);
-    expect(getLastPrompt()).toMatch(/-tail$/);
+    // oldest turn dropped; current message kept
+    expect(getLastPrompt()).toContain("hi");
+    expect(getLastPrompt()).not.toContain("old-question");
   });
 });
 

@@ -20,6 +20,7 @@ worker threads and no `JSCallback` are used (empirically verified: invoking a
 | `lls_ctx_create` | `lls_ctx* lls_ctx_create(lls_model* m, char** err)` | one active context per model |
 | `lls_ctx_free` | `void lls_ctx_free(lls_ctx* c)` | requires `lls_generate_end` first if generation is active |
 | `lls_ctx_size` | `int32_t lls_ctx_size(lls_ctx* c)` | configured context-window size in tokens; 0 on NULL |
+| `lls_chat_template` | `const char* lls_chat_template(lls_model* m)` | borrowed pointer to model's jinja chat template; NULL when absent — do NOT free |
 | `lls_generate_begin` | `int lls_generate_begin(lls_ctx* c, const char* prompt, char** err)` | tokenizes prompt and primes generation; `0` ok / nonzero error |
 | `lls_step` | `int lls_step(lls_ctx* c, char* buf, size_t cap, size_t* out_len)` | `1` = token written to `buf` (`out_len` = byte count), `0` = done, `<0` = error. Called in a loop by JS; between calls the JS event loop stays free |
 | `lls_generate_end` | `void lls_generate_end(lls_ctx* c)` | releases generation state; idempotent; called after `lls_step` returns `0`/`<0` or on stop |

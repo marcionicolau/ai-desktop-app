@@ -36,6 +36,7 @@ function makeDeps(loadBehavior: "ok" | "not_found" | "invalid") {
     },
     isGenerating: () => false,
     contextSize: () => 4096,
+    chatTemplate: () => null,
     generate: async () => "complete",
     stop: () => {},
   };

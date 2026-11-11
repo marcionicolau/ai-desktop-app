@@ -50,6 +50,11 @@ LLS_API lls_ctx * lls_ctx_create(lls_model * m, char ** err);
 LLS_API void lls_ctx_free(lls_ctx * c);
 
 // configured context-window size in tokens; 0 on NULL
+LLS_API // Borrowed pointer into model metadata (no free); NULL when the model has
+// no template. JS-side prompt formatting (ChatML vs plain) keys off this.
+LLS_API const char * lls_chat_template(lls_model * m);
+
+// configured context size; 0 when c is NULL
 LLS_API int32_t lls_ctx_size(lls_ctx * c);
 
 // tokenizes the prompt, clears the KV cache, primes generation

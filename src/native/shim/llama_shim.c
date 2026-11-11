@@ -20,6 +20,9 @@ struct lls_ctx {
     struct llama_sampler * smpl;
     llama_token cur;
     int generating;
+    int32_t pos; // KV position; generation ends cleanly when it reaches n_ctx
+    int32_t n_gen; // tokens produced since generate_begin
+    int32_t max_gen; // generation cap; LLS_MAX_GEN env, default 512
 };
 
 static int backend_ready = 0;
@@ -88,6 +91,8 @@ lls_ctx * lls_ctx_create(lls_model * m, char ** err) {
     ensure_backend();
 
     struct llama_context_params cparams = llama_context_default_params();
+    const int32_t train_ctx = llama_model_n_ctx_train(m->handle);
+    cparams.n_ctx = (train_ctx > 0 && train_ctx < 4096) ? (uint32_t) train_ctx : 4096;
     struct llama_context * handle = llama_init_from_model(m->handle, cparams);
     if (handle == NULL) {
         set_err(err, "failed to create llama context");
@@ -188,6 +193,10 @@ int lls_generate_begin(lls_ctx * c, const char * prompt, char ** err) {
         offset += chunk;
     }
     free(tokens);
+    c->pos = n_tokens;
+    c->n_gen = 0;
+    const char * max_env = getenv("LLS_MAX_GEN");
+    c->max_gen = (max_env != NULL && atoi(max_env) > 0) ? atoi(max_env) : 512;
 
     struct llama_sampler * smpl =
         llama_sampler_chain_init(llama_sampler_chain_default_params());
@@ -208,7 +217,7 @@ int lls_step(lls_ctx * c, char * buf, size_t cap, size_t * out_len) {
         return -1;
     }
 
-    if (llama_vocab_is_eog(c->vocab, c->cur)) {
+    if (llama_vocab_is_eog(c->vocab, c->cur) || c->n_gen >= c->max_gen) {
         *out_len = 0;
         return 0;
     }
@@ -222,11 +231,23 @@ int lls_step(lls_ctx * c, char * buf, size_t cap, size_t * out_len) {
     }
     *out_len = (size_t) len;
 
+    if (c->pos >= (int32_t) llama_n_ctx(c->handle)) {
+        return 0; // KV full: end cleanly, not an error
+    }
     if (llama_decode(c->handle, llama_batch_get_one(&c->cur, 1)) != 0) {
         return -1;
     }
+    c->pos += 1;
+    c->n_gen += 1;
     c->cur = llama_sampler_sample(c->smpl, c->handle, -1);
     return 1;
+}
+
+const char * lls_chat_template(lls_model * m) {
+    if (m == NULL || m->handle == NULL) {
+        return NULL;
+    }
+    return llama_model_chat_template(m->handle, NULL);
 }
 
 int32_t lls_ctx_size(lls_ctx * c) {

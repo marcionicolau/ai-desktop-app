@@ -38,6 +38,7 @@ processes — this document is the human-readable version.
 - All payloads are JSON-serializable; no pointers or handles cross the bridge.
 - Errors carry `{ code, message }` — `message` is human-readable (FR-007).
 - FR-011 strategy: the sent prompt is token-estimated (chars/4) against
-  `lls_ctx_size` minus a generation reserve; on overflow the oldest content
-  is truncated from the head and `chat.warning {code:"CONTEXT_TRUNCATED"}`
+  `lls_ctx_size` minus a generation reserve; on overflow the oldest
+  conversation turns are dropped (the current message is never truncated)
+  and `chat.warning {code:"CONTEXT_TRUNCATED"}`
   is emitted before the stream starts.

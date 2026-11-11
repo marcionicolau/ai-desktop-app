@@ -16,6 +16,7 @@ export interface EngineLike {
   unloadModel(): void;
   isGenerating(): boolean;
   contextSize(): number;
+  chatTemplate(): string | null;
   generate(
     prompt: string,
     onToken: (delta: string) => void,
@@ -101,21 +102,6 @@ export function createRequestHandlers(deps: HandlerDeps) {
         fail("NO_MODEL", "no model is loaded");
       }
 
-      // FR-011: estimate prompt tokens (chars/4) and truncate the oldest
-      // content from the head when it would overflow the context window.
-      const ctxSize = deps.engine.contextSize();
-      const RESERVE_TOKENS = 512;
-      let prompt = text;
-      let truncated = false;
-      if (ctxSize > 0) {
-        const maxTokens = ctxSize - RESERVE_TOKENS;
-        const estTokens = Math.ceil(text.length / 4);
-        if (estTokens > maxTokens) {
-          prompt = text.slice(-maxTokens * 4);
-          truncated = true;
-        }
-      }
-
       let conv = deps.store.getConversation(conversationId);
       if (!conv) {
         conv = {
@@ -126,6 +112,54 @@ export function createRequestHandlers(deps: HandlerDeps) {
           messages: [],
         };
       }
+
+      // Build the prompt from conversation history, formatted for the
+      // model's chat template (ChatML when detected, plain role labels
+      // otherwise). FR-011: oldest turns are dropped when they would exceed
+      // the context budget; the chars/4 estimate is only a heuristic, so a
+      // real "prompt exceeds context window" from the shim retries at half
+      // the budget.
+      const ctxSize = deps.engine.contextSize();
+      const reserve = Math.min(512, Math.floor(ctxSize / 2) || 512);
+      const baseBudget = ctxSize > 0 ? (ctxSize - reserve) * 4 : Infinity;
+      const chatml = (deps.engine.chatTemplate() ?? "").includes("im_start");
+
+      const history = conv.messages
+        .filter((m) => m.status === "complete" || m.status === "partial")
+        .reverse();
+      const current = { role: "user" as const, content: text };
+      let truncated = false;
+
+      const buildPrompt = (charBudget: number): string => {
+        const sel: { role: "user" | "assistant"; content: string }[] = [
+          current,
+        ];
+        let used = text.length + 32;
+        for (const m of history) {
+          const cost = m.content.length + 32;
+          if (used + cost > charBudget) {
+            truncated = true;
+            break;
+          }
+          used += cost;
+          sel.unshift({ role: m.role, content: m.content });
+        }
+        return chatml
+          ? sel
+              .map(
+                (t) =>
+                  "<|im_start|>" + t.role + "\n" + t.content + "<|im_end|>\n",
+              )
+              .join("") + "<|im_start|>assistant\n"
+          : sel
+              .map(
+                (t) =>
+                  (t.role === "user" ? "User: " : "Assistant: ") +
+                  t.content +
+                  "\n",
+              )
+              .join("") + "Assistant: ";
+      };
 
       const userMsg: Message = {
         id: newId(),
@@ -152,15 +186,6 @@ export function createRequestHandlers(deps: HandlerDeps) {
       const messageId = assistantMsg.id;
       activeMessageId = messageId;
 
-      if (truncated) {
-        deps.emit("chat.warning", {
-          messageId,
-          code: "CONTEXT_TRUNCATED",
-          message:
-            "Message exceeded the model's context window; the oldest content was truncated.",
-        });
-      }
-
       // token-flush checkpoint: persist accumulated content ~every 500ms
       // during generation so a crash keeps near-complete state (T030)
       let dirty = false;
@@ -171,12 +196,40 @@ export function createRequestHandlers(deps: HandlerDeps) {
         }
       }, 500);
 
-      void deps.engine
-        .generate(prompt, (delta) => {
-          assistantMsg.content += delta;
-          dirty = true;
-          deps.emit("chat.token", { messageId, delta });
-        })
+      let warned = false;
+      const warnTruncated = () => {
+        if (warned) return;
+        warned = true;
+        deps.emit("chat.warning", {
+          messageId,
+          code: "CONTEXT_TRUNCATED",
+          message:
+            "Message exceeded the model's context window; the oldest content was truncated.",
+        });
+      };
+      const isCtxOverflow = (e: unknown) =>
+        e instanceof Error && e.message.includes("context window");
+
+      const run = async () => {
+        let charBudget = baseBudget;
+        for (;;) {
+          const prompt = buildPrompt(charBudget);
+          if (truncated) warnTruncated();
+          try {
+            return await deps.engine.generate(prompt, (delta) => {
+              assistantMsg.content += delta;
+              dirty = true;
+              deps.emit("chat.token", { messageId, delta });
+            });
+          } catch (e) {
+            if (!isCtxOverflow(e) || charBudget <= 256) throw e;
+            charBudget = Math.floor(charBudget / 2);
+            truncated = true;
+          }
+        }
+      };
+
+      void run()
         .then((status) => {
           assistantMsg.status = status;
           assistantMsg.completedAt = now();

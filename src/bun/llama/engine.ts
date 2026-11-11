@@ -110,6 +110,11 @@ export class LlamaEngine {
     return this.shim.symbols.lls_ctx_size(this.ctx);
   }
 
+  chatTemplate(): string | null {
+    if (this.model === null || this.shim === null) return null;
+    return this.shim.symbols.lls_chat_template(this.model);
+  }
+
   // Drives the pull loop. onToken receives raw byte-chunks decoded as text.
   // Resolves "complete" on natural end, "partial" when stop() was called.
   async generate(

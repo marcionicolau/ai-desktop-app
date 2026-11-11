@@ -18,6 +18,7 @@ function makeDeps() {
     unloadModel: () => {},
     isGenerating: () => false,
     contextSize: () => 4096,
+    chatTemplate: () => null,
     generate: async () => "complete",
     stop: () => {},
   };
