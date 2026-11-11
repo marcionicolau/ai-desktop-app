@@ -11,7 +11,9 @@ import type {
   Message,
   ModelAdvise,
   ModelStatus,
+  Persona,
   ResolvedRole,
+  Snippet,
   RoleRef,
 } from "../../shared/types";
 import { DEFAULT_GENERATION } from "../../shared/types";
@@ -31,6 +33,7 @@ import {
 import { freemem, totalmem } from "node:os";
 import { ModelRegistry, createRegistryEngine } from "../models/registry";
 import { RolesService } from "../models/roles";
+import { PersonaService } from "../personas/service";
 import { runFusionTurn } from "../llama/fusion";
 import {
   gcFor,
@@ -120,6 +123,8 @@ export interface HandlerDeps {
   // feature 004: optional so existing tests keep a two-dep harness
   roles?: RolesService;
   registry?: ModelRegistry;
+  // feature 006: personas/snippets service; absent in two-dep harnesses
+  personas?: PersonaService;
   // feature 008: file pickers, injectable for headless tests
   dialogs?: {
     pickFolder(): Promise<string | null>;
@@ -153,16 +158,32 @@ export function createRequestHandlers(deps: HandlerDeps) {
 
   const persist = (conv: Conversation) => deps.store.saveConversation(conv);
 
-  const resolveGenParams = (): GenerationParams => {
+  // feature 006: persona params slot between global and model override —
+  // DEFAULT < global < persona < modelOverride (tag applied in roles.ts)
+  const resolveGenParams = (
+    persona?: Partial<GenerationParams> | null,
+  ): GenerationParams => {
     const settings = deps.store.getSettings();
     const modelKey = deps.engine.status().name ?? "";
     return mergeParams(
-      mergeParams(DEFAULT_GENERATION, settings.generation),
+      mergeParams(
+        mergeParams(DEFAULT_GENERATION, settings.generation),
+        persona,
+      ),
       modelKey ? settings.modelOverrides?.[modelKey] : undefined,
     );
   };
 
   const rolesSvc = () => deps.roles ?? new RolesService({ store: deps.store });
+
+  const personasSvc = () =>
+    deps.personas ??
+    new PersonaService({
+      store: deps.store,
+      tagNames: () => rolesSvc().list().map((t) => t.name),
+      getConversation: (id) => deps.store.getConversation(id),
+      saveConversation: (c) => deps.store.saveConversation(c),
+    });
 
   const findMessage = (messageId: string) => {
     for (const summary of deps.store.listConversations()) {
@@ -225,15 +246,25 @@ export function createRequestHandlers(deps: HandlerDeps) {
     // legacy per-model param merge.
     // candidate list for the runtime fallback cascade (T019); legacy
     // test harness without roles dep gets a single implicit candidate
+    // feature 006: the conversation's persona steers every turn on it —
+    // system prompt injected into the prompt, params merged into the
+    // cascade. Missing/dangling assignment is ignored (SC-004).
+    const persona = conv.personaName
+      ? personasSvc().get(conv.personaName)
+      : null;
     let candidates: ResolvedRole[] = [];
     if (deps.roles) {
       try {
-        candidates = deps.roles.resolveCandidates("default");
+        candidates = deps.roles.resolveCandidates(
+          "default",
+          0,
+          persona?.params ?? null,
+        );
       } catch {
         candidates = [];
       }
     }
-    const legacyGenParams = resolveGenParams();
+    const legacyGenParams = resolveGenParams(persona?.params);
     const messageId = assistantMsg.id;
     activeMessageId = messageId;
 
@@ -261,8 +292,14 @@ export function createRequestHandlers(deps: HandlerDeps) {
     const run = async () => {
       // fusion mode: two-phase planner -> executor via the orchestrator
       if (conv.mode === "fusion" && deps.roles && deps.registry) {
+        // FR-009: persona params go to the executor only; the planner
+        // resolves with the bare cascade (its directive stays its own)
         const planner = deps.roles.resolveCandidates(conv.plannerTag);
-        const executor = deps.roles.resolveCandidates(conv.executorTag);
+        const executor = deps.roles.resolveCandidates(
+          conv.executorTag,
+          0,
+          persona?.params ?? null,
+        );
         if (planner.length === 0) {
           fail("ROLE_UNBOUND", `planner role "${conv.plannerTag}" has no bound model`);
         }
@@ -277,6 +314,7 @@ export function createRequestHandlers(deps: HandlerDeps) {
           history,
           current,
           plannerText,
+          executorSystem: persona?.systemPrompt,
           onTruncated: warnTruncated,
           onEvent: (m, p) =>
             deps.emit(
@@ -352,6 +390,7 @@ export function createRequestHandlers(deps: HandlerDeps) {
               chatml,
               budget,
               costOf,
+              system: persona?.systemPrompt,
             });
             if (built.truncated) warnTruncated();
             try {
@@ -1056,6 +1095,43 @@ export function createRequestHandlers(deps: HandlerDeps) {
       if (conv) gcFor(conv); // feature 009: unlink attachment files
       return {};
     },
+    // feature 006: per-conversation persona assignment. Null clears.
+    // suggestedTag lets the renderer offer to re-bind (never automatic).
+    "conversation.setPersona": ({
+      conversationId,
+      personaName,
+    }: {
+      conversationId: string;
+      personaName: string | null;
+    }) => {
+      const conv = deps.store.getConversation(conversationId);
+      if (!conv) fail("NOT_FOUND", `conversation ${conversationId} not found`);
+      const persona = personaName ? personasSvc().get(personaName) : null;
+      if (personaName && !persona) {
+        fail("NOT_FOUND", `persona "${personaName}" not found`);
+      }
+      conv.personaName = persona?.name ?? null;
+      conv.updatedAt = now();
+      persist(conv);
+      return persona?.preferredTag
+        ? { suggestedTag: persona.preferredTag }
+        : {};
+    },
+    // feature 006: persona + snippet CRUD (settings-resident)
+    "persona.list": () => ({ personas: personasSvc().list() }),
+    "persona.upsert": ({ persona }: { persona: Persona }) => ({
+      persona: personasSvc().upsert(persona),
+    }),
+    "persona.delete": ({ name }: { name: string }) =>
+      personasSvc().delete(name),
+    "persona.usage": ({ name }: { name: string }) => personasSvc().usage(name),
+    "snippet.list": () => ({ snippets: personasSvc().snippets() }),
+    "snippet.upsert": ({ snippet }: { snippet: Snippet }) => ({
+      snippet: personasSvc().upsertSnippet(snippet),
+    }),
+    "snippet.delete": ({ name }: { name: string }) => ({
+      deleted: personasSvc().deleteSnippet(name),
+    }),
     // feature 008: export/import — dialogs are injectable (deps.dialogs);
     // absent dep = treat as cancelled, so headless tests stay safe
     "conversation.export": async ({
@@ -1244,6 +1320,12 @@ export type RequestHandlers = ReturnType<typeof createRequestHandlers>;
 
 const registry = new ModelRegistry();
 const roles = new RolesService({ store });
+const personas = new PersonaService({
+  store,
+  tagNames: () => roles.list().map((t) => t.name),
+  getConversation: (id) => store.getConversation(id),
+  saveConversation: (c) => store.saveConversation(c),
+});
 const engine = createRegistryEngine({
   registry,
   activePath: () => store.getSettings().activeModelPath,
@@ -1273,6 +1355,7 @@ export function createRpc() {
     engine,
     roles,
     registry,
+    personas,
     emit: (m, p) => emit(m, p),
     store,
     dialogs: {

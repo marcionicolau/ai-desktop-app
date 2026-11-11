@@ -62,3 +62,48 @@ describe("buildPrompt", () => {
     expect(r2.truncated).toBe(true);
   });
 });
+
+// feature 006: persona system turn — always kept, budgeted before history
+describe("system turn (feature 006)", () => {
+  test("system is kept first, ahead of history, when budget is tight", () => {
+    const history = [turn("assistant", "h1"), turn("user", "h2")];
+    const r = buildPrompt(history, "now", {
+      chatml: false,
+      budget: 80, // system+current fit (75); each history turn adds 34 → dropped
+      system: "steer me",
+    });
+    expect(r.turns[0]).toEqual({ role: "system", content: "steer me" });
+    expect(r.truncated).toBe(true); // history dropped to keep system
+    expect(r.prompt).toContain("System: steer me");
+  });
+
+  test("system alone over budget is hard-truncated + flagged", () => {
+    const r = buildPrompt([], "hi", {
+      chatml: true,
+      budget: 50,
+      system: "x".repeat(200),
+    });
+    expect(r.truncated).toBe(true);
+    expect(r.turns[0].content.length).toBeLessThan(200);
+  });
+
+  test("chatml renders a system im_start block", () => {
+    const r = buildPrompt([], "hi", {
+      chatml: true,
+      budget: 500,
+      system: "be terse",
+    });
+    expect(r.prompt).toContain("|im_start|>system\nbe terse");
+    expect(r.prompt).not.toContain("System: be terse");
+  });
+
+  test("plain render labels system distinctly from user/assistant", () => {
+    const r = buildPrompt(
+      [turn("assistant", "a1")],
+      "u1",
+      { chatml: false, budget: 500, system: "sys" },
+    );
+    expect(r.prompt.startsWith("System: sys\n")).toBe(true);
+    expect(r.prompt).toContain("Assistant: a1");
+  });
+});

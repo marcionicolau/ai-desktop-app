@@ -54,12 +54,15 @@ export interface Conversation {
   // feature 005: id of the deepest message on the displayed branch;
   // null/absent = last message in array order (legacy default)
   activeLeaf?: string | null;
+  // feature 006: 0-or-1 assigned persona; absent = unassigned
+  personaName?: string | null;
 }
 
 export interface ConversationSummary {
   id: string;
   title: string;
   updatedAt: string;
+  personaName?: string | null; // feature 006: sidebar badge
 }
 
 export interface ModelInfo {
@@ -121,6 +124,25 @@ export interface Settings {
   // named model roles; "default" is provisioned and synced to
   // activeModelPath (feature 004, FR-010)
   tags: ModelTag[];
+  // feature 006: optional so the service can distinguish unset (→ seed
+  // starters) from [] (user deleted all — never re-seed)
+  personas?: Persona[];
+  snippets?: Snippet[];
+}
+
+// feature 006: a reusable steering bundle, one per conversation
+export interface Persona {
+  name: string; // slug, SLUG_RE, unique
+  systemPrompt: string; // non-empty, <= 8 KiB
+  params: Partial<GenerationParams> | null;
+  preferredTag?: string;
+}
+
+// feature 006: insertable prompt fragment for the "/" composer picker;
+// name unique across snippets AND personas (shared picker namespace)
+export interface Snippet {
+  name: string;
+  text: string;
 }
 
 // ---- Feature 004: tagged model roles & fusion ----

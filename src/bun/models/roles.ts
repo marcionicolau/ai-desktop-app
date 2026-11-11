@@ -207,7 +207,7 @@ export class RolesService {
   }
 
   setFallback(name: string, chain: RoleRef[]): void {
-    const t = this.tag(name);
+    this.tag(name); // existence check (throws NOT_FOUND)
     if (chain.length > MAX_FALLBACK) {
       throw new RoleError(
         "INVALID_PARAMS",
@@ -256,22 +256,31 @@ export class RolesService {
   // Static resolution (T004): binding first, then ordered fallback refs.
   // Runtime load-failure cascade is T019 — resolve() returns the first
   // candidate whose file exists, or throws ROLE_UNBOUND.
-  resolve(name: string): ResolvedRole {
-    const c = this.resolveCandidates(name)[0];
+  resolve(name: string, persona?: Partial<GenerationParams> | null): ResolvedRole {
+    const c = this.resolveCandidates(name, 0, persona)[0];
     if (!c) throw new RoleError("ROLE_UNBOUND", `role "${name}" has no bound model`);
     return c;
   }
 
   // Ordered candidates (binding -> chain) with resolvable files; missing
   // files are skipped lazily. Runtime callers walk this list on failure.
-  resolveCandidates(name: string, depth = 0): ResolvedRole[] {
+  // feature 006: persona params slot between global defaults and the
+  // per-model/tag overrides — DEFAULT < global < persona < override < tag
+  resolveCandidates(
+    name: string,
+    depth = 0,
+    persona?: Partial<GenerationParams> | null,
+  ): ResolvedRole[] {
     const t = this.tag(name);
     if (depth > MAX_FALLBACK) return [];
     const settings = this.settings();
     const paramsFor = (fileName: string): GenerationParams =>
       mergeParams(
         mergeParams(
-          mergeParams(DEFAULT_GENERATION, settings.generation),
+          mergeParams(
+            mergeParams(DEFAULT_GENERATION, settings.generation),
+            persona,
+          ),
           settings.modelOverrides?.[fileName],
         ),
         t.params,
@@ -308,7 +317,7 @@ export class RolesService {
       if (visited.has(ref.name)) continue;
       visited.add(ref.name);
       try {
-        for (const inner of this.resolveCandidates(ref.name, depth + 1)) {
+        for (const inner of this.resolveCandidates(ref.name, depth + 1, persona)) {
           out.push({
             ...inner,
             tag: name,

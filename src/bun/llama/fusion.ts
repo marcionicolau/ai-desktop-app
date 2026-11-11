@@ -25,6 +25,9 @@ export interface FusionTurnOpts {
   // feature 009: planner sees the request + attachment summary instead of
   // full file content; defaults to `current` when unset (FR-008/D4)
   plannerText?: string;
+  // feature 006 (FR-009): persona system prompt applies to the executor
+  // phase only — the planner keeps its own planning directive
+  executorSystem?: string;
   // events are re-emitted by the caller with messageId filled in
   onEvent: (method: "chat.phase" | "chat.token", payload: unknown) => void;
   onPlanDelta: (delta: string) => void;
@@ -68,6 +71,7 @@ async function genPhase(opts: {
   conversationId: string;
   history: PromptTurn[];
   current: string;
+  system?: string;
   onToken: (delta: string) => void;
   onTruncated: () => void;
 }): Promise<{ status: "complete" | "partial"; tokens: number; elapsedMs: number }> {
@@ -82,6 +86,7 @@ async function genPhase(opts: {
       chatml,
       budget,
       costOf,
+      system: opts.system,
     });
     if (built.truncated) opts.onTruncated();
     try {
@@ -116,6 +121,7 @@ export async function runFusionTurn(
     current: string,
     onDelta: (d: string) => void,
     phase: FusionPhase,
+    system?: string,
   ): Promise<{
     role: ResolvedRole;
     res: { status: "complete" | "partial"; tokens: number; elapsedMs: number };
@@ -138,6 +144,7 @@ export async function runFusionTurn(
           conversationId: o.conversationId,
           history,
           current,
+          system,
           onToken: (d) => {
             emitted = true;
             content += d;
@@ -188,6 +195,7 @@ export async function runFusionTurn(
     buildExecutorPrompt(o.current, p.content),
     o.onAnswerDelta,
     "answer",
+    o.executorSystem,
   );
   return {
     status: a.res.status,

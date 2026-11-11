@@ -142,6 +142,15 @@ export function Sidebar({
                 {c.title}
               </button>
             )}
+            {/* feature 006 (FR-006): active persona badge */}
+            {c.personaName && editingId !== c.id && (
+              <span
+                className="shrink-0 rounded bg-muted px-1 py-0.5 text-[10px] text-muted-foreground"
+                title={`Persona: ${c.personaName}`}
+              >
+                {c.personaName}
+              </span>
+            )}
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <button
