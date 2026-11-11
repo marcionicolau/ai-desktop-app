@@ -3,9 +3,9 @@
 ## Requests
 
 ### `persona.list` → `{ personas: Persona[] }`
-Seeds starters on first call when unset. Includes a per-persona
-`inUse` count? No — keep the shape plain; `persona.usage` answers
-that on demand.
+Seeds starters on first call when `settings.personas` is unset
+(an explicit `[]` — user deleted all — stays empty). In-use counts
+come from `persona.usage` on demand, not this payload.
 
 ### `persona.upsert` `{ persona: Persona }` → `{ persona: Persona }`
 Create or update by name. Errors: `INVALID_PARAMS` (bad slug, empty

@@ -18,7 +18,9 @@
 - [ ] T003 Create `src/bun/personas/seed.ts` (concise/tutor/coder
   starters) + `src/bun/personas/service.ts`: `PersonaService` with
   injectable `{store}` dep (same pattern as `RolesService`) — seed-on-
-  read, `list/upsert/delete/usage` for personas, `list/upsert/delete`
+  read ONLY when `settings.personas` is unset (`undefined`); an
+  explicit `[]` stays empty (user deleted all — never resurrect);
+  `list/upsert/delete/usage` for personas, `list/upsert/delete`
   for snippets; validation per D5: name `SLUG_RE` + unique,
   systemPrompt non-empty + ≤8 KiB, params via `validateParams`,
   preferredTag must name an existing tag, snippet names unique across
@@ -31,7 +33,8 @@
 - [ ] T005 [P] Add `tests/personas/service.test.ts`: seed-on-read;
   upsert validation (slug/empty/oversized/params/tag); uniqueness incl.
   snippet↔persona collision; delete clears `personaName` on fake
-  conversations + `cleared` count; `usage` titles.
+  conversations + `cleared` count; `usage` titles; `personas: []` stays
+  empty on re-list (no re-seed).
 - [ ] T006 [P] Extend prompt tests (`tests/llama/` or adjacent): system
   turn always first + kept when history overflows; cost charged before
   history; hard-truncation flag; both render arms emit system.
@@ -56,8 +59,10 @@ produces a prompt containing the system turn and uses persona params.
   `system` + `personaParams` to `buildPrompt`/fusion; `chat.warning`
   `CONTEXT_TRUNCATED` also fires when the system turn truncates.
   Implement `conversation.setPersona` (`NOT_FOUND` on unknown conv or
-  persona; returns `{suggestedTag?}` = persona.preferredTag when set
-  and differing).
+  persona; returns `{suggestedTag?}` = persona.preferredTag when set,
+  bound, and differing); populate `personaName` in
+  `listConversations()` (`src/bun/store/json-store.ts`) so summaries
+  carry the badge field (FR-006).
 - [ ] T009 [US1] Add `tests/rpc/personas.test.ts`: send → prompt
   contains system turn + persona params merged at correct precedence;
   unassign → default behavior; two conversations keep separate
@@ -65,8 +70,10 @@ produces a prompt containing the system turn and uses persona params.
 - [ ] T010 [US1] `src/renderer/src/features/chat/ChatPage.tsx`:
   persona select in the conversation header populated from
   `persona.list` → `conversation.setPersona`; visible badge for the
-  active persona; `suggestedTag` surfaced as an inline offer (button →
-  existing role/model RPC). Sidebar badge via
+  active persona; `suggestedTag` surfaced as an inline offer — apply
+  path differs by mode: single → `model.load` on the tag's resolved
+  path, fusion → `conversation.setMode` tag pick; hide the offer when
+  the tag is unbound. Sidebar badge via
   `ConversationSummary.personaName` (FR-006).
 
 ## Phase 3 — US2 (P2): persona management
