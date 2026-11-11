@@ -5,6 +5,7 @@ import { defineElectrobunRPC } from "electrobun/main/rpc";
 import type { ChatRpcSchema, RpcErrorCode } from "../../shared/rpc-contract";
 import type { Conversation, Message, ModelStatus } from "../../shared/types";
 import { EngineError, LlamaEngine } from "../llama/engine";
+import { buildPrompt } from "../llama/prompt";
 import * as store from "../store/json-store";
 
 type Events = ChatRpcSchema["webview"]["messages"];
@@ -126,40 +127,8 @@ export function createRequestHandlers(deps: HandlerDeps) {
 
       const history = conv.messages
         .filter((m) => m.status === "complete" || m.status === "partial")
-        .reverse();
-      const current = { role: "user" as const, content: text };
-      let truncated = false;
-
-      const buildPrompt = (charBudget: number): string => {
-        const sel: { role: "user" | "assistant"; content: string }[] = [
-          current,
-        ];
-        let used = text.length + 32;
-        for (const m of history) {
-          const cost = m.content.length + 32;
-          if (used + cost > charBudget) {
-            truncated = true;
-            break;
-          }
-          used += cost;
-          sel.unshift({ role: m.role, content: m.content });
-        }
-        return chatml
-          ? sel
-              .map(
-                (t) =>
-                  "<|im_start|>" + t.role + "\n" + t.content + "<|im_end|>\n",
-              )
-              .join("") + "<|im_start|>assistant\n"
-          : sel
-              .map(
-                (t) =>
-                  (t.role === "user" ? "User: " : "Assistant: ") +
-                  t.content +
-                  "\n",
-              )
-              .join("") + "Assistant: ";
-      };
+        .reverse()
+        .map((m) => ({ role: m.role, content: m.content }));
 
       const userMsg: Message = {
         id: newId(),
@@ -213,10 +182,13 @@ export function createRequestHandlers(deps: HandlerDeps) {
       const run = async () => {
         let charBudget = baseBudget;
         for (;;) {
-          const prompt = buildPrompt(charBudget);
-          if (truncated) warnTruncated();
+          const built = buildPrompt(history, text, {
+            chatml,
+            budgetChars: charBudget,
+          });
+          if (built.truncated) warnTruncated();
           try {
-            return await deps.engine.generate(prompt, (delta) => {
+            return await deps.engine.generate(built.prompt, (delta) => {
               assistantMsg.content += delta;
               dirty = true;
               deps.emit("chat.token", { messageId, delta });
@@ -224,7 +196,6 @@ export function createRequestHandlers(deps: HandlerDeps) {
           } catch (e) {
             if (!isCtxOverflow(e) || charBudget <= 256) throw e;
             charBudget = Math.floor(charBudget / 2);
-            truncated = true;
           }
         }
       };

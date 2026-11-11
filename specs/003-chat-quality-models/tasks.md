@@ -8,20 +8,20 @@ features established test-first conventions.
 
 ## Phase 1: Setup
 
-- [ ] T001 Add renderer deps `react-markdown`, `remark-gfm`, `rehype-highlight` via `bun add` in `src/renderer/package.json` (or root if hoisted)
-- [ ] T002 [P] Scaffold directories: `src/bun/models/`, `src/renderer/src/components/ai/`, `src/renderer/src/features/settings/`
+- [x] T001 Add renderer deps `react-markdown`, `remark-gfm`, `rehype-highlight` via `bun add` in `src/renderer/package.json` (or root if hoisted)
+- [x] T002 [P] Scaffold directories: `src/bun/models/`, `src/renderer/src/components/ai/`, `src/renderer/src/features/settings/`
 
 ## Phase 2: Foundational (Blocking Prerequisites)
 
 **CRITICAL**: all stories consume the params struct, prompt module, settings schema, and extended contract.
 
-- [ ] T003 Add `lls_gen_params` struct to `src/native/shim/llama_shim.h`; change `lls_generate_begin` signature to accept `const lls_gen_params* p` (NULL = current defaults: greedy + 512-token cap honoring `LLS_MAX_GEN`); implement sampler chain in `llama_shim.c` (`min_p→top_k→top_p→temp→penalties→dist(seed)`; keep greedy shortcut when all-defaults)
-- [ ] T004 Update `src/bun/llama/ffi.ts`: declare `lls_gen_params` layout + new `generate_begin` signature; expose `params` arg through the engine-facing wrapper
-- [ ] T005 Create `src/bun/llama/params.ts`: `GenerationParams` type (temperature 0–2, topP 0–1, topK ≥0, repeatPenalty ≥0 [1=off], seed uint32 [0=random], maxTokens ≥0 [0=ctx-bound], nThreads ≥0, nGpuLayers ≥0), `DEFAULT_PARAMS` matching current behavior, `mergeParams(base, override)`, `clampParams` validation
-- [ ] T006 Extract prompt assembly from `src/bun/rpc/handlers.ts` into new `src/bun/llama/prompt.ts`: pure `buildPrompt(history, current, {chatml, budgetChars})` → `{prompt, turns, truncated}` preserving exact current semantics (ChatML when template has `im_start`, oldest-turn drop, current message always kept)
-- [ ] T007 Extend `src/shared/types.ts` (`GenerationParams`, `Message.stats`) and `src/shared/rpc-contract.ts` per `contracts/rpc.md`: methods `settings.get`, `settings.set`, `chat.regenerate`, `chat.edit`, `model.list`, `model.download`, `model.setOverride`; event `model.download`; `chat.done` gains `stats`; error codes `INVALID_PARAMS`, `INVALID_URL`, `DOWNLOAD_FAILED`, `ALREADY_EXISTS`
-- [ ] T008 Extend `src/bun/store/json-store.ts` Settings: `generation: GenerationParams`, `modelOverrides: Record<string, Partial<GenerationParams>>` keyed by file basename; add `deleteMessagesFrom(convId, messageId)` and `updateMessage(id, {content?, stats?, status?})`; clamp/validate params at write
-- [ ] T009 Rebuild native (`bash scripts/build-native.sh`) + run `bun test ./tests` — all 32 existing tests must still pass unmodified (proves ABI change is backward-safe)
+- [x] T003 Add `lls_gen_params` struct to `src/native/shim/llama_shim.h`; change `lls_generate_begin` signature to accept `const lls_gen_params* p` (NULL = current defaults: greedy + 512-token cap honoring `LLS_MAX_GEN`); implement sampler chain in `llama_shim.c` (`min_p→top_k→top_p→temp→penalties→dist(seed)`; keep greedy shortcut when all-defaults)
+- [x] T004 Update `src/bun/llama/ffi.ts`: declare `lls_gen_params` layout + new `generate_begin` signature; expose `params` arg through the engine-facing wrapper
+- [x] T005 Create `src/bun/llama/params.ts`: `GenerationParams` type (temperature 0–2, topP 0–1, topK ≥0, repeatPenalty ≥0 [1=off], seed uint32 [0=random], maxTokens ≥0 [0=ctx-bound], nThreads ≥0, nGpuLayers ≥0), `DEFAULT_PARAMS` matching current behavior, `mergeParams(base, override)`, `clampParams` validation
+- [x] T006 Extract prompt assembly from `src/bun/rpc/handlers.ts` into new `src/bun/llama/prompt.ts`: pure `buildPrompt(history, current, {chatml, budgetChars})` → `{prompt, turns, truncated}` preserving exact current semantics (ChatML when template has `im_start`, oldest-turn drop, current message always kept)
+- [x] T007 Extend `src/shared/types.ts` (`GenerationParams`, `Message.stats`) and `src/shared/rpc-contract.ts` per `contracts/rpc.md`: methods `settings.get`, `settings.set`, `chat.regenerate`, `chat.edit`, `model.list`, `model.download`, `model.setOverride`; event `model.download`; `chat.done` gains `stats`; error codes `INVALID_PARAMS`, `INVALID_URL`, `DOWNLOAD_FAILED`, `ALREADY_EXISTS`
+- [x] T008 Extend `src/bun/store/json-store.ts` Settings: `generation: GenerationParams`, `modelOverrides: Record<string, Partial<GenerationParams>>` keyed by file basename; add `deleteMessagesFrom(convId, messageId)` and `updateMessage(id, {content?, stats?, status?})`; clamp/validate params at write
+- [x] T009 Rebuild native (`bash scripts/build-native.sh`) + run `bun test ./tests` — all 32 existing tests must still pass unmodified (proves ABI change is backward-safe)
 
 **Checkpoint**: params struct compiles, prompt module pure, settings persist, contract types complete.
 

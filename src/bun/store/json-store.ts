@@ -15,6 +15,7 @@ import type {
   ConversationSummary,
   Settings,
 } from "../../shared/types";
+import { DEFAULT_GENERATION } from "../../shared/types";
 import { conversationsDir, settingsFile } from "./paths";
 
 const ID_RE = /^[\w-]+$/;
@@ -22,6 +23,8 @@ const ID_RE = /^[\w-]+$/;
 const DEFAULT_SETTINGS: Settings = {
   activeModelPath: null,
   contextLimitWarning: false,
+  generation: DEFAULT_GENERATION,
+  modelOverrides: {},
 };
 
 function atomicWrite(file: string, data: unknown): void {
@@ -41,9 +44,15 @@ function conversationPath(id: string): string {
 export function getSettings(): Settings {
   try {
     const raw = readFileSync(settingsFile(), "utf8");
-    return { ...DEFAULT_SETTINGS, ...(JSON.parse(raw) as Partial<Settings>) };
+    const parsed = JSON.parse(raw) as Partial<Settings>;
+    return {
+      ...DEFAULT_SETTINGS,
+      ...parsed,
+      generation: { ...DEFAULT_GENERATION, ...(parsed.generation ?? {}) },
+      modelOverrides: parsed.modelOverrides ?? {},
+    };
   } catch {
-    return { ...DEFAULT_SETTINGS };
+    return { ...DEFAULT_SETTINGS, generation: { ...DEFAULT_GENERATION } };
   }
 }
 
@@ -96,4 +105,21 @@ export function deleteConversation(id: string): boolean {
   } catch {
     return false;
   }
+}
+
+// removes every message AFTER messageId in a conversation; powers
+// chat.edit (delete-tail) and keeps the target itself intact.
+// Returns false when the conversation or message is missing.
+export function deleteMessagesAfter(
+  conversationId: string,
+  messageId: string,
+): boolean {
+  const conv = getConversation(conversationId);
+  if (!conv) return false;
+  const idx = conv.messages.findIndex((m) => m.id === messageId);
+  if (idx < 0) return false;
+  conv.messages.splice(idx + 1);
+  conv.updatedAt = new Date().toISOString();
+  saveConversation(conv);
+  return true;
 }

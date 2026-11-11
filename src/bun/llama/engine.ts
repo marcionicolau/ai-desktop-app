@@ -130,7 +130,7 @@ export class LlamaEngine {
     const { symbols } = this.shim;
     const err = newErrSlot();
 
-    if (symbols.lls_generate_begin(this.ctx, prompt, ptr(err)) !== 0) {
+    if (symbols.lls_generate_begin(this.ctx, prompt, null, ptr(err)) !== 0) {
       const msg = readErr(this.shim, err) ?? "failed to begin generation";
       throw new EngineError("ENGINE_ERROR", msg);
     }

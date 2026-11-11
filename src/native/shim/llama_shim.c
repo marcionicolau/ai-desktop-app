@@ -132,7 +132,8 @@ void lls_ctx_free(lls_ctx * c) {
     free(c);
 }
 
-int lls_generate_begin(lls_ctx * c, const char * prompt, char ** err) {
+int lls_generate_begin(lls_ctx * c, const char * prompt,
+                       const lls_gen_params * p, char ** err) {
     if (c == NULL) {
         set_err(err, "context is NULL");
         return 1;
@@ -195,8 +196,14 @@ int lls_generate_begin(lls_ctx * c, const char * prompt, char ** err) {
     free(tokens);
     c->pos = n_tokens;
     c->n_gen = 0;
-    const char * max_env = getenv("LLS_MAX_GEN");
-    c->max_gen = (max_env != NULL && atoi(max_env) > 0) ? atoi(max_env) : 512;
+    if (p != NULL) {
+        c->max_gen = p->max_tokens > 0 ? p->max_tokens : INT32_MAX;
+    } else {
+        const char * max_env = getenv("LLS_MAX_GEN");
+        c->max_gen = (max_env != NULL && atoi(max_env) > 0)
+                         ? atoi(max_env)
+                         : 512;
+    }
 
     struct llama_sampler * smpl =
         llama_sampler_chain_init(llama_sampler_chain_default_params());
@@ -204,7 +211,31 @@ int lls_generate_begin(lls_ctx * c, const char * prompt, char ** err) {
         set_err(err, "failed to create sampler");
         return 1;
     }
-    llama_sampler_chain_add(smpl, llama_sampler_init_greedy());
+    // temperature <= 0 (or no params) keeps the greedy fast path; a sampling
+    // chain is only built when real sampling is requested
+    if (p == NULL || p->temperature <= 0.0f) {
+        llama_sampler_chain_add(smpl, llama_sampler_init_greedy());
+    } else {
+        if (p->repeat_penalty > 1.0f) {
+            llama_sampler_chain_add(
+                smpl, llama_sampler_init_penalties(
+                          llama_vocab_n_tokens(c->vocab), -1,
+                          p->repeat_penalty, 0.0f, 0.0f));
+        }
+        if (p->top_k > 0) {
+            llama_sampler_chain_add(smpl,
+                                    llama_sampler_init_top_k(p->top_k));
+        }
+        if (p->top_p < 1.0f) {
+            llama_sampler_chain_add(
+                smpl, llama_sampler_init_top_p(p->top_p, 1));
+        }
+        llama_sampler_chain_add(smpl,
+                                llama_sampler_init_temp(p->temperature));
+        const uint32_t seed =
+            p->seed != 0 ? p->seed : (uint32_t) LLAMA_DEFAULT_SEED;
+        llama_sampler_chain_add(smpl, llama_sampler_init_dist(seed));
+    }
 
     c->smpl = smpl;
     c->cur = llama_sampler_sample(smpl, c->handle, -1);

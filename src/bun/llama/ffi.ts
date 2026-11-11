@@ -45,7 +45,12 @@ export interface LlamaShimSymbols {
   lls_ctx_free(ctx: number): void;
   lls_ctx_size(ctx: number): number;
   lls_chat_template(model: number): string | null;
-  lls_generate_begin(ctx: number, prompt: string, err: number): number;
+  lls_generate_begin(
+    ctx: number,
+    prompt: string,
+    params: number | null,
+    err: number,
+  ): number;
   lls_step(ctx: number, buf: number, cap: number | bigint, outLen: number): number;
   lls_generate_end(ctx: number): void;
   lls_free_string(s: number): void;
@@ -69,7 +74,7 @@ export function loadLlamaShim() {
     lls_ctx_size: { args: [FFIType.ptr], returns: FFIType.i32 },
     lls_chat_template: { args: [FFIType.ptr], returns: FFIType.cstring },
     lls_generate_begin: {
-      args: [FFIType.ptr, FFIType.cstring, FFIType.ptr],
+      args: [FFIType.ptr, FFIType.cstring, FFIType.ptr, FFIType.ptr],
       returns: FFIType.i32,
     },
     lls_step: {
