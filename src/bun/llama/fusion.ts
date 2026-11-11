@@ -7,6 +7,7 @@ import type {
   FusionPhase,
   GenerationParams,
   MessageStats,
+  MetricEntry,
   ResolvedRole,
 } from "../../shared/types";
 import type { ModelRegistry, SlotEngine } from "../models/registry";
@@ -36,6 +37,9 @@ export interface FusionTurnOpts {
   onPlanDelta: (delta: string) => void;
   onAnswerDelta: (delta: string) => void;
   onTruncated: () => void;
+  // feature 016 (FR-003): one entry per phase call; the caller fills
+  // personaName and gates on the outputPanel setting
+  onMetric?: (e: Omit<MetricEntry, "id" | "ts" | "personaName">) => void;
 }
 
 export interface FusionTurnResult {
@@ -79,7 +83,14 @@ async function genPhase(opts: {
   system?: string;
   onToken: (delta: string) => void;
   onTruncated: () => void;
-}): Promise<{ status: "complete" | "partial"; tokens: number; elapsedMs: number }> {
+  // feature 016: promptTokens/warm forwarded from the engine result
+}): Promise<{
+  status: "complete" | "partial";
+  tokens: number;
+  elapsedMs: number;
+  warm?: boolean;
+  promptTokens?: number;
+}> {
   const ctxSize = opts.eng.contextSize();
   const reserve = Math.min(512, Math.floor(ctxSize / 2) || 512);
   const baseBudget = ctxSize > 0 ? ctxSize - reserve : Infinity;
@@ -131,14 +142,23 @@ export async function runFusionTurn(
     system?: string,
   ): Promise<{
     role: ResolvedRole;
-    res: { status: "complete" | "partial"; tokens: number; elapsedMs: number };
+    res: {
+      status: "complete" | "partial";
+      tokens: number;
+      elapsedMs: number;
+      warm?: boolean;
+      promptTokens?: number;
+    };
     content: string;
   }> => {
+    // feature 016: preview is the phase's request text, one line, <=120 chars
+    const promptPreview = current.replace(/\s+/g, " ").slice(0, 120);
     let lastErr: unknown = new Error(`${kind} role unbound`);
     for (const role of cands) {
       let slot;
       let emitted = false;
       let content = "";
+      const t0 = performance.now();
       try {
         // oxlint-disable-next-line no-await-in-loop -- sequential candidate cascade
         slot = await o.registry.acquire(role.path);
@@ -162,9 +182,37 @@ export async function runFusionTurn(
           },
           onTruncated: o.onTruncated,
         });
+        o.onMetric?.({
+          conversationId: o.conversationId,
+          modelFile: role.fileName,
+          roleKey: kind,
+          tag: role.tag,
+          promptTokens: res.promptTokens ?? 0,
+          outputTokens: res.tokens,
+          elapsedMs: res.elapsedMs,
+          warm: res.warm ?? false,
+          status: res.status,
+          fallback: role.servedBy.kind === "fallback" || undefined,
+          promptPreview,
+        });
         return { role, res, content };
       } catch (e) {
         lastErr = e;
+        // feature 016: a failed phase call is still a call — record it
+        o.onMetric?.({
+          conversationId: o.conversationId,
+          modelFile: role.fileName,
+          roleKey: kind,
+          tag: role.tag,
+          promptTokens: 0,
+          outputTokens:
+            content && slot ? slot.engine.tokenCount(content) : 0,
+          elapsedMs: Math.round(performance.now() - t0),
+          warm: false,
+          status: "failed",
+          fallback: role.servedBy.kind === "fallback" || undefined,
+          promptPreview,
+        });
         if (emitted) throw e; // mid-stream failure: retrying duplicates output
         // fall through to next candidate
       } finally {

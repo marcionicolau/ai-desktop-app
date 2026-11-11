@@ -9,6 +9,7 @@ import type {
   FusionAdvise,
   GenerationParams,
   Message,
+  MetricEntry,
   ModelAdvise,
   ModelStatus,
   Persona,
@@ -59,6 +60,7 @@ import {
   DEFAULT_SNAPSHOT_POLICY,
   SnapshotStore,
 } from "../kv/store";
+import { MetricsStore } from "../metrics/store";
 import {
   deepestLeaf,
   leafOf,
@@ -112,6 +114,8 @@ export interface EngineLike {
     tokens: number;
     elapsedMs: number;
     warm: boolean;
+    // feature 016: exact prompt tokenization; absent on fake engines
+    promptTokens?: number;
   }>;
   stop(): void;
   // feature 010: persist resident KV for the tagged conversation
@@ -139,6 +143,8 @@ export interface HandlerDeps {
   // feature 010: snapshot store; absent → module singleton in prod,
   // disabled in tests that don't inject one
   snapshots?: SnapshotStore;
+  // feature 016: metrics ring; absent → panel off in tests
+  metrics?: MetricsStore;
   // feature 008: file pickers, injectable for headless tests
   dialogs?: {
     pickFolder(): Promise<string | null>;
@@ -167,11 +173,20 @@ const turnsBefore = (conv: Conversation, msg: Message): PromptTurn[] =>
 const isCtxOverflow = (e: unknown) =>
   e instanceof Error && e.message.includes("context window");
 
+// feature 016: single-line <=120-char prompt preview (clarified scope —
+// full bodies never leave the engine)
+const preview = (t: string) => t.replace(/\s+/g, " ").slice(0, 120);
+
 export function createRequestHandlers(deps: HandlerDeps) {
   let activeMessageId: string | null = null;
   // feature 010: absent dep → snapshot layer off (tests); prod injects
   // the module singleton via createRpc
   const snap = deps.snapshots ?? null;
+  // feature 016: gated on settings.outputPanel — off ⇒ zero entries
+  const recordCall = (e: Omit<MetricEntry, "id" | "ts">) => {
+    if (!deps.metrics || !deps.store.getSettings().outputPanel) return;
+    deps.emit("metrics.entry", deps.metrics.record(e));
+  };
   const snapSync = () => {
     if (!snap) return null;
     snap.policy = {
@@ -347,6 +362,13 @@ export function createRequestHandlers(deps: HandlerDeps) {
           plannerText,
           executorSystem: persona?.systemPrompt,
           onTruncated: warnTruncated,
+          // feature 016: one entry per phase; persona added here so
+          // fusion.ts stays persona-agnostic
+          onMetric: (e) =>
+            recordCall({
+              ...e,
+              personaName: conv.personaName ?? undefined,
+            }),
           onEvent: (m, p) =>
             deps.emit(
               m as never,
@@ -398,6 +420,27 @@ export function createRequestHandlers(deps: HandlerDeps) {
         let eng: EngineLike = deps.engine;
         let slotPath: string | null = null;
         let emitted = false;
+        let attemptText = ""; // feature 016: deltas for failed-entry tokens
+        let recorded = false;
+        const attemptT0 = performance.now();
+        const recFail = () => {
+          if (recorded) return;
+          recorded = true;
+          recordCall({
+            conversationId: conv.id,
+            modelFile: attempt.role?.fileName ?? eng.status().name ?? "?",
+            roleKey: "main",
+            tag: attempt.role?.tag,
+            personaName: conv.personaName ?? undefined,
+            promptTokens: eng.tokenCount(current),
+            outputTokens: attemptText ? eng.tokenCount(attemptText) : 0,
+            elapsedMs: Math.round(performance.now() - attemptT0),
+            warm: false,
+            status: "failed",
+            fallback: attempt.role?.servedBy.kind === "fallback" || undefined,
+            promptPreview: preview(current),
+          });
+        };
         const genParams = attempt.role
           ? attempt.role.params
           : legacyGenParams;
@@ -443,12 +486,31 @@ export function createRequestHandlers(deps: HandlerDeps) {
                     }
                   }
                   assistantMsg.content += delta;
+                  attemptText += delta;
                   dirty = true;
                   deps.emit("chat.token", { messageId, delta });
                 },
                 genParams,
                 { conversationId: conv.id, snapshot: snapSync() ?? undefined },
               );
+              recordCall({
+                conversationId: conv.id,
+                modelFile:
+                  attempt.role?.fileName ?? eng.status().name ?? "?",
+                roleKey: "main",
+                tag: attempt.role?.tag,
+                personaName: conv.personaName ?? undefined,
+                promptTokens:
+                  r.promptTokens ?? eng.tokenCount(built.prompt),
+                outputTokens: r.tokens,
+                elapsedMs: r.elapsedMs,
+                warm: r.warm,
+                status: r.status,
+                fallback:
+                  attempt.role?.servedBy.kind === "fallback" || undefined,
+                promptPreview: preview(current),
+              });
+              recorded = true;
               if (attempt.role?.servedBy.kind === "fallback") {
                 assistantMsg.phases = {
                   answer: {
@@ -464,12 +526,16 @@ export function createRequestHandlers(deps: HandlerDeps) {
                 elapsedMs: r.elapsedMs,
               };
             } catch (e) {
-              if (!isCtxOverflow(e) || budget <= 256) throw e;
+              if (!isCtxOverflow(e) || budget <= 256) {
+                recFail(); // feature 016: failed calls still record
+                throw e;
+              }
               budget = Math.floor(budget / 2);
             }
           }
         } catch (e) {
           lastErr = e;
+          recFail();
           if (emitted) throw e;
           // try next candidate
         } finally {
@@ -1029,13 +1095,20 @@ export function createRequestHandlers(deps: HandlerDeps) {
     },
     "settings.get": () => {
       const s = deps.store.getSettings();
-      return { generation: s.generation, modelOverrides: s.modelOverrides };
+      return {
+        generation: s.generation,
+        modelOverrides: s.modelOverrides,
+        // feature 016: default off
+        outputPanel: s.outputPanel ?? false,
+      };
     },
     "settings.set": ({
       generation,
       modelOverride,
+      outputPanel,
     }: {
       generation?: Partial<GenerationParams>;
+      outputPanel?: boolean;
       modelOverride?: {
         fileName: string;
         params: Partial<GenerationParams> | null;
@@ -1050,6 +1123,7 @@ export function createRequestHandlers(deps: HandlerDeps) {
       if (generation) {
         next.generation = mergeParams(s.generation, generation);
       }
+      if (outputPanel !== undefined) next.outputPanel = outputPanel;
       if (modelOverride) {
         if (modelOverride.params === null) {
           delete next.modelOverrides[modelOverride.fileName];
@@ -1063,6 +1137,9 @@ export function createRequestHandlers(deps: HandlerDeps) {
       deps.store.saveSettings(next);
       return {};
     },
+    // feature 016
+    "metrics.list": () => ({ entries: deps.metrics?.list() ?? [] }),
+    "metrics.clear": () => deps.metrics?.clear() ?? { removed: 0 },
     "model.setOverride": ({
       fileName,
       params,
@@ -1368,6 +1445,13 @@ function snapshotStore(): SnapshotStore {
   return snapStore;
 }
 
+// feature 016: session-scoped ring, lazily built
+let metricStore: MetricsStore | null = null;
+function metricsStore(): MetricsStore {
+  metricStore ??= new MetricsStore();
+  return metricStore;
+}
+
 const registry = new ModelRegistry(undefined, undefined, (slot) =>
   // FR-008: offer the evicted slot's resident KV to disk before free
   slot.engine.saveState?.(snapshotStore()),
@@ -1410,6 +1494,7 @@ export function createRpc() {
     registry,
     personas,
     snapshots: snapshotStore(),
+    metrics: metricsStore(),
     emit: (m, p) => emit(m, p),
     store,
     dialogs: {

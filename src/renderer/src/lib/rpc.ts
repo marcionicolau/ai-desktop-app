@@ -24,6 +24,7 @@ export const rpc = Electroview.defineRPC<ChatRpcSchema>({
       "chat.warning": (p) => dispatch("chat.warning", p),
       "chat.phase": (p) => dispatch("chat.phase", p),
       "role.changed": (p) => dispatch("role.changed", p),
+      "metrics.entry": (p) => dispatch("metrics.entry", p),
     },
     requests: {},
   },

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { GitBranch, Library, Settings2, Tags, Users } from "lucide-react";
 import { useChat } from "./use-chat";
 import { MessageList } from "./MessageList";
@@ -13,6 +13,7 @@ import { RolesPanel } from "../roles/RolesPanel";
 import { FusionControls } from "../roles/FusionControls";
 import { PersonasPanel } from "../personas/PersonasPanel";
 import { usePersonas } from "../personas/use-personas";
+import { OutputPanel } from "../metrics/OutputPanel";
 import { invoke } from "@/lib/rpc";
 import { Button } from "@/components/ui/button";
 
@@ -48,6 +49,18 @@ export function ChatPage() {
   // feature 006: preferred-tag offer from conversation.setPersona —
   // suggestion only; the user applies or dismisses
   const [tagOffer, setTagOffer] = useState<string | null>(null);
+  // feature 016 (T012): header switch → persisted settings.outputPanel;
+  // the same flag gates collection on the bun side
+  const [metricsOpen, setMetricsOpen] = useState(false);
+  useEffect(() => {
+    void invoke("settings.get", {}).then((s) =>
+      setMetricsOpen(s.outputPanel),
+    );
+  }, []);
+  const toggleMetrics = async (v: boolean) => {
+    setMetricsOpen(v);
+    await invoke("settings.set", { outputPanel: v });
+  };
   const { personas, snippets } = usePersonas();
 
   const onPersona = async (name: string | null) => {
@@ -158,6 +171,18 @@ export function ChatPage() {
             >
               <Settings2 className="h-4 w-4" />
             </Button>
+            <label
+              className="flex cursor-pointer items-center gap-1 px-1 text-xs"
+              title="Output metrics panel"
+            >
+              <input
+                type="checkbox"
+                checked={metricsOpen}
+                onChange={(e) => void toggleMetrics(e.target.checked)}
+                aria-label="Output metrics panel"
+              />
+              Metrics
+            </label>
             <ModelPicker
             status={state.modelStatus}
             name={state.modelName}
@@ -252,6 +277,8 @@ export function ChatPage() {
           onSend={(c, ids, chips) => void send(c, ids, chips)}
           onStop={stop}
         />
+        {/* feature 016: bottom dock — sibling shrinks the message area */}
+        <OutputPanel open={metricsOpen} />
       </div>
     </main>
   );

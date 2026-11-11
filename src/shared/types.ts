@@ -158,6 +158,26 @@ export interface Settings {
   // feature 010: KV snapshot policy; undefined →
   // {enabled:true, maxBytes:2GiB} (opt-out, not opt-in)
   snapshot?: SnapshotPolicy;
+  // feature 016: output/metrics panel toggle; default off
+  outputPanel?: boolean;
+}
+
+// feature 016: one metrics entry per generation call (session ring, FR-007)
+export interface MetricEntry {
+  id: string;
+  ts: string; // call completion time
+  conversationId: string;
+  modelFile: string; // serving model basename (fallback-aware)
+  roleKey: string; // "main" | "planner" | "executor"
+  tag?: string; // resolved role tag
+  personaName?: string; // captured at call time
+  promptTokens: number;
+  outputTokens: number;
+  elapsedMs: number;
+  warm: boolean; // KV prefix/state reuse hit
+  status: "complete" | "partial" | "failed";
+  fallback?: boolean;
+  promptPreview: string; // ≤120 chars, single line
 }
 
 // feature 010: disk bounds for persisted KV state

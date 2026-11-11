@@ -153,6 +153,8 @@ export class LlamaEngine {
     tokens: number;
     elapsedMs: number;
     warm: boolean;
+    // feature 016: exact sent-token count via the real tokenizer
+    promptTokens: number;
   }> {
     if (this.ctx === null || this.shim === null) {
       throw new EngineError("NO_MODEL", "no model is loaded");
@@ -187,6 +189,9 @@ export class LlamaEngine {
       throw new EngineError("ENGINE_ERROR", msg);
     }
     const warm = resume && rc === 0;
+    // feature 016 (FR-002): the "sent" count is exactly the shim's
+    // tokenize of the same prompt string
+    const promptTokens = symbols.lls_token_count(this.ctx, prompt);
     this.kvConvId = convId ?? this.kvConvId;
     if (convId) this.kvRoleKey = roleKey;
 
@@ -202,6 +207,7 @@ export class LlamaEngine {
             tokens,
             elapsedMs: performance.now() - started,
             warm,
+            promptTokens,
           };
         }
         this.outLen[0] = 0n;
@@ -212,6 +218,7 @@ export class LlamaEngine {
             tokens,
             elapsedMs: performance.now() - started,
             warm,
+            promptTokens,
           };
         }
         if (r < 0) {
