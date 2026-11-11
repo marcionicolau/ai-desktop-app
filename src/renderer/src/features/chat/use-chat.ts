@@ -3,9 +3,11 @@
 import { useCallback, useEffect, useReducer, useRef } from "react";
 import type {
   ConversationSummary,
+  GenerationParams,
   Message,
   ModelStatus,
 } from "@shared/types";
+import { DEFAULT_GENERATION } from "@shared/types";
 import type { RpcErrorCode } from "@shared/rpc-contract";
 import { invoke, on } from "@/lib/rpc";
 
@@ -19,6 +21,7 @@ interface ChatState {
   modelError: string | null;
   lastError: { code: RpcErrorCode; message: string } | null;
   notice: string | null;
+  generation: GenerationParams;
 }
 
 type Action =
@@ -26,10 +29,16 @@ type Action =
   | { type: "hydrate"; conversationId: string | null; messages: Message[] }
   | { type: "append"; message: Message }
   | { type: "token"; messageId: string; delta: string }
-  | { type: "done"; messageId: string; status: "complete" | "partial" }
+  | {
+      type: "done";
+      messageId: string;
+      status: "complete" | "partial";
+      stats?: Message["stats"];
+    }
   | { type: "error"; messageId: string; code: RpcErrorCode; message: string }
   | { type: "model"; status: ModelStatus; name?: string; error?: string }
-  | { type: "notice"; message: string };
+  | { type: "notice"; message: string }
+  | { type: "generation"; params: GenerationParams };
 
 function reduce(state: ChatState, action: Action): ChatState {
   switch (action.type) {
@@ -70,6 +79,7 @@ function reduce(state: ChatState, action: Action): ChatState {
                 ...m,
                 status: action.status,
                 completedAt: new Date().toISOString(),
+                stats: action.stats ?? m.stats,
               }
             : m,
         ),
@@ -92,6 +102,8 @@ function reduce(state: ChatState, action: Action): ChatState {
       };
     case "notice":
       return { ...state, notice: action.message };
+    case "generation":
+      return { ...state, generation: action.params };
   }
 }
 
@@ -105,6 +117,7 @@ const initial: ChatState = {
   modelError: null,
   lastError: null,
   notice: null,
+  generation: DEFAULT_GENERATION,
 };
 
 export function useChat() {
@@ -179,6 +192,10 @@ export function useChat() {
             error: status.error,
           });
         }
+        const s = await invoke("settings.get", {});
+        if (!cancelled) {
+          dispatch({ type: "generation", params: s.generation });
+        }
       } catch (e) {
         if (!cancelled) {
           dispatch({
@@ -196,7 +213,12 @@ export function useChat() {
         dispatch({ type: "token", messageId: p.messageId, delta: p.delta }),
       ),
       on("chat.done", (p) => {
-        dispatch({ type: "done", messageId: p.messageId, status: p.status });
+        dispatch({
+          type: "done",
+          messageId: p.messageId,
+          status: p.status,
+          stats: p.stats,
+        });
         void refreshList(); // new/updated conversation appears in sidebar
       }),
       on("chat.error", (p) =>
@@ -283,12 +305,22 @@ export function useChat() {
     if (path) await invoke("model.load", { path });
   }, []);
 
+  const saveGeneration = useCallback(
+    async (patch: Partial<GenerationParams>) => {
+      const next = { ...state.generation, ...patch };
+      dispatch({ type: "generation", params: next });
+      await invoke("settings.set", { generation: patch });
+    },
+    [state.generation],
+  );
+
   return {
     state,
     send,
     stop,
     loadModel,
     pickModel,
+    saveGeneration,
     selectConversation,
     newConversation,
     renameConversation,

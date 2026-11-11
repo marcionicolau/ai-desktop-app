@@ -31,10 +31,10 @@ features established test-first conventions.
 
 **Independent Test**: VS-1 — temp>0 twice → different outputs; seed+temp0 → identical; maxTokens=32 → clean stop.
 
-- [ ] T010 [P] [US1] Write `tests/ffi/params.test.ts`: seed reproducibility (same seed+params → same output), maxTokens respected, NULL/defaults = greedy (skip if no test model — guard like existing ffi tests)
-- [ ] T011 [US1] Update `src/bun/llama/engine.ts`: `generate(prompt, params, onToken)` applies `GenerationParams`; return `{status, tokens, elapsedMs}`
-- [ ] T012 [US1] Update `src/bun/rpc/handlers.ts`: implement `settings.get`/`settings.set` (+`INVALID_PARAMS` on out-of-range); resolve params `defaults ← settings.generation ← modelOverrides[basename]` at `model.load`/`chat.send`; include `stats` in `chat.done`
-- [ ] T013 [US1] Create `src/renderer/src/features/settings/GenerationSettings.tsx`: inputs/sliders for the 8 params (labels + range hints from data-model.md); wire `settings.get`/`settings.set` in `use-chat.ts`; show `Message.stats` under assistant replies
+- [x] T010 [P] [US1] Write `tests/ffi/params.test.ts`: seed reproducibility (same seed+params → same output), maxTokens respected, NULL/defaults = greedy (skip if no test model — guard like existing ffi tests)
+- [x] T011 [US1] Update `src/bun/llama/engine.ts`: `generate(prompt, params, onToken)` applies `GenerationParams`; return `{status, tokens, elapsedMs}`
+- [x] T012 [US1] Update `src/bun/rpc/handlers.ts`: implement `settings.get`/`settings.set` (+`INVALID_PARAMS` on out-of-range); resolve params `defaults ← settings.generation ← modelOverrides[basename]` at `model.load`/`chat.send`; include `stats` in `chat.done`
+- [x] T013 [US1] Create `src/renderer/src/features/settings/GenerationSettings.tsx`: inputs/sliders for the 8 params (labels + range hints from data-model.md); wire `settings.get`/`settings.set` in `use-chat.ts`; show `Message.stats` under assistant replies
 
 **Checkpoint**: US1 shippable alone — sampler controls work end-to-end.
 

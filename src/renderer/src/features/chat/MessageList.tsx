@@ -40,6 +40,11 @@ export function MessageList({ messages }: { messages: Message[] }) {
                 {STATUS_HINT[m.status]}
               </p>
             )}
+            {m.role === "assistant" && m.stats && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                {m.stats.tokens} tokens · {m.stats.tokensPerSec} tok/s
+              </p>
+            )}
           </div>
         ))}
         <div ref={endRef} />

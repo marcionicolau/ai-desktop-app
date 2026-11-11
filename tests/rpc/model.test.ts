@@ -9,6 +9,7 @@ import {
   type StoreLike,
 } from "../../src/bun/rpc/handlers";
 import type { Conversation, Settings } from "../../src/shared/types";
+import { DEFAULT_GENERATION } from "../../src/shared/types";
 
 function makeDeps(loadBehavior: "ok" | "not_found" | "invalid") {
   const emitted: { method: string; payload: unknown }[] = [];
@@ -37,7 +38,7 @@ function makeDeps(loadBehavior: "ok" | "not_found" | "invalid") {
     isGenerating: () => false,
     contextSize: () => 4096,
     chatTemplate: () => null,
-    generate: async () => "complete",
+    generate: async () => ({ status: "complete" as const, tokens: 1, elapsedMs: 1 }),
     stop: () => {},
   };
 
@@ -47,7 +48,12 @@ function makeDeps(loadBehavior: "ok" | "not_found" | "invalid") {
     listConversations: () => [],
     deleteConversation: (id) => convs.delete(id),
     getSettings: () =>
-      ({ activeModelPath: null, contextLimitWarning: false }) as Settings,
+      ({
+        activeModelPath: null,
+        contextLimitWarning: false,
+        generation: DEFAULT_GENERATION,
+        modelOverrides: {},
+      }) as Settings,
     saveSettings: (s) => void savedSettings.push(s),
   };
 

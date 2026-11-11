@@ -3,8 +3,15 @@
 // contract without the Electrobun bridge or a real model.
 import { defineElectrobunRPC } from "electrobun/main/rpc";
 import type { ChatRpcSchema, RpcErrorCode } from "../../shared/rpc-contract";
-import type { Conversation, Message, ModelStatus } from "../../shared/types";
+import type {
+  Conversation,
+  GenerationParams,
+  Message,
+  ModelStatus,
+} from "../../shared/types";
+import { DEFAULT_GENERATION } from "../../shared/types";
 import { EngineError, LlamaEngine } from "../llama/engine";
+import { mergeParams, validateParams } from "../llama/params";
 import { buildPrompt } from "../llama/prompt";
 import * as store from "../store/json-store";
 
@@ -21,7 +28,12 @@ export interface EngineLike {
   generate(
     prompt: string,
     onToken: (delta: string) => void,
-  ): Promise<"complete" | "partial">;
+    params?: GenerationParams | null,
+  ): Promise<{
+    status: "complete" | "partial";
+    tokens: number;
+    elapsedMs: number;
+  }>;
   stop(): void;
 }
 
@@ -120,6 +132,14 @@ export function createRequestHandlers(deps: HandlerDeps) {
       // the context budget; the chars/4 estimate is only a heuristic, so a
       // real "prompt exceeds context window" from the shim retries at half
       // the budget.
+      // resolve generation params: defaults <- global <- per-model override
+      const settings = deps.store.getSettings();
+      const modelKey = deps.engine.status().name ?? "";
+      const genParams = mergeParams(
+        mergeParams(DEFAULT_GENERATION, settings.generation),
+        modelKey ? settings.modelOverrides?.[modelKey] : undefined,
+      );
+
       const ctxSize = deps.engine.contextSize();
       const reserve = Math.min(512, Math.floor(ctxSize / 2) || 512);
       const baseBudget = ctxSize > 0 ? (ctxSize - reserve) * 4 : Infinity;
@@ -188,11 +208,15 @@ export function createRequestHandlers(deps: HandlerDeps) {
           });
           if (built.truncated) warnTruncated();
           try {
-            return await deps.engine.generate(built.prompt, (delta) => {
-              assistantMsg.content += delta;
-              dirty = true;
-              deps.emit("chat.token", { messageId, delta });
-            });
+            return await deps.engine.generate(
+              built.prompt,
+              (delta) => {
+                assistantMsg.content += delta;
+                dirty = true;
+                deps.emit("chat.token", { messageId, delta });
+              },
+              genParams,
+            );
           } catch (e) {
             if (!isCtxOverflow(e) || charBudget <= 256) throw e;
             charBudget = Math.floor(charBudget / 2);
@@ -201,11 +225,26 @@ export function createRequestHandlers(deps: HandlerDeps) {
       };
 
       void run()
-        .then((status) => {
-          assistantMsg.status = status;
+        .then((res) => {
+          assistantMsg.status = res.status;
           assistantMsg.completedAt = now();
+          const stats =
+            res.tokens > 0
+              ? {
+                  tokens: res.tokens,
+                  tokensPerSec:
+                    Math.round(
+                      (res.tokens / (res.elapsedMs / 1000)) * 10,
+                    ) / 10,
+                }
+              : null;
+          assistantMsg.stats = stats;
           persist(conv);
-          deps.emit("chat.done", { messageId, status });
+          deps.emit("chat.done", {
+            messageId,
+            status: res.status,
+            stats: stats ?? undefined,
+          });
         })
         .catch((e: unknown) => {
           assistantMsg.status = "failed";
@@ -229,6 +268,64 @@ export function createRequestHandlers(deps: HandlerDeps) {
         fail("NOT_GENERATING", "no generation is active for that message");
       }
       deps.engine.stop();
+      return {};
+    },
+    "settings.get": () => {
+      const s = deps.store.getSettings();
+      return { generation: s.generation, modelOverrides: s.modelOverrides };
+    },
+    "settings.set": ({
+      generation,
+      modelOverride,
+    }: {
+      generation?: Partial<GenerationParams>;
+      modelOverride?: {
+        fileName: string;
+        params: Partial<GenerationParams> | null;
+      };
+    }) => {
+      const err =
+        (generation ? validateParams(generation) : null) ??
+        (modelOverride?.params ? validateParams(modelOverride.params) : null);
+      if (err) fail("INVALID_PARAMS", err);
+      const s = deps.store.getSettings();
+      const next = { ...s, modelOverrides: { ...s.modelOverrides } };
+      if (generation) {
+        next.generation = mergeParams(s.generation, generation);
+      }
+      if (modelOverride) {
+        if (modelOverride.params === null) {
+          delete next.modelOverrides[modelOverride.fileName];
+        } else {
+          next.modelOverrides[modelOverride.fileName] = {
+            ...(next.modelOverrides[modelOverride.fileName] ?? {}),
+            ...modelOverride.params,
+          };
+        }
+      }
+      deps.store.saveSettings(next);
+      return {};
+    },
+    "model.setOverride": ({
+      fileName,
+      params,
+    }: {
+      fileName: string;
+      params: Partial<GenerationParams> | null;
+    }) => {
+      const err = params ? validateParams(params) : null;
+      if (err) fail("INVALID_PARAMS", err);
+      const s = deps.store.getSettings();
+      const next = { ...s, modelOverrides: { ...s.modelOverrides } };
+      if (params === null) {
+        delete next.modelOverrides[fileName];
+      } else {
+        next.modelOverrides[fileName] = {
+          ...(next.modelOverrides[fileName] ?? {}),
+          ...params,
+        };
+      }
+      deps.store.saveSettings(next);
       return {};
     },
     "conversation.list": () => deps.store.listConversations(),

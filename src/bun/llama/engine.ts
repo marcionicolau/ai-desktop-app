@@ -5,7 +5,9 @@ import { accessSync, constants, existsSync } from "node:fs";
 import { ptr } from "bun:ffi";
 import { basename } from "node:path";
 import type { RpcErrorCode } from "../../shared/rpc-contract";
+import type { GenerationParams } from "../../shared/types";
 import { loadLlamaShim, newErrSlot, readErr, type LlamaShim } from "./ffi";
+import { packParams } from "./params";
 
 export class EngineError extends Error {
   constructor(
@@ -116,11 +118,18 @@ export class LlamaEngine {
   }
 
   // Drives the pull loop. onToken receives raw byte-chunks decoded as text.
-  // Resolves "complete" on natural end, "partial" when stop() was called.
+  // params == null selects shim defaults (greedy + LLS_MAX_GEN/512 cap).
+  // Resolves status "complete" on natural end, "partial" when stop() was
+  // called; tokens counts generated tokens (one per lls_step).
   async generate(
     prompt: string,
     onToken: (delta: string) => void,
-  ): Promise<"complete" | "partial"> {
+    params?: GenerationParams | null,
+  ): Promise<{
+    status: "complete" | "partial";
+    tokens: number;
+    elapsedMs: number;
+  }> {
     if (this.ctx === null || this.shim === null) {
       throw new EngineError("NO_MODEL", "no model is loaded");
     }
@@ -129,27 +138,46 @@ export class LlamaEngine {
     }
     const { symbols } = this.shim;
     const err = newErrSlot();
+    const pbuf = params ? packParams(params) : null;
 
-    if (symbols.lls_generate_begin(this.ctx, prompt, null, ptr(err)) !== 0) {
+    if (
+      symbols.lls_generate_begin(
+        this.ctx,
+        prompt,
+        pbuf ? ptr(pbuf) : null,
+        ptr(err),
+      ) !== 0
+    ) {
       const msg = readErr(this.shim, err) ?? "failed to begin generation";
       throw new EngineError("ENGINE_ERROR", msg);
     }
 
+    const started = performance.now();
+    let tokens = 0;
     this.generating = true;
     this.stopRequested = false;
     try {
       for (;;) {
         if (this.stopRequested) {
-          return "partial";
+          return {
+            status: "partial",
+            tokens,
+            elapsedMs: performance.now() - started,
+          };
         }
         this.outLen[0] = 0n;
         const r = symbols.lls_step(this.ctx, ptr(this.tokenBuf), TOKEN_BUF_CAP, ptr(this.outLen));
         if (r === 0) {
-          return "complete";
+          return {
+            status: "complete",
+            tokens,
+            elapsedMs: performance.now() - started,
+          };
         }
         if (r < 0) {
           throw new EngineError("ENGINE_ERROR", "decode step failed");
         }
+        tokens += 1;
         const n = Number(this.outLen[0]);
         if (n > 0) {
           onToken(new TextDecoder().decode(this.tokenBuf.subarray(0, n)));

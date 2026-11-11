@@ -9,6 +9,7 @@ import {
   type StoreLike,
 } from "../../src/bun/rpc/handlers";
 import type { Conversation, Settings } from "../../src/shared/types";
+import { DEFAULT_GENERATION } from "../../src/shared/types";
 
 function makeDeps(opts: {
   generating?: boolean;
@@ -23,6 +24,7 @@ function makeDeps(opts: {
   const convs = new Map<string, Conversation>();
   let generating = opts.generating ?? false;
   let stopped = false;
+  let lastParams: unknown = null;
   let lastPrompt = "";
 
   const engine: EngineLike = {
@@ -39,18 +41,25 @@ function makeDeps(opts: {
       stopped = true;
       opts.onStop?.();
     },
-    generate: async (prompt, onToken) => {
+    generate: async (prompt, onToken, params) => {
       lastPrompt = prompt;
+      lastParams = params ?? null;
       generating = true;
+      let tokens = 0;
       for (const t of opts.tokens ?? ["a", "b", "c"]) {
         if (stopped) break;
+        tokens += 1;
         onToken(t);
         // suspend like the real engine's event-loop yield
         await new Promise((r) => setTimeout(r, 0));
       }
       generating = false;
       if (opts.genError) throw opts.genError;
-      return stopped ? "partial" : (opts.genResult ?? "complete");
+      return {
+        status: stopped ? "partial" : (opts.genResult ?? "complete"),
+        tokens,
+        elapsedMs: 1,
+      };
     },
   };
 
@@ -65,7 +74,12 @@ function makeDeps(opts: {
       })),
     deleteConversation: (id) => convs.delete(id),
     getSettings: () =>
-      ({ activeModelPath: null, contextLimitWarning: false }) as Settings,
+      ({
+        activeModelPath: null,
+        contextLimitWarning: false,
+        generation: DEFAULT_GENERATION,
+        modelOverrides: {},
+      }) as Settings,
     saveSettings: () => {},
   };
 
