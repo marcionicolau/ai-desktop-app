@@ -59,9 +59,9 @@ FFI/RPC boundary; each story gets a contract/unit suite.
 
 ## Phase 6: Polish & Cross-Cutting
 
-- [ ] T021 Shared-slot memory verification (VS-6): planner+executor on same file → registry exposes 1 slot; document in `validation.md`.
-- [ ] T022 Live validation pass per `quickstart.md` VS-1…VS-6 → write `validation.md` with measured results (bind persistence, two-phase stream, fallback service, shared-slot memory).
-- [ ] T023 Gates: `bun run typecheck`, `bun run lint`, `bun test ./tests`, `bun run build:renderer`, `bun run build:native` — zero errors/warnings; update `AGENTS.md` (roles/registry/fusion module map, role.* contract, MAX_SLOTS=2 policy).
+- [X] T021 Shared-slot memory verification (VS-6): planner+executor on same file → registry exposes 1 slot; document in `validation.md`.
+- [X] T022 Live validation pass per `quickstart.md` VS-1…VS-6 → write `validation.md` with measured results (bind persistence, two-phase stream, fallback service, shared-slot memory).
+- [X] T023 Gates: `bun run typecheck`, `bun run lint`, `bun test ./tests`, `bun run build:renderer`, `bun run build:native` — zero errors/warnings; update `AGENTS.md` (roles/registry/fusion module map, role.* contract, MAX_SLOTS=2 policy).
 
 ---
 

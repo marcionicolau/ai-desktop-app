@@ -66,9 +66,41 @@ Renderer (`src/renderer/src/`): `components/ai/` (markdown `AiMessage`,
 `CodeBlock` copy, `MessageActions`), `features/settings/GenerationSettings`,
 `features/models/ModelLibrary` (download form + per-model overrides).
 
+## Module map additions (feature 004 — roles & fusion)
+
+Main process (`src/bun/`):
+
+- `models/roles.ts` — `RolesService`: tag CRUD (slug-validated), bind/unbind,
+  ordered fallback chains (max 3, transitive cycle check, lazy file refs),
+  `resolve()` first candidate + `resolveCandidates()` full ordered list,
+  param cascade `DEFAULT < global < file-override < tag`, `default` tag
+  synced bidirectionally with `activeModelPath`.
+- `models/registry.ts` — `ModelRegistry`: `Map<path, ModelSlot>`, shared
+  slots across roles (same file = one native instance), `MAX_SLOTS=2` LRU
+  eviction of non-busy slots, pin/release/stale lifecycle, injectable
+  engine factory for tests; `createRegistryEngine` adapts it to `EngineLike`.
+- `llama/plan-prompt.ts` — `buildPlannerPrompt` / `buildExecutorPrompt`
+  (`<plan>` injection) for the two-phase turn.
+- `llama/fusion.ts` — `runFusionTurn`: sequential plan → answer phases over
+  candidate lists; retry next candidate on load/pre-token failure only;
+  stop-at-boundary (partial plan ⇒ no answer phase); emits
+  `chat.phase`/`chat.token{phase}`.
+
+RPC additions: `role.list/create/update/delete/bind/setFallback/resolve`,
+`conversation.setMode` (fusion gating → `ROLE_UNBOUND` names the missing
+role), `chat.send` accepts `mode/plannerTag/executorTag` at creation,
+events `chat.phase`, `chat.token{phase}`, `chat.done.stats{plan,answer,total}`,
+`role.changed`.
+
+Renderer additions: `features/roles/` (`use-roles`, `RolesPanel`,
+`TagEditor`, `FusionControls`); `use-chat` reducer is phase-aware
+(plan tokens → `phases.plan.content`, `servedBy` badges).
+
 Gotchas:
 
 - ChatML literals in `prompt.ts` are deliberately split (`"<" + "|im_...|>"`)
   because the edit toolchain strips the literal tokens — do not merge them.
 - `chat.send` accepts `userMessageId` so optimistic renderer ids match the
   store; required for `chat.edit` to find fresh user messages.
+- Runtime fallback cascades retry only *before* the first emitted token —
+  mid-stream failures propagate so output never duplicates.
