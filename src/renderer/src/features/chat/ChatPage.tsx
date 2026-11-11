@@ -8,6 +8,7 @@ import { ModelPicker } from "../models/ModelPicker";
 import { ModelLibrary } from "../models/ModelLibrary";
 import { GenerationSettings } from "../settings/GenerationSettings";
 import { RolesPanel } from "../roles/RolesPanel";
+import { FusionControls } from "../roles/FusionControls";
 import { Button } from "@/components/ui/button";
 
 export function ChatPage() {
@@ -24,6 +25,7 @@ export function ChatPage() {
     regenerate,
     editMessage,
     loadModel,
+    setMode,
   } = useChat();
   const modelReady = state.modelStatus === "ready";
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -99,6 +101,13 @@ export function ChatPage() {
             Model failed to load{state.modelError ? `: ${state.modelError}` : ""}
           </div>
         )}
+        <FusionControls
+          mode={state.mode}
+          plannerTag={state.plannerTag}
+          executorTag={state.executorTag}
+          generating={state.generatingId !== null}
+          onSetMode={setMode}
+        />
         {state.notice && (
           <div className="border-b border-border bg-amber-950 px-4 py-2 text-center text-sm text-amber-300">
             {state.notice}

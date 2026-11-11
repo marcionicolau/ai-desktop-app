@@ -66,6 +66,11 @@ export interface ChatRpcSchema extends ElectrobunRPCSchema {
           // client-assigned id for the stored user message, so optimistic
           // renderer messages keep backend-visible ids (needed by chat.edit)
           userMessageId?: string;
+          // fusion mode applied only when this send creates the conversation
+          // (existing conversations use conversation.setMode)
+          mode?: ConversationMode;
+          plannerTag?: string;
+          executorTag?: string;
         };
         response: { messageId: string };
       };

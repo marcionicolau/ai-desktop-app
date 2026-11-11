@@ -18,6 +18,7 @@ import { buildPrompt, type PromptTurn } from "../llama/prompt";
 import { modelsDir, scanModels } from "../models/library";
 import { ModelRegistry, createRegistryEngine } from "../models/registry";
 import { RolesService } from "../models/roles";
+import { runFusionTurn } from "../llama/fusion";
 import * as store from "../store/json-store";
 import { existsSync, mkdirSync, renameSync, unlinkSync } from "node:fs";
 import { basename, join } from "node:path";
@@ -159,6 +160,50 @@ export function createRequestHandlers(deps: HandlerDeps) {
       });
     };
     const run = async () => {
+      // fusion mode: two-phase planner -> executor via the orchestrator
+      if (conv.mode === "fusion" && deps.roles && deps.registry) {
+        const planner = deps.roles.resolve(conv.plannerTag);
+        const executor = deps.roles.resolve(conv.executorTag);
+        const res = await runFusionTurn({
+          planner,
+          executor,
+          registry: deps.registry,
+          conversationId: conv.id,
+          history,
+          current,
+          onTruncated: warnTruncated,
+          onEvent: (m, p) =>
+            deps.emit(
+              m as never,
+              { messageId, ...(p as Record<string, unknown>) } as never,
+            ),
+          onPlanDelta: () => {
+            dirty = true;
+          },
+          onAnswerDelta: (d) => {
+            assistantMsg.content += d;
+            dirty = true;
+          },
+        });
+        assistantMsg.phases = {
+          plan: res.plan,
+          answer: res.answer
+            ? {
+                stats: res.answer.stats,
+                tag: res.answer.tag,
+                fileName: res.answer.fileName,
+              }
+            : undefined,
+        };
+        return {
+          status: res.status,
+          turnStats: {
+            plan: res.plan?.stats ?? undefined,
+            answer: res.answer?.stats ?? undefined,
+            total: res.answer?.stats ?? res.plan?.stats ?? undefined,
+          },
+        };
+      }
       // resolve() gave us the path; acquire pins the slot for this turn
       let eng: EngineLike = deps.engine;
       let slotPath: string | null = null;
@@ -185,7 +230,7 @@ export function createRequestHandlers(deps: HandlerDeps) {
         if (built.truncated) warnTruncated();
         try {
           // oxlint-disable-next-line no-await-in-loop -- sequential budget-halving retry
-          return await eng.generate(
+          const r = await eng.generate(
             built.prompt,
             (delta) => {
               assistantMsg.content += delta;
@@ -195,6 +240,7 @@ export function createRequestHandlers(deps: HandlerDeps) {
             genParams,
             { conversationId: conv.id },
           );
+          return { status: r.status, tokens: r.tokens, elapsedMs: r.elapsedMs };
         } catch (e) {
           if (!isCtxOverflow(e) || budget <= 256) throw e;
           budget = Math.floor(budget / 2);
@@ -210,19 +256,26 @@ export function createRequestHandlers(deps: HandlerDeps) {
         assistantMsg.status = res.status;
         assistantMsg.completedAt = now();
         const stats =
-          res.tokens > 0
-            ? {
-                tokens: res.tokens,
-                tokensPerSec:
-                  Math.round((res.tokens / (res.elapsedMs / 1000)) * 10) / 10,
-              }
-            : null;
+          "turnStats" in res
+            ? null
+            : res.tokens > 0
+              ? {
+                  tokens: res.tokens,
+                  tokensPerSec:
+                    Math.round((res.tokens / (res.elapsedMs / 1000)) * 10) / 10,
+                }
+              : null;
         assistantMsg.stats = stats;
         persist(conv);
         deps.emit("chat.done", {
           messageId,
           status: res.status,
-          stats: stats ? { answer: stats, total: stats } : undefined,
+          stats:
+            "turnStats" in res
+              ? res.turnStats
+              : stats
+                ? { answer: stats, total: stats }
+                : undefined,
         });
       })
       .catch((e: unknown) => {
@@ -239,6 +292,20 @@ export function createRequestHandlers(deps: HandlerDeps) {
         clearInterval(flushTimer);
         if (activeMessageId === messageId) activeMessageId = null;
       });
+  };
+
+  const requireBound = (kind: string, tag: string) => {
+    try {
+      rolesSvc().resolve(tag);
+    } catch (e) {
+      if (e instanceof EngineError && e.code === "ROLE_UNBOUND") {
+        fail(
+          "ROLE_UNBOUND",
+          `${kind} role "${tag}" has no bound model — bind it in the Roles panel`,
+        );
+      }
+      throw e;
+    }
   };
 
   return {
@@ -396,10 +463,16 @@ export function createRequestHandlers(deps: HandlerDeps) {
       conversationId,
       content,
       userMessageId,
+      mode,
+      plannerTag,
+      executorTag,
     }: {
       conversationId: string;
       content: string;
       userMessageId?: string;
+      mode?: "single" | "fusion";
+      plannerTag?: string;
+      executorTag?: string;
     }) => {
       const text = content.trim();
       if (!text) fail("EMPTY_MESSAGE", "message must not be empty");
@@ -418,10 +491,14 @@ export function createRequestHandlers(deps: HandlerDeps) {
           createdAt: now(),
           updatedAt: now(),
           messages: [],
-          mode: "single",
-          plannerTag: "planner",
-          executorTag: "executor",
+          mode: mode ?? "single",
+          plannerTag: plannerTag ?? "planner",
+          executorTag: executorTag ?? "executor",
         };
+        if (conv.mode === "fusion" && deps.roles) {
+          requireBound("planner", conv.plannerTag);
+          requireBound("executor", conv.executorTag);
+        }
       }
 
       const history = conv.messages
@@ -685,6 +762,32 @@ export function createRequestHandlers(deps: HandlerDeps) {
     "role.resolve": ({ name }: { name: string }) => ({
       resolved: rolesSvc().resolve(name),
     }),
+    "conversation.setMode": ({
+      conversationId,
+      mode,
+      plannerTag,
+      executorTag,
+    }: {
+      conversationId: string;
+      mode: "single" | "fusion";
+      plannerTag?: string;
+      executorTag?: string;
+    }) => {
+      const conv = deps.store.getConversation(conversationId);
+      if (!conv) fail("NOT_FOUND", `conversation ${conversationId} not found`);
+      const pTag = plannerTag ?? conv.plannerTag;
+      const eTag = executorTag ?? conv.executorTag;
+      if (mode === "fusion" && deps.roles) {
+        requireBound("planner", pTag);
+        requireBound("executor", eTag);
+      }
+      conv.mode = mode;
+      conv.plannerTag = pTag;
+      conv.executorTag = eTag;
+      conv.updatedAt = now();
+      persist(conv);
+      return {};
+    },
   };
 }
 
