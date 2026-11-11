@@ -155,6 +155,27 @@ export interface Settings {
   // starters) from [] (user deleted all — never re-seed)
   personas?: Persona[];
   snippets?: Snippet[];
+  // feature 010: KV snapshot policy; undefined →
+  // {enabled:true, maxBytes:2GiB} (opt-out, not opt-in)
+  snapshot?: SnapshotPolicy;
+}
+
+// feature 010: disk bounds for persisted KV state
+export interface SnapshotPolicy {
+  enabled: boolean;
+  maxBytes: number; // LRU evict while total exceeds this
+}
+
+// feature 010
+export interface SnapshotStats {
+  count: number;
+  usedBytes: number;
+  maxBytes: number;
+}
+
+export interface SnapshotClearResult {
+  removed: number;
+  freedBytes: number;
 }
 
 // feature 006: a reusable steering bundle, one per conversation

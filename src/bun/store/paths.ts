@@ -27,3 +27,7 @@ export function conversationsDir(): string {
 export function settingsFile(): string {
   return join(dataDir(), "settings.json");
 }
+
+export function kvDir(): string {
+  return join(dataDir(), "kv");
+}

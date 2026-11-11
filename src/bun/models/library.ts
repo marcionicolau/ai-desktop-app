@@ -1,6 +1,7 @@
 // Model library: scan the models dir for .gguf files and read header
 // metadata via lls_gguf_meta (no model load). Downloads also land here.
-import { readdirSync, statSync, mkdirSync } from "node:fs";
+import { readdirSync, statSync, mkdirSync, openSync, readSync, closeSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { join, basename } from "node:path";
 import { dataDir } from "../store/paths";
 import { loadLlamaShim, newErrSlot, readErr } from "../llama/ffi";
@@ -79,4 +80,24 @@ export function scanModels(): ModelMeta[] {
     out.push({ path, fileName: basename(path), sizeBytes: size, ...meta });
   }
   return out.sort((a, b) => a.fileName.localeCompare(b.fileName));
+}
+
+// feature 010: snapshot identity = path|size|sha256(head64K‖tail64K).
+// Catches same-name byte replacement at ~128 KiB read cost (D3). No
+// cache — recompute per call so a replaced file can never slip through
+// on a size+mtime coincidence; 128 KiB is cheap at open-time frequency.
+export function modelFingerprint(path: string): string {
+  const st = statSync(path);
+  const W = 64 * 1024;
+  const fd = openSync(path, "r");
+  try {
+    const head = new Uint8Array(Math.min(W, st.size));
+    const tail = new Uint8Array(Math.min(W, st.size));
+    readSync(fd, head, 0, head.length, 0);
+    readSync(fd, tail, 0, tail.length, Math.max(0, st.size - tail.length));
+    const h = createHash("sha256").update(head).update(tail).digest("hex");
+    return `${path}|${st.size}|${h}`;
+  } finally {
+    closeSync(fd);
+  }
 }

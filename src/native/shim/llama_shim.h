@@ -104,3 +104,9 @@ LLS_API void lls_free_string(char * s);
 #endif
 
 #endif // LLAMA_SHIM_H
+
+// feature 010: whole-ctx KV state persistence. load rebuilds the KV
+// mirror so lls_generate_continue resumes at the saved boundary.
+// Neither may be called while generation is active.
+LLS_API int lls_state_save(lls_ctx * c, const char * path, char ** err);
+LLS_API int lls_state_load(lls_ctx * c, const char * path, char ** err);
