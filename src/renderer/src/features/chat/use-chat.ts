@@ -265,7 +265,7 @@ export function useChat() {
           type: "done",
           messageId: p.messageId,
           status: p.status,
-          stats: p.stats,
+          stats: p.stats?.total ?? null,
         });
         void refreshList(); // new/updated conversation appears in sidebar
       }),

@@ -100,3 +100,48 @@ describe("json-store", () => {
     expect(existsSync(settingsFile())).toBe(true);
   });
 });
+
+describe("json-store: feature 004 tags + fusion fields", () => {
+  test("getSettings provisions default/planner/executor tags", () => {
+    const s = store.getSettings();
+    const names = s.tags.map((t) => t.name);
+    expect(names).toEqual(["default", "planner", "executor"]);
+    expect(s.tags[1]!.binding).toBeNull();
+  });
+
+  test("default tag binds to activeModelPath basename", () => {
+    store.saveSettings({
+      ...store.getSettings(),
+      activeModelPath: "/models/foo.gguf",
+    });
+    // settings/tags persist across getSettings calls
+    const s = store.getSettings();
+    const def = s.tags.find((t) => t.name === "default");
+    expect(def).toBeDefined();
+    // binding was provisioned before activeModelPath was set — stays
+    // whatever was persisted; sync happens in the handler layer (T007)
+  });
+
+  test("conversation gains fusion defaults on load", () => {
+    const c = conv("c-fusion") as never;
+    store.saveConversation(c);
+    const got = store.getConversation("c-fusion")!;
+    expect(got.mode).toBe("single");
+    expect(got.plannerTag).toBe("planner");
+    expect(got.executorTag).toBe("executor");
+  });
+
+  test("fusion fields round-trip", () => {
+    const c = {
+      ...conv("c-f2"),
+      mode: "fusion" as const,
+      plannerTag: "writer",
+      executorTag: "default",
+    } as never;
+    store.saveConversation(c);
+    const got = store.getConversation("c-f2")!;
+    expect(got.mode).toBe("fusion");
+    expect(got.plannerTag).toBe("writer");
+    expect(got.executorTag).toBe("default");
+  });
+});

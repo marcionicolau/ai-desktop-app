@@ -13,6 +13,7 @@ import { dirname, join } from "node:path";
 import type {
   Conversation,
   ConversationSummary,
+  ModelTag,
   Settings,
 } from "../../shared/types";
 import { DEFAULT_GENERATION } from "../../shared/types";
@@ -25,7 +26,30 @@ const DEFAULT_SETTINGS: Settings = {
   contextLimitWarning: false,
   generation: DEFAULT_GENERATION,
   modelOverrides: {},
+  tags: [],
 };
+
+function newTag(name: string, label: string, description: string): ModelTag {
+  return { name, label, description, binding: null, params: {}, fallback: [] };
+}
+
+// provisioned on first load; "default" binds to the active model (FR-010)
+function provisionTags(settings: Settings): ModelTag[] {
+  const defaults: ModelTag[] = [
+    {
+      ...newTag("default", "Default", "single-mode chat model"),
+      binding: settings.activeModelPath
+        ? settings.activeModelPath.split("/").pop()!
+        : null,
+    },
+    newTag("planner", "Planner", "fusion planning phase"),
+    newTag("executor", "Executor", "fusion answering phase"),
+  ];
+  if (!settings.tags || settings.tags.length === 0) return defaults;
+  // ensure the built-in tags exist even if tags were stored before
+  const names = new Set(settings.tags.map((t) => t.name));
+  return [...settings.tags, ...defaults.filter((d) => !names.has(d.name))];
+}
 
 function atomicWrite(file: string, data: unknown): void {
   mkdirSync(dirname(file), { recursive: true });
@@ -45,14 +69,20 @@ export function getSettings(): Settings {
   try {
     const raw = readFileSync(settingsFile(), "utf8");
     const parsed = JSON.parse(raw) as Partial<Settings>;
-    return {
+    const merged: Settings = {
       ...DEFAULT_SETTINGS,
       ...parsed,
       generation: { ...DEFAULT_GENERATION, ...parsed.generation },
       modelOverrides: parsed.modelOverrides ?? {},
+      tags: parsed.tags ?? [],
     };
+    return { ...merged, tags: provisionTags(merged) };
   } catch {
-    return { ...DEFAULT_SETTINGS, generation: { ...DEFAULT_GENERATION } };
+    const fresh: Settings = {
+      ...DEFAULT_SETTINGS,
+      generation: { ...DEFAULT_GENERATION },
+    };
+    return { ...fresh, tags: provisionTags(fresh) };
   }
 }
 
@@ -88,6 +118,10 @@ export function getConversation(id: string): Conversation | null {
     for (const m of conv.messages) {
       if (m.status === "generating") m.status = "partial";
     }
+    // feature 004 defaults for pre-existing conversations
+    conv.mode ??= "single";
+    conv.plannerTag ??= "planner";
+    conv.executorTag ??= "executor";
     return conv;
   } catch {
     return null;

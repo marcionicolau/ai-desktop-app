@@ -189,7 +189,7 @@ export function createRequestHandlers(deps: HandlerDeps) {
         deps.emit("chat.done", {
           messageId,
           status: res.status,
-          stats: stats ?? undefined,
+          stats: stats ? { answer: stats, total: stats } : undefined,
         });
       })
       .catch((e: unknown) => {
@@ -356,6 +356,9 @@ export function createRequestHandlers(deps: HandlerDeps) {
           createdAt: now(),
           updatedAt: now(),
           messages: [],
+          mode: "single",
+          plannerTag: "planner",
+          executorTag: "executor",
         };
       }
 
@@ -532,6 +535,9 @@ export function createRequestHandlers(deps: HandlerDeps) {
         createdAt: now(),
         updatedAt: now(),
         messages: [],
+        mode: "single",
+        plannerTag: "planner",
+        executorTag: "executor",
       };
       persist(conv);
       return { id: conv.id, title: conv.title, updatedAt: conv.updatedAt };
