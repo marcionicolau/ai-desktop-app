@@ -15,6 +15,7 @@ interface ChatState {
   messages: Message[];
   generatingId: string | null;
   modelStatus: ModelStatus;
+  modelName: string | null;
   modelError: string | null;
   lastError: { code: RpcErrorCode; message: string } | null;
 }
@@ -26,7 +27,7 @@ type Action =
   | { type: "token"; messageId: string; delta: string }
   | { type: "done"; messageId: string; status: "complete" | "partial" }
   | { type: "error"; messageId: string; code: RpcErrorCode; message: string }
-  | { type: "model"; status: ModelStatus; error?: string };
+  | { type: "model"; status: ModelStatus; name?: string; error?: string };
 
 function reduce(state: ChatState, action: Action): ChatState {
   switch (action.type) {
@@ -84,6 +85,7 @@ function reduce(state: ChatState, action: Action): ChatState {
       return {
         ...state,
         modelStatus: action.status,
+        modelName: action.name ?? state.modelName,
         modelError: action.error ?? null,
       };
   }
@@ -95,6 +97,7 @@ const initial: ChatState = {
   messages: [],
   generatingId: null,
   modelStatus: "unloaded",
+  modelName: null,
   modelError: null,
   lastError: null,
 };
@@ -164,7 +167,12 @@ export function useChat() {
         }
         const status = await invoke("model.status", {});
         if (!cancelled) {
-          dispatch({ type: "model", status: status.status, error: status.error });
+          dispatch({
+            type: "model",
+            status: status.status,
+            name: status.name,
+            error: status.error,
+          });
         }
       } catch (e) {
         if (!cancelled) {
@@ -199,7 +207,8 @@ export function useChat() {
           type: "model",
           status:
             p.phase === "ready" ? "ready" : p.phase === "error" ? "error" : "loading",
-          error: p.detail,
+          name: p.phase === "ready" ? p.detail : undefined,
+          error: p.phase === "error" ? p.detail : undefined,
         }),
       ),
     ];
@@ -261,11 +270,17 @@ export function useChat() {
     await invoke("model.load", { path });
   }, []);
 
+  const pickModel = useCallback(async () => {
+    const { path } = await invoke("model.pick", {});
+    if (path) await invoke("model.load", { path });
+  }, []);
+
   return {
     state,
     send,
     stop,
     loadModel,
+    pickModel,
     selectConversation,
     newConversation,
     renameConversation,

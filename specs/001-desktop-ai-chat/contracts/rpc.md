@@ -10,6 +10,7 @@ processes — this document is the human-readable version.
 |--------|--------|---------|--------|
 | `model.load` | `{ path: string }` | `{ status: "ready", name: string }` | `MODEL_NOT_FOUND`, `MODEL_INVALID`, `OUT_OF_MEMORY`, `ENGINE_ERROR` |
 | `model.unload` | `{}` | `{}` | — |
+| `model.pick` | `{}` | `{ path: string \| null }` (`null` = cancelled) | — |
 | `model.status` | `{}` | `{ status, name?, error? }` | — |
 | `chat.send` | `{ conversationId, content }` | `{ messageId }` — response streams via events | `NO_MODEL`, `ENGINE_BUSY`, `EMPTY_MESSAGE` |
 | `chat.stop` | `{ messageId }` | `{}` | `NOT_GENERATING` |

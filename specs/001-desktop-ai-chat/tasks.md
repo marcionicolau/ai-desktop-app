@@ -110,15 +110,15 @@ defines automated checks (typecheck, FFI lifecycle, vite build).
 
 ### Tests for User Story 3
 
-- [ ] T033 [P] [US3] Model RPC test in `tests/rpc/model.test.ts`: `model.load` on missing path → `MODEL_NOT_FOUND`; corrupt file → `MODEL_INVALID`; `model.progress` emits `loading → ready`; `model.unload` then `chat.send` → `NO_MODEL`
-- [ ] T034 [P] [US3] Engine error-path test in `tests/ffi/errors.test.ts`: `lls_model_load` failure returns NULL + `err` string; wrapper frees via `lls_free_string` and surfaces typed error
+- [x] T033 [P] [US3] Model RPC test in `tests/rpc/model.test.ts`: `model.load` on missing path → `MODEL_NOT_FOUND`; corrupt file → `MODEL_INVALID`; `model.progress` emits `loading → ready`; `model.unload` then `chat.send` → `NO_MODEL`
+- [x] T034 [P] [US3] Engine error-path test in `tests/ffi/errors.test.ts`: `lls_model_load` failure returns NULL + `err` string; wrapper frees via `lls_free_string` and surfaces typed error
 
 ### Implementation for User Story 3
 
-- [ ] T035 [US3] Extend `model.load` from T020 with file validation + add `model.unload` in `src/bun/rpc/handlers.ts` (depends on T020): path exists/readable check, error mapping to `MODEL_NOT_FOUND`/`MODEL_INVALID`/`OUT_OF_MEMORY`/`ENGINE_ERROR` with human-readable `err` strings (FR-007); switching unloads previous model first (`ready → loading`, data-model.md)
-- [ ] T036 [US3] Persist `activeModelPath` in settings via `src/bun/store/json-store.ts` (restored on launch, does not auto-load — data-model.md)
-- [ ] T037 [P] [US3] Build model picker UI in `src/renderer/src/features/models/`: file browse control (native dialog via Electrobun), current model name + status badge, progress indicator driven by `model.progress` events
-- [ ] T038 [US3] Render load-error state in `src/renderer/src/features/models/`: show `model.progress {phase:"error", detail}` message, keep chat input disabled until `ready`, preserve prior working model state (US3 acceptance 2)
+- [x] T035 [US3] Extend `model.load` from T020 with file validation + add `model.unload` in `src/bun/rpc/handlers.ts` (depends on T020): path exists/readable check, error mapping to `MODEL_NOT_FOUND`/`MODEL_INVALID`/`OUT_OF_MEMORY`/`ENGINE_ERROR` with human-readable `err` strings (FR-007); switching unloads previous model first (`ready → loading`, data-model.md)
+- [x] T036 [US3] Persist `activeModelPath` in settings via `src/bun/store/json-store.ts` (restored on launch, does not auto-load — data-model.md)
+- [x] T037 [P] [US3] Build model picker UI in `src/renderer/src/features/models/`: file browse control (native dialog via Electrobun), current model name + status badge, progress indicator driven by `model.progress` events
+- [x] T038 [US3] Render load-error state in `src/renderer/src/features/models/`: show `model.progress {phase:"error", detail}` message, keep chat input disabled until `ready`, preserve prior working model state (US3 acceptance 2)
 
 **Checkpoint**: All three stories independently functional — model managed in UI, chat streams, history persists
 

@@ -1,7 +1,7 @@
 // Typed engine wrapper over the llama_shim FFI surface.
 // Pull model: generate() drives an async lls_step loop on the JS thread,
 // yielding to the event loop between steps so RPC stays responsive.
-import { existsSync } from "node:fs";
+import { accessSync, constants, existsSync } from "node:fs";
 import { ptr } from "bun:ffi";
 import { basename } from "node:path";
 import type { RpcErrorCode } from "../../shared/rpc-contract";
@@ -21,8 +21,8 @@ const TOKEN_BUF_CAP = 4096;
 
 export class LlamaEngine {
   private shim: LlamaShim | null = null;
-  private model = 0;
-  private ctx = 0;
+  private model: number | null = null;
+  private ctx: number | null = null;
   private modelName: string | null = null;
   private generating = false;
   private stopRequested = false;
@@ -30,7 +30,7 @@ export class LlamaEngine {
   private outLen = new BigUint64Array(1);
 
   status(): { status: "unloaded" | "loading" | "ready" | "error"; name?: string; error?: string } {
-    if (this.model !== 0) {
+    if (this.model !== null) {
       return { status: "ready", name: this.modelName ?? undefined };
     }
     return { status: "unloaded" };
@@ -39,6 +39,11 @@ export class LlamaEngine {
   async loadModel(path: string): Promise<{ status: "ready"; name: string }> {
     if (!existsSync(path)) {
       throw new EngineError("MODEL_NOT_FOUND", `model file not found: ${path}`);
+    }
+    try {
+      accessSync(path, constants.R_OK);
+    } catch {
+      throw new EngineError("MODEL_INVALID", `model file is not readable: ${path}`);
     }
     this.unloadModel();
 
@@ -53,7 +58,7 @@ export class LlamaEngine {
     const err = newErrSlot();
 
     const model = symbols.lls_model_load(path, ptr(err));
-    if (model === 0) {
+    if (!model) {
       const msg = readErr(this.shim, err) ?? "failed to load model";
       throw new EngineError(
         /memory|alloc/i.test(msg) ? "OUT_OF_MEMORY" : "MODEL_INVALID",
@@ -62,7 +67,7 @@ export class LlamaEngine {
     }
 
     const ctx = symbols.lls_ctx_create(model, ptr(err));
-    if (ctx === 0) {
+    if (!ctx) {
       const msg = readErr(this.shim, err) ?? "failed to create context";
       symbols.lls_model_free(model);
       throw new EngineError("OUT_OF_MEMORY", msg);
@@ -77,14 +82,14 @@ export class LlamaEngine {
   unloadModel(): void {
     // shutdown order: generate_end -> ctx_free -> model_free (lib stays open)
     if (this.shim === null) return;
-    if (this.ctx !== 0) {
+    if (this.ctx !== null) {
       this.shim.symbols.lls_generate_end(this.ctx);
       this.shim.symbols.lls_ctx_free(this.ctx);
-      this.ctx = 0;
+      this.ctx = null;
     }
-    if (this.model !== 0) {
+    if (this.model !== null) {
       this.shim.symbols.lls_model_free(this.model);
-      this.model = 0;
+      this.model = null;
     }
     this.modelName = null;
     this.generating = false;
@@ -105,7 +110,7 @@ export class LlamaEngine {
     prompt: string,
     onToken: (delta: string) => void,
   ): Promise<"complete" | "partial"> {
-    if (this.ctx === 0 || this.shim === null) {
+    if (this.ctx === null || this.shim === null) {
       throw new EngineError("NO_MODEL", "no model is loaded");
     }
     if (this.generating) {

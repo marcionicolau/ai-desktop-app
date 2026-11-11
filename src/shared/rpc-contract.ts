@@ -35,6 +35,10 @@ export interface ChatRpcSchema extends ElectrobunRPCSchema {
         response: { status: "ready"; name: string };
       };
       "model.unload": { params: Record<string, never>; response: Record<string, never> };
+      "model.pick": {
+        params: Record<string, never>;
+        response: { path: string | null };
+      };
       "model.status": {
         params: Record<string, never>;
         response: { status: ModelStatus; name?: string; error?: string };

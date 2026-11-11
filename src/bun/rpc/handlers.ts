@@ -72,6 +72,17 @@ export function createRequestHandlers(deps: HandlerDeps) {
       deps.store.saveSettings({ ...settings, activeModelPath: null });
       return {};
     },
+    "model.pick": async () => {
+      const { Utils } = await import("electrobun/main");
+      const paths = await Utils.openFileDialog({
+        startingFolder: "~/",
+        allowedFileTypes: "gguf",
+        canChooseFiles: true,
+        canChooseDirectory: false,
+        allowsMultipleSelection: false,
+      });
+      return { path: paths[0] ?? null };
+    },
     "model.status": () => deps.engine.status(),
     "chat.send": ({
       conversationId,
