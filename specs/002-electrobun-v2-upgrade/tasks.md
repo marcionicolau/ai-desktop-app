@@ -71,10 +71,10 @@ description: "Task list for Electrobun v2 Upgrade implementation"
 
 ### Implementation for User Story 2
 
-- [ ] T013 [US2] Run `hutch build --env=canary` (or `bun run build:canary`) to completion; fix any v2 field-name errors the validator reports in `electrobun.config.ts`
-- [ ] T014 [US2] Verify bundle layout: `Resources/app/views/main/` contains Vite output; `Resources/app/native/<platform>/` staging rule works — if `native/out/` is empty (feature-001 T011–T013 pending), create a placeholder `.so`/document the pending native build, and confirm the copy rule itself
-- [ ] T015 [US2] Verify ASAR/archiving config: confirm `useAsar` (or v2 equivalent) is off for native libs, or add the platform globs to the unpack list so `dlopen` sees real files (spec constraint, research.md D6)
-- [ ] T016 [US2] Launch the packaged artifact and confirm identical UI (SC-002, SC-003)
+- [x] T013 [US2] Run `hutch build --env=canary` (or `bun run build:canary`) to completion; fix any v2 field-name errors the validator reports in `electrobun.config.ts`
+- [x] T014 [US2] Verify bundle layout: `Resources/app/views/main/` contains Vite output; `Resources/app/native/<platform>/` staging rule works — if `native/out/` is empty (feature-001 T011–T013 pending), create a placeholder `.so`/document the pending native build, and confirm the copy rule itself
+- [x] T015 [US2] Verify ASAR/archiving config: confirm `useAsar` (or v2 equivalent) is off for native libs, or add the platform globs to the unpack list so `dlopen` sees real files (spec constraint, research.md D6)
+- [x] T016 [US2] Launch the packaged artifact and confirm identical UI (SC-002, SC-003)
 
 **Checkpoint**: US2 validated — installer artifact produced and launches
 
