@@ -15,6 +15,12 @@
 - Q: When a pack is enabled and its extension tab appears, should the new tab take focus immediately, or appear unselected in the background? → A: Auto-select on enable (and on consent-gated enable); restart restore adds tabs without stealing focus.
 - Q: If a `tab`-slot view already has a top tab, what should Browse → Open do — focus the existing tab, or allow a second copy of the view in the drawer? → A: Focus the existing tab — one view session per `tab` view; Browse → Open switches to it instead of spawning a drawer duplicate.
 
+### Session 2026-11-12 (post-implementation)
+
+- Q: Should packs with no declared `tab` views get a tab? → A: **Every enabled pack gets a tab.** Packs without `tab` views host their WorkspaceBrowser + RunView surface in a `pack` tab (amends FR-012).
+- Q: Should extension tabs be closable? → A: **Yes — a × close icon on each non-chat tab disables the owning pack** (amends A5). Re-enabling the pack restores the tab.
+- Q: Who owns the tab system? → A: `WorkspaceTabs` lives inside `ChatPage`'s column — ChatPage owns the workspace; the chat tab hosts MessageList→Composer while sidebar/header/panels stay chrome-level.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Extension views become peer tabs of Chat (Priority: P1)
@@ -70,7 +76,7 @@ As a user, I can tell which pack owns each tab, and I can see when an extension 
 ### Edge Cases
 
 - **Pack declares multiple `tab` views**: each declared view gets its own tab (Assumption A1).
-- **Pack declares only `panel` views or no views**: contributes no top tab; panel views keep the existing drawer behavior.
+- **Pack declares only `panel` views or no views**: gets a `pack` workspace tab (browser + runs); `panel` views themselves keep the existing drawer behavior and never become tabs.
 - **Tab overflow**: with many enabled packs, the tab bar must remain usable (scroll/overflow affordance).
 - **Tab view crashes while selected**: contained crash UI with reload stays inside its tab; other tabs unaffected.
 - **Enabled pack fails to parse on restart**: shows as failed in the extensions list (existing behavior); contributes no tab.
@@ -91,7 +97,7 @@ As a user, I can tell which pack owns each tab, and I can see when an extension 
 - **FR-009**: Tab tooltips MUST identify the owning pack name in addition to the view title.
 - **FR-010**: When the selected tab closes (pack disabled/removed), selection MUST move to a sensible neighbor — Chat by default.
 - **FR-011**: The tab bar MUST remain usable when many tabs exist (horizontal scroll or equivalent overflow handling).
-- **FR-012**: `panel`-slot views and packs with no declared `tab` views MUST NOT create top tabs (unchanged drawer behavior).
+- **FR-012**: `panel`-slot views MUST NOT create top tabs (unchanged drawer behavior). Every enabled pack MUST have a top tab: packs declaring `tab` views get one tab per view; packs without `tab` views get a single `pack` tab hosting their workspace browser + run history.
 - **FR-013**: Each `tab` view has exactly one live view session — opening it from Browse while its top tab exists MUST focus that tab, not spawn a duplicate session.
 
 ### Key Entities
@@ -115,7 +121,7 @@ As a user, I can tell which pack owns each tab, and I can see when an extension 
 - **A2**: `panel`-slot views keep the current drawer-hosted behavior; only `tab`-slot views become top tabs.
 - **A3**: The extensions management surface (pack list, workspace browser, run view) stays inside the Chat tab's existing drawer — this feature doesn't move it.
 - **A4**: Tab order is Chat first, then extension views in enable/declaration order; no user tab reordering in v1.
-- **A5**: Users cannot close extension tabs directly — they close by disabling/removing the owning pack (consistent with "extensions are declarative" model).
+- **A5**: Extension tabs carry a × close icon that disables the owning pack — there is still no way to hide a tab while keeping the pack enabled (declarative model: tab exists iff the pack is enabled).
 - **A6**: Extension view sessions already provide crash containment and reload (feature 017); this feature only re-hosts them at top level.
 - **A7**: Enabling a pack surfaces its `tab` views (auto-selected) but does NOT auto-open `panel`-slot views — enable browses the pack; panels open manually. This replaces the 018-era drawer auto-open.
 - **A8**: Extension view sessions open lazily — the session starts on first selection of the tab, not at enable/restore time; once open it stays alive (parked when hidden).

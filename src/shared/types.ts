@@ -509,4 +509,11 @@ export type WorkspaceTab =
       viewId: string;
       title: string;
       packName: string;
+    }
+  | {
+      kind: "pack"; // enabled pack with no declared `tab` views → workspace tab
+      id: string; // packId
+      packId: string;
+      title: string;
+      packName: string;
     };

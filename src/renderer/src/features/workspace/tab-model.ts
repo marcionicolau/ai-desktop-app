@@ -14,14 +14,27 @@ export function deriveTabs(packs: InstalledPackView[]): WorkspaceTab[] {
   const tabs: WorkspaceTab[] = [CHAT_TAB];
   for (const p of packs) {
     if (p.state !== "enabled") continue;
-    for (const v of p.manifest.contributions.views ?? []) {
-      if (v.slot !== "tab") continue;
+    const tabViews = (p.manifest.contributions.views ?? []).filter(
+      (v) => v.slot === "tab",
+    );
+    for (const v of tabViews) {
       tabs.push({
         kind: "ext",
         id: `${p.id}:${v.id}`,
         packId: p.id,
         viewId: v.id,
         title: v.title || v.id || p.id,
+        packName: p.manifest.name || p.id,
+      });
+    }
+    // every enabled pack gets a tab: packs without declared `tab` views
+    // host their workspace browser in a pack tab (user decision 2026-11-12)
+    if (tabViews.length === 0) {
+      tabs.push({
+        kind: "pack",
+        id: p.id,
+        packId: p.id,
+        title: p.manifest.name || p.id,
         packName: p.manifest.name || p.id,
       });
     }

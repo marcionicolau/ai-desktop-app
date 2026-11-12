@@ -25,10 +25,12 @@ import { ExtensionsPanel } from "../extensions/ExtensionsPanel";
 import { WorkspaceBrowser } from "../extensions/WorkspaceBrowser";
 import { RunView } from "../extensions/RunView";
 import { ExtViewHost } from "../extensions/ExtViewHost";
+import { WorkspaceTabs } from "../workspace/WorkspaceTabs";
+import { useWorkspaceTabs } from "../workspace/use-workspace-tabs";
 import { invoke } from "@/lib/rpc";
 import { Button } from "@/components/ui/button";
 
-export function ChatPage({ onOpenTabView }: { onOpenTabView?: (packId: string, viewId: string) => void } = {}) {
+export function ChatPage() {
   const {
     state,
     path,
@@ -70,6 +72,9 @@ export function ChatPage({ onOpenTabView }: { onOpenTabView?: (packId: string, v
     viewId: string;
     slot: "tab" | "panel";
   } | null>(null);
+  // feature 019: the workspace tab system is owned by ChatPage — the chat
+  // tab hosts MessageList..Composer; ext `tab` views are peer tabs
+  const { tabs, selectedId, select, focusView } = useWorkspaceTabs();
   // feature 018 (T003/T004): first-launch auto-open of the model library.
   // Evaluates once, after model.status hydration, on the first terminal
   // status — never during "loading", never again this session (FR-001/4/6)
@@ -318,48 +323,65 @@ export function ChatPage({ onOpenTabView }: { onOpenTabView?: (packId: string, v
             onClose={() => setBranchesOpen(false)}
           />
         )}
-        <MessageList
-          messages={path}
-          variants={variants}
-          generating={state.generatingId !== null}
-          scrollToId={state.scrollTarget}
-          onRegenerate={(id) => void regenerate(id)}
-          onEdit={(id, c) => void editMessage(id, c)}
-          onSelectVariant={selectVariant}
+        <WorkspaceTabs
+          tabs={tabs}
+          selectedId={selectedId}
+          select={select}
+          focusView={focusView}
+          focusRunId={focusRun}
+          onRunStarted={setFocusRun}
+          onOpenPanelView={(packId, viewId) => {
+            setOpenView({ packId, viewId, slot: "panel" });
+            select("chat");
+          }}
+          onCloseTab={(packId) => void invoke("extension.disable", { packId })}
+          chat={
+            <>
+              <MessageList
+                messages={path}
+                variants={variants}
+                generating={state.generatingId !== null}
+                scrollToId={state.scrollTarget}
+                onRegenerate={(id) => void regenerate(id)}
+                onEdit={(id, c) => void editMessage(id, c)}
+                onSelectVariant={selectVariant}
+              />
+              {extOpen && (
+                <ExtensionsPanel onBrowse={(packId) => setBrowsePack(packId)} />
+              )}
+              {extOpen && browsePack && (
+                <WorkspaceBrowser
+                  packId={browsePack}
+                  onRunStarted={(runId) => setFocusRun(runId)}
+                  onOpenView={(packId, viewId, slot) =>
+                    slot === "tab"
+                      ? focusView(packId, viewId)
+                      : setOpenView({ packId, viewId, slot })
+                  }
+                />
+              )}
+              {extOpen && <RunView focusRunId={focusRun} />}
+              {extOpen && openView && (
+                <ExtViewHost
+                  packId={openView.packId}
+                  viewId={openView.viewId}
+                  slot={openView.slot}
+                  onClose={() => setOpenView(null)}
+                />
+              )}
+              <Composer
+                generating={state.generatingId !== null}
+                modelReady={modelReady}
+                snippets={snippets}
+                onSend={(c, ids, chips) => void send(c, ids, chips)}
+                onStop={stop}
+                onPickModel={() => setLibraryOpen(true)}
+              />
+              {/* feature 016: bottom dock — sibling shrinks the message area */}
+              <OutputPanel open={metricsOpen} />
+            </>
+          }
         />
-        {extOpen && (
-          <ExtensionsPanel onBrowse={(packId) => setBrowsePack(packId)} />
-        )}
-        {extOpen && browsePack && (
-          <WorkspaceBrowser
-            packId={browsePack}
-            onRunStarted={(runId) => setFocusRun(runId)}
-            onOpenView={(packId, viewId, slot) =>
-              slot === "tab" && onOpenTabView
-                ? onOpenTabView(packId, viewId)
-                : setOpenView({ packId, viewId, slot })
-            }
-          />
-        )}
-        {extOpen && <RunView focusRunId={focusRun} />}
-        {extOpen && openView && (
-          <ExtViewHost
-            packId={openView.packId}
-            viewId={openView.viewId}
-            slot={openView.slot}
-            onClose={() => setOpenView(null)}
-          />
-        )}
-        <Composer
-          generating={state.generatingId !== null}
-          modelReady={modelReady}
-          snippets={snippets}
-          onSend={(c, ids, chips) => void send(c, ids, chips)}
-          onStop={stop}
-          onPickModel={() => setLibraryOpen(true)}
-        />
-        {/* feature 016: bottom dock — sibling shrinks the message area */}
-        <OutputPanel open={metricsOpen} />
       </div>
     </main>
   );

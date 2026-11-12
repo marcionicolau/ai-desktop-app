@@ -43,11 +43,21 @@ describe("deriveTabs", () => {
     const tabs = deriveTabs([
       pack("a", "enabled", [explorer, panel]),
       pack("b", "disabled", [explorer]),
-      pack("c", "enabled"),
+      pack("c", "enabled", [explorer]),
     ]);
-    expect(tabs.map((t) => t.id)).toEqual(["chat", "a:explorer"]);
+    expect(tabs.map((t) => t.id)).toEqual(["chat", "a:explorer", "c:explorer"]);
     const ext = tabs[1]!;
     expect(ext).toMatchObject({ kind: "ext", title: "Explorer", packName: "a" });
+  });
+
+  test("enabled pack without tab views → pack tab (workspace browser)", () => {
+    const tabs = deriveTabs([
+      pack("a", "enabled"), // no views at all
+      pack("b", "enabled", [panel]), // panel-only
+    ]);
+    expect(tabs.map((t) => t.id)).toEqual(["chat", "a", "b"]);
+    expect(tabs[1]).toMatchObject({ kind: "pack", packId: "a" });
+    expect(tabs[2]).toMatchObject({ kind: "pack", packId: "b" });
   });
 
   test("multiple tab views per pack → multiple tabs in declaration order", () => {
@@ -64,7 +74,7 @@ describe("deriveTabs", () => {
 });
 
 describe("reconcile", () => {
-  const base = deriveTabs([pack("a", "enabled", [explorer])]);
+  const base = deriveTabs([pack("a", "enabled", [explorer]), pack("b", "enabled")]);
 
   test("newly enabled tab auto-selects (FR-005)", () => {
     const prev = { tabs: [CHAT_TAB] as never[], selectedId: "chat" };
