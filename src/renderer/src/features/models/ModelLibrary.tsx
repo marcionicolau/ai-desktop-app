@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ModelAdvise, RoleView } from "@shared/types";
 import { Download, Gauge, Loader2, RefreshCw, SlidersHorizontal } from "lucide-react";
 import type { DownloadState, GenerationParams, ModelMeta } from "@shared/types";
@@ -10,6 +10,9 @@ import { cn } from "@/lib/utils";
 interface Props {
   activeName: string | null;
   onLoad: (path: string) => void;
+  // feature 018 (T007): when the startup prompt opened this drawer, a
+  // completed download counts as the selection — auto-load it (FR-005/US2)
+  autoLoadOnDownload?: boolean;
 }
 
 const OVERRIDE_FIELDS: { key: keyof GenerationParams; label: string }[] = [
@@ -42,7 +45,12 @@ function defaultFileName(url: string): string {
   }
 }
 
-export function ModelLibrary({ activeName, onLoad }: Props) {
+export function ModelLibrary({ activeName, onLoad, autoLoadOnDownload }: Props) {
+  // refs so the one-shot download subscription sees current props
+  const autoLoadRef = useRef(autoLoadOnDownload);
+  autoLoadRef.current = autoLoadOnDownload;
+  const onLoadRef = useRef(onLoad);
+  onLoadRef.current = onLoad;
   const [models, setModels] = useState<ModelMeta[]>([]);
   const [downloads, setDownloads] = useState<Record<string, DownloadState>>({});
   const [url, setUrl] = useState("");
@@ -105,7 +113,17 @@ export function ModelLibrary({ activeName, onLoad }: Props) {
     })();
     return on("model.download", (p) => {
       setDownloads((d) => ({ ...d, [p.fileName]: p }));
-      if (p.phase === "done") void refresh();
+      if (p.phase === "done") {
+        void (async () => {
+          await refresh();
+          if (autoLoadRef.current) {
+            const m = (await invoke("model.list", {})).models.find(
+              (x) => x.fileName === p.fileName,
+            );
+            if (m) onLoadRef.current(m.path);
+          }
+        })();
+      }
       if (p.phase === "error") setError(p.error ?? "download failed");
     });
   }, [refresh]);

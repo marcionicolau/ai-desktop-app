@@ -30,6 +30,9 @@ interface ChatState {
   activeLeaf: string | null;
   generatingId: string | null;
   modelStatus: ModelStatus;
+  // feature 018: true once any model status info (mount reconcile or
+  // progress event) has arrived — gates the startup prompt (U1)
+  modelStatusHydrated: boolean;
   modelName: string | null;
   modelError: string | null;
   lastError: { code: RpcErrorCode; message: string } | null;
@@ -259,6 +262,7 @@ function reduce(state: ChatState, action: Action): ChatState {
       return {
         ...state,
         modelStatus: action.status,
+        modelStatusHydrated: true,
         modelName: action.name ?? state.modelName,
         modelError: action.error ?? null,
       };
@@ -310,6 +314,7 @@ const initial: ChatState = {
   activeLeaf: null,
   generatingId: null,
   modelStatus: "unloaded",
+  modelStatusHydrated: false,
   modelName: null,
   modelError: null,
   lastError: null,
