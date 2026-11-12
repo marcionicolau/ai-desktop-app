@@ -74,11 +74,11 @@ export function ModelLibrary({ activeName, onLoad, autoLoadOnDownload }: Props) 
 
   const refresh = useCallback(async () => {
     try {
-      const [{ models }, adv] = await Promise.all([
+      const [{ models: list }, adv] = await Promise.all([
         invoke("model.list", {}),
         invoke("model.advise", {}),
       ]);
-      setModels(models);
+      setModels(list);
       setAdvise(new Map(adv.models.map((a) => [a.fileName, a])));
     } catch {
       // list is best-effort

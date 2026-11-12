@@ -45,7 +45,7 @@ export class PersonaService {
   private personasSeeded(): Persona[] {
     const p = this.settings().personas;
     if (p !== undefined) return p;
-    const starters = STARTER.map((s) => ({ ...s }));
+    const starters = STARTER.map((s) => structuredClone(s));
     this.save({ personas: starters });
     return starters;
   }

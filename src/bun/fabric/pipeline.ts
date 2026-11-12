@@ -55,8 +55,10 @@ export async function executePipeline(
     const stepParams = { ...baseParams, ...step.params };
     let out: Record<string, unknown>;
     if (skill.steps) {
+      // oxlint-disable-next-line no-await-in-loop -- pipeline steps run in order (data deps)
       out = await ctx.runPipeline(skill, bound, stepParams, path);
     } else {
+      // oxlint-disable-next-line no-await-in-loop -- pipeline steps run in order (data deps)
       out = await runSkill(skill, bound, stepParams, objective, { ...ctx, path });
     }
     stepOuts.set(step.id, out);

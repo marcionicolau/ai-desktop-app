@@ -79,7 +79,7 @@ export function scanModels(): ModelMeta[] {
     }
     out.push({ path, fileName: basename(path), sizeBytes: size, ...meta });
   }
-  return out.sort((a, b) => a.fileName.localeCompare(b.fileName));
+  return out.toSorted((a, b) => a.fileName.localeCompare(b.fileName));
 }
 
 // feature 010: snapshot identity = path|size|sha256(head64K‖tail64K).

@@ -59,7 +59,7 @@ export function OutputPanel({ open }: { open: boolean }) {
 
   // feature 021: context-budget chip for the tabbed (or latest) model
   const contextModel = tab === "*" ? entries.at(-1)?.modelFile : tab;
-  const latest = [...visible].reverse().find((e) => e.promptTokens > 0);
+  const latest = visible.toReversed().find((e) => e.promptTokens > 0);
   const ctxUsed = latest ? latest.promptTokens + latest.outputTokens : null;
   const ctxTotal = contextModel ? (ctxSizes[contextModel] ?? null) : null;
 

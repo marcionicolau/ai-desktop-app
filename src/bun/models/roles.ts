@@ -54,7 +54,7 @@ export class RolesService {
   }
 
   private tag(name: string): ModelTag {
-    const t = this.settings().tags.find((t) => t.name === name);
+    const t = this.settings().tags.find((entry) => entry.name === name);
     if (!t) throw new RoleError("NOT_FOUND", `role tag not found: ${name}`);
     return t;
   }
@@ -79,11 +79,10 @@ export class RolesService {
         : this.bindingPath(t.binding)
           ? "bound"
           : "broken";
-      return {
-        ...t,
+      return Object.assign({}, t, {
         state,
         resolvedFile: t.binding ? library.get(t.binding) : undefined,
-      };
+      });
     });
   }
 

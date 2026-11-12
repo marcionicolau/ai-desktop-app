@@ -36,9 +36,9 @@ export function ExtViewHost({ packId, viewId, slot = "panel", visible = true, ba
       ? { x: r.x, y: r.y, width: r.width, height: r.height }
       : undefined;
     void invoke("view.open", { packId, viewId, slot, rect })
-      .then((r) => {
+      .then((res) => {
         const hadCrash = crashed !== null;
-        setSessionId(r.sessionId);
+        setSessionId(res.sessionId);
         setCrashed(null);
         if (hadCrash) onRecovered?.();
       })

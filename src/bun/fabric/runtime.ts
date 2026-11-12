@@ -43,7 +43,7 @@ export class RunManager {
   private prune(packId: string): void {
     const dir = runsDir(packId);
     if (!existsSync(dir)) return;
-    const files = readdirSync(dir).filter((f) => f.endsWith(".json")).sort();
+    const files = readdirSync(dir).filter((f) => f.endsWith(".json")).toSorted();
     for (const f of files.slice(0, Math.max(0, files.length - HISTORY_CAP))) {
       rmSync(join(dir, f), { force: true });
     }
@@ -61,9 +61,9 @@ export class RunManager {
         : [];
     for (const dir of dirs) {
       if (!existsSync(dir)) continue;
-      for (const f of readdirSync(dir).filter((f) => f.endsWith(".json"))) {
+      for (const file of readdirSync(dir).filter((f) => f.endsWith(".json"))) {
         try {
-          const r = JSON.parse(readFileSync(join(dir, f), "utf8")) as RunRecord;
+          const r = JSON.parse(readFileSync(join(dir, file), "utf8")) as RunRecord;
           out.push({
             id: r.id, packId: r.packId, target: r.target,
             objective: r.objective, status: r.status,
@@ -72,7 +72,7 @@ export class RunManager {
         } catch { /* torn write — skip */ }
       }
     }
-    return out.sort((a, b) => b.startedAt - a.startedAt);
+    return out.toSorted((a, b) => b.startedAt - a.startedAt);
   }
 
   get(runId: string): RunRecord | null {

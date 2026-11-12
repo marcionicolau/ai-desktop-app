@@ -98,7 +98,7 @@ export class ExtensionsStore {
   }
 
   list(): InstalledPack[] {
-    return [...this.packs.values()].map((p) => ({ ...p }));
+    return [...this.packs.values()].map((p) => structuredClone(p));
   }
 
   get(packId: string): InstalledPack {

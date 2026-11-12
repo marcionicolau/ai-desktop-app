@@ -41,11 +41,12 @@ function readManifestFrom(dir: string): PackManifest {
 
 // --- tar reader (ustar, regular files + dirs only) ---
 
+const nul = (b: Uint8Array) => {
+  const i = b.indexOf(0);
+  return new TextDecoder().decode(i < 0 ? b : b.subarray(0, i));
+};
+
 function tarName(block: Uint8Array, off: number, prefix: Uint8Array): string {
-  const nul = (b: Uint8Array) => {
-    const i = b.indexOf(0);
-    return new TextDecoder().decode(i < 0 ? b : b.subarray(0, i));
-  };
   const name = nul(block.subarray(off, off + 100));
   const pre = nul(prefix);
   return pre ? `${pre}/${name}` : name;

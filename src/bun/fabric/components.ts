@@ -78,13 +78,14 @@ export function validateOutputs(
 
 // --- deterministic builtins (BUILTIN_COMPONENTS) ---
 
+const str = (v: unknown) => (v == null ? "" : typeof v === "string" ? v : JSON.stringify(v));
+
 export function runBuiltin(
   id: string,
   inputs: Record<string, unknown>,
   params: Record<string, unknown>,
   path: string,
 ): Record<string, unknown> {
-  const str = (v: unknown) => (v == null ? "" : typeof v === "string" ? v : JSON.stringify(v));
   switch (id) {
     case "const":
       return { value: params.value ?? null };

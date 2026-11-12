@@ -66,6 +66,7 @@ export async function runAgent(
       for (const childName of fm.children ?? []) {
         const child = childOf(agent, childName, reg, path);
         hooks?.trace?.({ stepId: childName, kind: "delegation", path: `${path}/${childName}`, status: "running", input: current, startedAt: Date.now() });
+        // oxlint-disable-next-line no-await-in-loop -- sequential chain: child output feeds the next
         last = await runAgent(child, {
           objective: typeof current === "string" ? current : JSON.stringify(current),
           params, budget, depth: depth + 1,
@@ -161,6 +162,7 @@ ${PLAN_SCHEMA}`;
     const child = childOf(agent, d.agent, reg, path);
     hooks?.trace?.({ stepId: id, kind: "delegation", path: `${path}/${d.agent}`, status: "running", input: objective, startedAt: Date.now() });
     try {
+      // oxlint-disable-next-line no-await-in-loop -- sequential plan: @ref deps resolve in order
       const out = await runAgent(child, {
         objective, params: opts.params, budget: opts.budget, depth: (opts.depth ?? 0) + 1,
       }, { ...ctx, path }, reg, hooks);
