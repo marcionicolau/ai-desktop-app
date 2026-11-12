@@ -22,6 +22,8 @@ const OVERRIDE_FIELDS: { key: keyof GenerationParams; label: string }[] = [
   { key: "repeatPenalty", label: "Penalty" },
   { key: "seed", label: "Seed" },
   { key: "maxTokens", label: "Max tok" },
+  { key: "nThreads", label: "Threads" },
+  { key: "nGpuLayers", label: "GPU layers" },
 ];
 
 function fmtBytes(n: number): string {

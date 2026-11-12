@@ -15,9 +15,8 @@ import { Sidebar } from "./Sidebar";
 import { ModelPicker } from "../models/ModelPicker";
 import { ModelLibrary } from "../models/ModelLibrary";
 import { decideStartupPrompt } from "./startup-prompt";
-import { GenerationSettings } from "../settings/GenerationSettings";
-import { DataPanel } from "../settings/DataPanel";
 import { ToolSettings } from "../settings/ToolSettings";
+import { DataPanel } from "../settings/DataPanel";
 import { RolesPanel } from "../roles/RolesPanel";
 import { FusionControls } from "../roles/FusionControls";
 import { PersonasPanel } from "../personas/PersonasPanel";
@@ -45,7 +44,6 @@ export function ChatPage() {
     exportConversation,
     importConversation,
     pickModel,
-    saveGeneration,
     regenerate,
     editMessage,
     loadModel,
@@ -253,10 +251,6 @@ export function ChatPage() {
         </header>
         {settingsOpen && (
           <>
-            <GenerationSettings
-              value={state.generation}
-              onSave={saveGeneration}
-            />
             <ToolSettings />
             <DataPanel />
           </>
