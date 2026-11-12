@@ -97,17 +97,21 @@ for dev builds).
 
 ### Functional Requirements
 
-- **FR-001**: The build MUST produce a working artifact on macOS
-  (x64 and/or arm64 per documented policy) and Windows (x64) equivalent
-  to the existing Linux flow.
+- **FR-001**: The build configuration MUST support producing a working
+  artifact on macOS (x64 and/or arm64 per documented policy) and Windows
+  (x64) equivalent to the existing Linux flow. Per the maintainer's
+  scope directive, this iteration verifies only Linux — macOS/Windows
+  ship configured but unverified.
 - **FR-002**: Each platform's native library set MUST stage into the
   packaged artifact with runtime-loadable layout.
 - **FR-003**: A documented smoke checklist MUST exist per OS: launch,
   model load, chat send, token streaming.
 - **FR-004**: Build failures MUST name the missing prerequisite or
   platform-specific cause.
-- **FR-005**: A CI matrix MUST build all three OSes and surface per-OS
-  results with downloadable artifacts.
+- **FR-005**: A CI matrix MUST be defined for all three OSes with per-OS
+  artifact upload; the Linux lane MUST run on push/PR, while the
+  macOS/Windows lanes are present but gated (`enabled: false`) until
+  runner access is arranged.
 - **FR-006**: Signing/notarization steps MUST be documented with
   unsigned-dev-build caveats.
 - **FR-007**: Architecture policy (x64 vs arm64 vs universal) MUST be
@@ -118,6 +122,9 @@ for dev builds).
   checkout.
 - **FR-010**: No feature-behavior changes — identical app functionality
   on every platform.
+- **FR-011**: The app version MUST be computed automatically as semantic
+  version derived from git state (tag exact / prerelease distance /
+  package.json fallback) — no manual version bumps.
 
 ### Key Entities
 
@@ -130,12 +137,13 @@ for dev builds).
 
 ### Measurable Outcomes
 
-- **SC-001**: A clean-checkout build produces a working artifact on all
-  three OSes.
-- **SC-002**: The smoke checklist passes on all three platforms
-  (launch → load → chat → stream).
-- **SC-003**: CI reports per-OS pass/fail on every run with artifacts
-  available for download.
+- **SC-001**: A clean-checkout build produces a working artifact on
+  Linux; macOS/Windows lanes are configured pending runner access.
+- **SC-002**: The smoke checklist passes on the Linux artifact
+  (launch → load → chat → stream); macOS/Windows checklist documented,
+  unverified.
+- **SC-003**: CI reports the Linux lane pass/fail on every run with a
+  downloadable artifact; gated lanes report as skipped.
 - **SC-004**: Time to a working macOS or Windows build from clean
   checkout is under 30 minutes excluding toolchain install.
 - **SC-005**: All existing gates pass and no pre-existing test regresses.
