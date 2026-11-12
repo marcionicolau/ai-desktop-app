@@ -1,0 +1,31 @@
+version: 2
+updates:
+  # Pinned-SHA actions in .github/workflows/ — Dependabot bumps SHA + comment
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+    groups:
+      actions:
+        patterns: ["*"]
+
+  # package.json + bun.lock — monthly version bumps; security updates
+  # raise PRs immediately (independent of this schedule)
+  - package-ecosystem: bun
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
+    versioning-strategy: increase
+    groups:
+      bun-minor-patch:
+        update-types: ["minor", "patch"]
+    commit-message:
+      prefix: chore(deps)
+
+  # vendored llama.cpp pin (src/native/vendor/llama.cpp)
+  - package-ecosystem: gitsubmodule
+    directory: /
+    schedule:
+      interval: monthly
