@@ -40,6 +40,10 @@ export function electrobunViewFactory(getHost: () => HostTarget | null): ViewFac
       preload: EXT_PRELOAD_JS,
       windowId: host.windowId,
       hostWebviewId: host.webviewId,
+      // spawn in place (host-measured rect) or parked offscreen — the
+      // BrowserView default frame (800x600 @ 0,0) would otherwise flash
+      // over the tab bar until the first setBounds lands
+      frame: opts.frame ?? { x: -10000, y: -10000, width: 1, height: 1 },
       autoResize: false,
       allowedProtocols: { views: true, appData: false },
       rpc: viewRpc as never,

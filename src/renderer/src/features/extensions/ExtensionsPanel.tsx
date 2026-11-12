@@ -8,10 +8,9 @@ import { Button } from "@/components/ui/button";
 
 interface Props {
   onBrowse: (packId: string) => void;
-  onOpenView: (packId: string, viewId: string, slot: "tab" | "panel") => void;
 }
 
-export function ExtensionsPanel({ onBrowse, onOpenView }: Props) {
+export function ExtensionsPanel({ onBrowse }: Props) {
   const [packs, setPacks] = useState<InstalledPackView[]>([]);
   const [url, setUrl] = useState("");
   const [consentFor, setConsentFor] = useState<string | null>(null);
@@ -38,12 +37,11 @@ export function ExtensionsPanel({ onBrowse, onOpenView }: Props) {
     if (kind === "url") setUrl("");
   };
 
-  // After enable: surface the pack — open its contributions browser and,
-  // if it declares a tab view, that view directly.
+  // After enable: browse the pack's contributions. `tab` views surface as
+  // top-level tabs via extension.changed (feature 019, spec A7); panel
+  // views open manually — no auto-open anywhere.
   const afterEnable = (p: InstalledPackView) => {
     onBrowse(p.id);
-    const tab = p.manifest.contributions.views?.find((v) => v.slot === "tab");
-    if (tab) onOpenView(p.id, tab.id, "tab");
   };
 
   const enable = (p: InstalledPackView) => {

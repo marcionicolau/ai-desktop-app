@@ -372,3 +372,26 @@ draft-side; `MessageList` renders `Message.attachments` chips (`·trunc` /
   revalidate + consent re-prompt when capabilities change; extension
   BrowserViews are non-sandboxed but their rpc is a dedicated
   `ExtViewRpcSchema` — `ext.*` is the only reachable surface.
+
+## Feature 019 — workspace tabs
+
+- `features/workspace/` (renderer): `WorkspaceTabs` root (mounted by
+  `main.tsx` — ChatPage is tab-1 content), `TabBar` (scrollable strip,
+  Chat unclosable, pack-name tooltips, crash dot), `use-workspace-tabs`
+  hook + `tab-model.ts` pure `deriveTabs`/`reconcile` (headless-tested;
+  reconcile auto-selects fresh ext tabs, falls back to `"chat"` when the
+  selected tab vanishes; the hook seeds baseline from the first scan so
+  restored tabs never steal focus).
+- Hidden ext tabs stay mounted; `ExtViewHost` gained `visible`/`bare`/
+  `onCrash` — `visible=false` → `view.setVisible` parks the native view
+  offscreen (`setBounds` to `x:-10000`, Electrobun BrowserView has no
+  `setVisible`), sessions open lazily on first selection (spec A8).
+- RPC: `view.setVisible` → `ViewManager.setVisible` (park/no-op show).
+- `ExtensionsPanel.afterEnable` = browse-only (A7); `ChatPage
+  onOpenTabView` routes Browse→Open for `tab` views to `focusView`
+  (single session, FR-013) while `panel` views keep the drawer host.
+- Linux file dialogs go through `zenity` via `Bun.spawn` (native
+  `Utils.openFileDialog` can hang the whole main proc under Wayland);
+  `AI_DESKTOP_NATIVE_DIALOGS=1` forces the native path. Renderer RPC
+  default timeout is 30 s (`maxRequestTime`) with `Infinity` for
+  dialog/download calls.

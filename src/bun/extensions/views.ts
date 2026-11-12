@@ -23,6 +23,9 @@ export interface ViewFactoryOpts {
   viewsRoot: string; // view dir root — locked to pack dir
   partition: string;
   bridge: ViewBridge;
+  // initial native frame — callers pass the host slot's measured rect so the
+  // view spawns in place; absent → factory should park offscreen
+  frame?: { x: number; y: number; width: number; height: number };
 }
 
 export type ViewFactory = (opts: ViewFactoryOpts) => BrowserViewLike;
@@ -51,7 +54,12 @@ export class ViewManager {
 
   constructor(private deps: ViewManagerDeps) {}
 
-  open(pack: InstalledPackView, viewId: string, bridge: ViewBridge): ViewSession {
+  open(
+    pack: InstalledPackView,
+    viewId: string,
+    bridge: ViewBridge,
+    frame?: { x: number; y: number; width: number; height: number },
+  ): ViewSession {
     const decl = pack.manifest.contributions.views?.find((v) => v.id === viewId);
     if (!decl) {
       throw new PackError("CONTRIBUTION_NOT_FOUND", `pack "${pack.id}" has no view "${viewId}"`);
@@ -69,6 +77,7 @@ export class ViewManager {
       viewsRoot: pack.dir,
       partition: `persist:ext-${pack.id}`,
       bridge,
+      frame,
     });
     const session: ViewSession = {
       sessionId: `vs_${++counter}`,
@@ -96,6 +105,15 @@ export class ViewManager {
     const s = this.sessions.get(sessionId);
     if (!s) throw new PackError("NOT_FOUND", `no view session "${sessionId}"`);
     s.view.setBounds?.(rect);
+  }
+
+  // feature 019: hidden tabs keep their session alive but parked offscreen —
+  // Electrobun BrowserView has no setVisible, only frame/remove (research D2).
+  setVisible(sessionId: string, visible: boolean): void {
+    const s = this.sessions.get(sessionId);
+    if (!s) throw new PackError("NOT_FOUND", `no view session "${sessionId}"`);
+    if (!visible) s.view.setBounds?.({ x: -10000, y: -10000, width: 1, height: 1 });
+    // visible=true is a bounds no-op: the host's ResizeObserver re-pushes
   }
 
   get(sessionId: string): ViewSession | null {
