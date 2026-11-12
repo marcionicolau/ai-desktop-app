@@ -1,8 +1,9 @@
 // feature 015: inline tool-call timeline card (FR-004/FR-006). Splits
 // streamed content on ```tool_call / ```tool_result fences; call slots
 // pair with ToolCallRecords by index and render the approval actions.
+// feature 021: rebuilt on the ai-elements Tool/Confirmation recipes.
 import { useState } from "react";
-import { FileText, FolderOpen, Ban, CircleAlert, Loader2 } from "lucide-react";
+import { FileText, FolderOpen } from "lucide-react";
 import type { ToolCallRecord } from "@shared/types";
 import {
   parseCallBody,
@@ -12,6 +13,7 @@ import {
   type ToolBlock,
 } from "@shared/tool-call";
 import { Button } from "@/components/ui/button";
+import { ToolCall, ToolCallSection, ToolCallError } from "@/components/ai/tool-call";
 import { invoke } from "@/lib/rpc";
 import { AiMessage } from "@/components/ai/ai-message";
 
@@ -40,39 +42,20 @@ function Card({ record, block }: { record?: ToolCallRecord; block: ToolBlock }) 
 
   const ToolIcon = tool === "list_dir" ? FolderOpen : FileText;
   return (
-    <div className="my-2 rounded-md border border-border bg-background/60 px-3 py-2 text-xs">
-      <div className="flex items-center gap-2">
-        <ToolIcon className="size-3.5 shrink-0 text-muted-foreground" />
-        <span className="font-medium">{tool ?? "tool call"}</span>
+    <ToolCall
+      icon={<ToolIcon className="size-3.5 shrink-0 text-muted-foreground" />}
+      name={tool ?? "tool call"}
+      detail={
         <span
           className="max-w-64 truncate font-mono text-muted-foreground"
           title={record?.resolvedPath ?? path}
         >
           {path || "(no path)"}
         </span>
-        {status === "pending" ? (
-          <span className="ml-auto inline-flex items-center gap-1 text-amber-500">
-            <Loader2 className="size-3 animate-spin" /> awaiting approval
-          </span>
-        ) : status === "executed" ? (
-          <span className="ml-auto text-emerald-500">executed</span>
-        ) : status === "approved" ? (
-          <span className="ml-auto text-emerald-500">approved</span>
-        ) : status === "denied" ? (
-          <span className="ml-auto inline-flex items-center gap-1 text-muted-foreground">
-            <Ban className="size-3" /> denied
-          </span>
-        ) : status === "refused" ? (
-          <span className="ml-auto inline-flex items-center gap-1 text-red-500">
-            <Ban className="size-3" />
-            {REFUSE_LABEL[record?.refuseReason ?? ""] ?? "refused"}
-          </span>
-        ) : (
-          <span className="ml-auto inline-flex items-center gap-1 text-red-500">
-            <CircleAlert className="size-3" /> error
-          </span>
-        )}
-      </div>
+      }
+      status={status}
+    >
+      {/* Confirmation recipe: pending ask-mode decision */}
       {status === "pending" && record && (
         <div className="mt-2 flex flex-wrap gap-1.5">
           <Button
@@ -108,10 +91,11 @@ function Card({ record, block }: { record?: ToolCallRecord; block: ToolBlock }) 
           {record.resultPreview}
         </p>
       )}
+      {/* Stack Trace recipe: failure detail */}
       {status === "error" && record?.error && (
-        <p className="mt-1.5 text-red-500">{record.error}</p>
+        <ToolCallError error={record.error} />
       )}
-    </div>
+    </ToolCall>
   );
 }
 
@@ -125,14 +109,11 @@ function ResultDetails({ block }: { block: ToolBlock }) {
     /* show raw body */
   }
   return (
-    <details className="my-1 rounded border border-border/60 bg-background/40 px-2 py-1 text-xs">
-      <summary className="cursor-pointer select-none text-muted-foreground">
-        tool result
-      </summary>
-      <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap break-words font-mono">
+    <ToolCallSection title="tool result" className="my-1">
+      <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words rounded bg-muted p-2 font-mono text-xs">
         {content}
       </pre>
-    </details>
+    </ToolCallSection>
   );
 }
 
