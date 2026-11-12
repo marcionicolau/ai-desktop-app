@@ -163,6 +163,14 @@ jobs:
               git log "${prev:+$prev..}${GITHUB_REF_NAME}" --pretty=format:'- %s' | head -30
             } > "feed/${prefix}-notes.md"
           done
-          gh release view feed >/dev/null 2>&1 || \
-            gh release create feed --title "Update feed" --prerelease --notes "Rolling auto-update manifests and bundles — do not tag commits."
-          gh release upload feed feed/* --clobber
+          # feed/ can legitimately be empty (no update-feed-* artifacts
+          # when electrobun emits no *-update*.json) — uploading nothing
+          # makes gh fail with "requires at least 2 arg(s)"
+          files=(feed/*)
+          if ((${#files[@]})); then
+            gh release view feed >/dev/null 2>&1 || \
+              gh release create feed --title "Update feed" --prerelease --notes "Rolling auto-update manifests and bundles — do not tag commits."
+            gh release upload feed "${files[@]}" --clobber
+          else
+            echo "no update artifacts produced this run — skipping feed publish"
+          fi
