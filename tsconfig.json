@@ -13,7 +13,7 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
-    "types": ["bun-types"],
+    "types": ["bun-types", "vite/client"],
     "paths": {
       "electrobun": ["./.hutch/devkit/api/sdks/main/index.ts"],
       "electrobun/main": ["./.hutch/devkit/api/sdks/main/index.ts"],
