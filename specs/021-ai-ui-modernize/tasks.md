@@ -131,3 +131,12 @@ Phase 1 (T001–T002: deps + tokens)
 ## Implementation Strategy
 
 **MVP = Phases 1–4** (Setup + Foundational + US1 + US2): the enforced component layer + AI surfaces are the P1 user value. US3 (themes) and US4 (sidebar) are P2 layering. Live-validation checkpoints: quickstart S-scenarios at each phase boundary.
+
+---
+
+## Phase 8: Convergence
+
+- [ ] T036 Build `src/renderer/src/components/ai/checkpoint.tsx` (return-point affordance recipe) and rebuild `src/renderer/src/features/chat/VariantNav.tsx` + `src/renderer/src/features/chat/BranchOverview.tsx` onto it — both files are still hand-rolled pre-021 components per T017 / FR-003 (missing)
+- [ ] T037 Define the bounded typography scale (`--text-*` size/weight/line-height tokens, ≤8 steps) in `src/renderer/src/index.css` `@theme inline` and reference it in the audit/docs per FR-007 / SC-004 / T002 (partial)
+- [ ] T038 Reconcile stale artifacts with the user-directed panel model: update `spec.md` (FR-010/FR-015), `tasks.md` T029–T032 wording, `plan.md` structure section, and `AGENTS.md` to describe full-screen mounted-hidden workspace panels + sidebar tab chrome instead of the workspace accordion; record the consolidated ai-file naming (Task/Queue/Subagent→`task.tsx`, SuggestionChips→`prompt-input.tsx`, Tool/Confirmation/StackTrace→`tool-call.tsx`, chain-of-thought/reasoning→inline `TraceCollapsible`) and skipped `sheet.tsx`/`popover.tsx` per FR-010 / T030 / T032 (contradicts)
+- [ ] T039 Promote the conversation search field to a top-level sidebar search form (sidebar-05 pattern) in `src/renderer/src/features/chat/AppSidebar.tsx`, or accept the in-group placement and amend FR-013 text per FR-013 / US4/AC2 (partial)
