@@ -17,6 +17,9 @@ export interface BridgeDeps {
   theme: () => ExtContext["theme"];
   // starts a run for ext.invoke; returns runId
   startRun: (packId: string, target: { kind: "pipeline" | "agent"; id: string }, params: Record<string, unknown>) => string;
+  // T051: view-side error reports — not capability-gated (crash telemetry
+  // must reach the host even for a pack that declared nothing)
+  reportError?: (message: string) => void;
 }
 
 const denied = (cap: Capability) =>
@@ -89,6 +92,10 @@ export function createViewBridge(pack: InstalledPackView, viewId: string, deps: 
         ? { kind: "pipeline" as const, id: cmd.run.pipeline }
         : { kind: "agent" as const, id: cmd.run.agent! };
       return { runId: deps.startRun(pack.id, target, { ...cmd.run.params, ...args }) };
+    },
+    "ext.reportError": ({ message }: { message: string }) => {
+      deps.reportError?.(typeof message === "string" ? message.slice(0, 500) : "unknown view error");
+      return {};
     },
     "ext.models.generate": async ({ prompt, params }: { prompt: string; params?: Record<string, unknown> }) => {
       need("models.generate");

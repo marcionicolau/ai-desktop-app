@@ -61,7 +61,7 @@ export function ChatPage() {
   const [extOpen, setExtOpen] = useState(false);
   const [browsePack, setBrowsePack] = useState<string | null>(null);
   const [focusRun, setFocusRun] = useState<string | null>(null);
-  const [openView, setOpenView] = useState<{ packId: string; viewId: string } | null>(null);
+  const [openView, setOpenView] = useState<{ packId: string; viewId: string; slot: "tab" | "panel" } | null>(null);
   useEffect(() => {
     void invoke("settings.get", {}).then((s) =>
       setMetricsOpen(s.outputPanel),
@@ -298,7 +298,7 @@ export function ChatPage() {
           <WorkspaceBrowser
             packId={browsePack}
             onRunStarted={(runId) => setFocusRun(runId)}
-            onOpenView={(packId, viewId) => setOpenView({ packId, viewId })}
+            onOpenView={(packId, viewId, slot) => setOpenView({ packId, viewId, slot })}
           />
         )}
         {extOpen && <RunView focusRunId={focusRun} />}
@@ -306,6 +306,7 @@ export function ChatPage() {
           <ExtViewHost
             packId={openView.packId}
             viewId={openView.viewId}
+            slot={openView.slot}
             onClose={() => setOpenView(null)}
           />
         )}

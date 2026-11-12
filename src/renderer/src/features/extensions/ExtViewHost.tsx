@@ -9,17 +9,18 @@ import { Button } from "@/components/ui/button";
 interface Props {
   packId: string;
   viewId: string;
+  slot?: "tab" | "panel";
   onClose: () => void;
 }
 
-export function ExtViewHost({ packId, viewId, onClose }: Props) {
+export function ExtViewHost({ packId, viewId, slot = "panel", onClose }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [crashed, setCrashed] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const open = () => {
-    void invoke("view.open", { packId, viewId, slot: "panel" })
+    void invoke("view.open", { packId, viewId, slot })
       .then((r) => {
         setSessionId(r.sessionId);
         setCrashed(null);
@@ -63,7 +64,13 @@ export function ExtViewHost({ packId, viewId, onClose }: Props) {
   );
 
   return (
-    <div className="flex h-64 shrink-0 flex-col border-t border-border">
+    <div
+      className={
+        slot === "tab"
+          ? "flex min-h-96 flex-1 flex-col border-t border-border"
+          : "flex h-64 shrink-0 flex-col border-t border-border"
+      }
+    >
       <div className="flex items-center justify-between px-4 py-1">
         <span className="text-xs font-medium">
           {packId}:{viewId}

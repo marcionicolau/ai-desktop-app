@@ -63,6 +63,18 @@ export function electrobunViewFactory(getHost: () => HostTarget | null): ViewFac
       },
       remove: () => view.remove(),
     };
+    // T052 (FR-013/FR-014): extension views may only load views:// pack
+    // assets — any remote navigation is forced back to the entry page
+    view.on("did-navigate", (event) => {
+      const detail = (event as { detail?: { url?: string } }).detail;
+      if (detail?.url && !detail.url.startsWith("views://")) {
+        try {
+          view.loadURL(`views://${rel}`);
+        } catch {
+          // view already gone
+        }
+      }
+    });
     view.on("dom-ready", () => undefined);
     return like;
   };

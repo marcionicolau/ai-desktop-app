@@ -144,3 +144,33 @@ describe("RunManager", () => {
     expect(rec.error?.message).toContain("engine blew up");
   });
 });
+
+test("history cap: oldest runs pruned beyond 50 per pack (T032)", async () => {
+  const mgr = new RunManager({ registry: reg, engine: () => answeringEngine() });
+  const { mkdirSync, writeFileSync } = await import("node:fs");
+  const { runsDir } = await import("../../src/bun/store/paths");
+  mkdirSync(runsDir("notes-pack"), { recursive: true });
+  for (let i = 0; i < 55; i++) {
+    writeFileSync(
+      join(runsDir("notes-pack"), `aaa_old_${String(i).padStart(3, "0")}.json`),
+      JSON.stringify({
+        id: `aaa_old_${i}`, packId: "notes-pack",
+        target: { kind: "pipeline", id: "notes-pack:document_summary" },
+        objective: "old", params: {}, status: "completed",
+        trace: [], artifacts: [], budget: {},
+        usage: { steps: 0, delegations: 0, modelCalls: 0, promptTokens: 0, outputTokens: 0, elapsedMs: 0 },
+        startedAt: i, endedAt: i,
+      }),
+    );
+  }
+  const runId = mgr.start({
+    packId: "notes-pack",
+    target: { kind: "pipeline", id: "notes-pack:document_summary" },
+    objective: "o",
+    params: { transcript: "a long meeting transcript with many words spoken" },
+  });
+  await waitStatus(mgr, runId, ["completed", "failed"]);
+  const listed = mgr.list("notes-pack");
+  expect(listed.length).toBeLessThanOrEqual(50);
+  expect(listed.some((r) => r.id === runId)).toBe(true); // newest survives
+});

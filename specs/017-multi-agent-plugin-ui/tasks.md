@@ -281,3 +281,13 @@ contribution registration, demonstrable via RPC before any UI. Then US2
 - Packs are declarative — no pack code executes; `runtime:component` ids
   are host builtins only.
 - Extension views are real `BrowserView`s, not iframes.
+
+## Phase 8: Convergence
+
+- [x] T049 Implement structured contribution detail views per T025 + US2/AC1-2 (partial): `SkillDetail` (typed ports, params, guidance sections), `PipelineDetail` (step DAG with bindings), `AgentTree` (recursive hierarchy incl. kind/model/children) — wire as the detail pane in `WorkspaceBrowser.tsx`.
+- [x] T050 Implement `TraceView` per T036 + US3/AC3 (partial): per-step input/output rendering and artifact values (not just names) in `RunView.tsx`.
+- [x] T051 Wire extension-view crash reporting per US4/AC2 + T043 (partial): `EXT_PRELOAD_JS` captures `error`/`unhandledrejection` and reports to the host; host marks the session crashed (`markCrashed` → `view.error`) so `ExtViewHost` shows the contained placeholder + reload.
+- [x] T052 Restrict extension-view navigation per FR-013/FR-014 (partial): set `navigationRules` on the extension `BrowserView` in `electrobun-view.ts` so only `views://` pack assets load (no remote navigation).
+- [x] T053 Add a 3-pack simultaneous-enable coexistence test per SC-005 (partial).
+- [x] T054 Add a `RunManager` 50-cap history-pruning test per T032 (partial).
+- [x] T055 Honor the declared view `slot` per T043 + FR-013 (partial): `slot: "tab"` contributions open in a tab-style host surface rather than always the bottom `ExtViewHost` panel.

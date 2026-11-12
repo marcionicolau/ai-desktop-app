@@ -21,6 +21,7 @@ export interface ExtViewRpcSchema extends ElectrobunRPCSchema {
       "ext.runs.list": { params: Record<string, never>; response: { runs: RunSummary[] } };
       "ext.runs.get": { params: { runId: string }; response: { run: RunRecord | null } };
       "ext.invoke": { params: { commandId: string; args?: Record<string, unknown> }; response: { runId: string } };
+      "ext.reportError": { params: { message: string }; response: Record<string, never> };
       "ext.models.generate": {
         params: { prompt: string; params?: Record<string, unknown> };
         response: { text: string; usage: { promptTokens?: number; outputTokens: number } };

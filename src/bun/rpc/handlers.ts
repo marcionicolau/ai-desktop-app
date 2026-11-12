@@ -1479,14 +1479,19 @@ export function createRequestHandlers(deps: HandlerDeps) {
       if (pack.state !== "enabled") {
         fail("PACK_INVALID", `pack "${packId}" is not enabled`);
       }
+      let sessionId: string | null = null;
       const bridge = createViewBridge(pack, viewId, {
         engine: () => deps.engine,
         runs: () => fabric,
         theme: () => ({ mode: "dark", vars: {} }),
         startRun: (pid, target, params) =>
           fabric.start({ packId: pid, target: { ...target, id: target.id.includes(":") ? target.id : `${pid}:${target.id}` }, objective: `command:${viewId}`, params }),
+        reportError: (message) => {
+          if (sessionId) viewMgr().markCrashed(sessionId, message);
+        },
       });
       const s = viewMgr().open(pack, viewId, bridge);
+      sessionId = s.sessionId;
       // initial theme sync; change pushes go through the same path (FR-015)
       viewMgr().pushTheme({ mode: "dark", vars: {} });
       void slot;

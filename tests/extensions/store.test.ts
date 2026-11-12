@@ -140,3 +140,22 @@ describe("ExtensionsStore", () => {
     expect(s.list()).toEqual([]);
   });
 });
+
+test("three packs enabled simultaneously: no cross-talk (SC-005)", async () => {
+  const s = store();
+  s.scan();
+  const ids: string[] = [];
+  for (const fx of ["notes-pack", "views-pack", "crash-view-pack"]) {
+    const p = await s.install({ kind: "folder", path: join(FX, fx) });
+    s.enable(p.id, true);
+    ids.push(p.id);
+  }
+  // notes-pack contributions registered under its own namespace only
+  const contribs = reg.contributions("notes-pack");
+  expect(contribs?.skills.every((sk) => sk.id.startsWith("notes-pack:"))).toBe(true);
+  // each pack's state is independent
+  s.disable("views-pack");
+  expect(s.get("notes-pack").state).toBe("enabled");
+  expect(s.get("crash-view-pack").state).toBe("enabled");
+  expect(reg.contributions("notes-pack")?.skills.length).toBe(2);
+});

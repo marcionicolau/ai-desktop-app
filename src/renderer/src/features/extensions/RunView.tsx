@@ -1,5 +1,6 @@
 // feature 017 (US3): run monitor — history list + selected-run trace with
 // live run.event/run.status updates and cancellation (FR-010/FR-011).
+// T050: per-step input/output rendering and artifact values.
 import { useEffect, useState } from "react";
 import type { RunRecord, RunSummary } from "@shared/types";
 import { invoke, on } from "@/lib/rpc";
@@ -101,17 +102,40 @@ export function RunView({ focusRunId }: { focusRunId: string | null }) {
                 </span>
               )}
             </div>
-            <ul className="max-h-40 space-y-0.5 overflow-auto rounded bg-muted p-2 font-mono text-[11px]">
+            <ul
+              className="max-h-40 space-y-0.5 overflow-auto rounded bg-muted p-2 font-mono text-[11px]"
+              data-testid="trace-view"
+            >
               {selected.trace.map((t) => (
                 <li key={t.seq}>
-                  <span className="text-muted-foreground">#{t.seq}</span> {t.kind}{" "}
-                  {t.path} <span className="text-muted-foreground">{t.status}</span>
+                  <div>
+                    <span className="text-muted-foreground">#{t.seq}</span> {t.kind}{" "}
+                    {t.path} <span className="text-muted-foreground">{t.status}</span>
+                  </div>
+                  {t.input !== undefined && (
+                    <div className="pl-4 text-muted-foreground">
+                      in: {JSON.stringify(t.input).slice(0, 200)}
+                    </div>
+                  )}
+                  {t.output !== undefined && (
+                    <div className="pl-4">
+                      out: {JSON.stringify(t.output).slice(0, 200)}
+                    </div>
+                  )}
                 </li>
               ))}
             </ul>
             {selected.artifacts.length > 0 && (
-              <div className="mt-1 text-xs">
-                Artifacts: {selected.artifacts.map((a) => a.name).join(", ")}
+              <div className="mt-1 space-y-0.5 text-xs" data-testid="artifact-values">
+                {selected.artifacts.map((a) => (
+                  <div key={`${a.stepId}:${a.name}`}>
+                    <span className="font-medium">{a.name}</span>
+                    <span className="text-muted-foreground"> ({a.type})</span>:{" "}
+                    {typeof a.value === "string"
+                      ? a.value.slice(0, 300)
+                      : JSON.stringify(a.value).slice(0, 300)}
+                  </div>
+                ))}
               </div>
             )}
           </div>

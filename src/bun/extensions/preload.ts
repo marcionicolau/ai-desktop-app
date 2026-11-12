@@ -45,6 +45,13 @@ export const EXT_PRELOAD_JS = String.raw`
     }
     return prevReceive?.(msg);
   };
+  // T051: report uncaught errors/rejections so the host can contain the
+  // view (markCrashed → view.error → host shows reload). Fire-and-forget.
+  const report = (msg) => {
+    try { post({ type: "request", id: "ext_err_" + ++seq, method: "ext.reportError", params: { message: String(msg) } }); } catch (e) {}
+  };
+  window.addEventListener("error", (e) => report(e.message || "uncaught error"));
+  window.addEventListener("unhandledrejection", (e) => report(e.reason?.message || String(e.reason) || "unhandled rejection"));
   window.ext = {
     context: () => request("ext.context"),
     storage: {
