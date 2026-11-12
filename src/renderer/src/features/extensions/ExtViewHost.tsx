@@ -16,10 +16,11 @@ interface Props {
   visible?: boolean;
   bare?: boolean;
   onCrash?: () => void;
+  onRecovered?: () => void;
   onClose: () => void;
 }
 
-export function ExtViewHost({ packId, viewId, slot = "panel", visible = true, bare = false, onCrash, onClose }: Props) {
+export function ExtViewHost({ packId, viewId, slot = "panel", visible = true, bare = false, onCrash, onRecovered, onClose }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const opened = useRef(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -30,8 +31,10 @@ export function ExtViewHost({ packId, viewId, slot = "panel", visible = true, ba
     opened.current = true;
     void invoke("view.open", { packId, viewId, slot })
       .then((r) => {
+        const hadCrash = crashed !== null;
         setSessionId(r.sessionId);
         setCrashed(null);
+        if (hadCrash) onRecovered?.();
       })
       .catch((e: Error) => setError(e.message));
   };

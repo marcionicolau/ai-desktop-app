@@ -18,7 +18,12 @@
 
 ## Live E2E pending
 
-Visual/interactive checks remain for the dev window (same caveat as 017/018): S2 auto-select, S3 park/restore visual, S6 focus routing, S7 crash badge, S9 overflow. The `--watch` rebuild picks this branch's changes automatically — enable `views-pack` and check the tab bar.
+Visual/interactive checks remain for the dev window (same caveat as 017/018): S2 auto-select, S3 park/restore visual, S6 focus routing, S7 crash badge (+ badge clears on Reload — T022), S9 overflow. No dev session was running during the T024 pass — relaunch `bun run dev`, enable `views-pack`, and check the tab bar.
+
+## Convergence fixes (T022/T023)
+
+- Crash badge is no longer sticky: `ExtViewHost` reports `onRecovered` when a post-crash `view.open` succeeds; `WorkspaceTabs` clears the tab dot and prunes badges for vanished tabs (T022).
+- `useWorkspaceTabs` seeds a baseline from the first scan result; `reconcile` only runs afterward — a mid-startup `extension.changed` can't auto-select a restored tab (T023, FR-006).
 
 ## Notes
 

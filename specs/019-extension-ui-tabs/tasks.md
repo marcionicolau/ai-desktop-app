@@ -101,6 +101,6 @@ All tasks: checkbox + sequential ID + [P] only where parallel-safe + [USx] label
 
 ## Phase 7: Convergence
 
-- [ ] T022 Clear stale crash badges in `src/renderer/src/features/workspace/WorkspaceTabs.tsx` — remove a tab id from `crashed` when its view reloads successfully (`ExtViewHost` `open()` resolves; add a recovery callback prop) and prune ids for tabs that vanished per FR-008 / US3-AC1 (partial)
-- [ ] T023 Guard `useWorkspaceTabs` in `src/renderer/src/features/workspace/use-workspace-tabs.ts` so `reconcile` only runs after the initial `extension.scan` baseline has seeded — an `extension.changed` mid-startup must not auto-select a restored tab per FR-006 (partial)
+- [x] T022 Clear stale crash badges in `src/renderer/src/features/workspace/WorkspaceTabs.tsx` — remove a tab id from `crashed` when its view reloads successfully (`ExtViewHost` `open()` resolves; add a recovery callback prop) and prune ids for tabs that vanished per FR-008 / US3-AC1 (partial)
+- [x] T023 Guard `useWorkspaceTabs` in `src/renderer/src/features/workspace/use-workspace-tabs.ts` so `reconcile` only runs after the initial `extension.scan` baseline has seeded — an `extension.changed` mid-startup must not auto-select a restored tab per FR-006 (partial)
 - [ ] T024 Complete the live quickstart walkthrough for pending scenarios S2/S3/S6/S7/S9 in `bun run dev` and update `specs/019-extension-ui-tabs/validation.md` per T019 (partial)
