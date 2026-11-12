@@ -9,3 +9,4 @@ native/out/
 /models/
 .cottontail-tmp/
 outputs/
+native/build/
