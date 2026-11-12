@@ -3,7 +3,7 @@ import { PanelLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 /**
  * Vendored shadcn `ui/sidebar` — reduced for this desktop app:
@@ -83,6 +83,9 @@ export function SidebarProvider({
 
   return (
     <Ctx.Provider value={value}>
+      {/* Radix Tooltip throws without a provider — collapsed-state button
+          tooltips render under us, so the provider must live here */}
+      <TooltipProvider delayDuration={0}>
       <div
         data-slot="sidebar-wrapper"
         className={cn("group/sidebar-wrapper flex h-full min-h-0 w-full", className)}
@@ -97,6 +100,7 @@ export function SidebarProvider({
       >
         {children}
       </div>
+      </TooltipProvider>
     </Ctx.Provider>
   );
 }
@@ -112,7 +116,7 @@ export function Sidebar({
       data-slot="sidebar"
       data-state={state}
       className={cn(
-        "flex h-full w-(--sidebar-width) shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-[width] duration-200 ease-linear overflow-hidden",
+        "group flex h-full w-(--sidebar-width) shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-[width] duration-200 ease-linear overflow-hidden",
         "data-[state=collapsed]:w-(--sidebar-width-icon)",
         className,
       )}

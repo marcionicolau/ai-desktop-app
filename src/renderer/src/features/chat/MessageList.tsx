@@ -212,11 +212,11 @@ export function MessageList({
                     </p>
                   )}
                 {m.role === "assistant" && m.stats && (
-                  <p className="mt-1 flex items-center gap-2">
+                  <div className="mt-1 flex items-center gap-2">
                     <Badge variant="secondary" className="font-normal">
                       {m.stats.tokens} tokens · {m.stats.tokensPerSec} tok/s
                     </Badge>
-                  </p>
+                  </div>
                 )}
               </MessageContent>
               <MessageToolbar>
