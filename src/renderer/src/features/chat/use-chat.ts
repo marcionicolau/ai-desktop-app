@@ -767,11 +767,6 @@ export function useChat() {
     await invoke("model.load", { path });
   }, []);
 
-  const pickModel = useCallback(async () => {
-    const { path } = await invoke("model.pick", {});
-    if (path) await invoke("model.load", { path });
-  }, []);
-
   const saveGeneration = useCallback(
     async (patch: Partial<GenerationParams>) => {
       const next = { ...state.generation, ...patch };
@@ -794,7 +789,6 @@ export function useChat() {
     send,
     stop,
     loadModel,
-    pickModel,
     saveGeneration,
     selectConversation,
     newConversation,
