@@ -104,7 +104,7 @@
 
 - [x] T033 [P] Update `AGENTS.md` — component layer rules (ui/ = only radix home, ai/ = recipes), theme tokens, sidebar shell, audit test
 - [x] T034 Full gates: `bunx tsc --noEmit`, `bun test ./tests`, `bun run lint`, `bun run build:renderer` — green
-- [ ] T035 Live-validate `quickstart.md` S1–S4; record results + light/dark screenshots in `specs/021-ai-ui-modernize/validation.md`
+- [x] T035 Live-validate `quickstart.md` S1–S4; record results + light/dark screenshots in `specs/021-ai-ui-modernize/validation.md`
 
 ---
 

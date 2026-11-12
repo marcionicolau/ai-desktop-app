@@ -36,10 +36,31 @@
 - `tests/ui-audit.test.ts`: 3/3 PASS — zero radix imports outside ui/,
   zero palette literals outside ui/, ai/ dep rules hold
 
-## T035 status
+## T035 status — live validation recorded
 
-Dev server serves the new shell on :5173 (SidebarProvider + AppSidebar +
-SidebarInset verified via build/typecheck; existing dev session
-pid 1226474 was reused — hutch refused a second). Interactive S1–S4
-walkthrough + light/dark screenshots still pending human eyes on the
-running app.
+Screenshots: `screenshots/light-system.png`, `screenshots/dark.png`,
+`screenshots/light.png` (theme cycler walked System → Dark → Light in
+the running dev app).
+
+- S1 — PASS: `bun test ./tests/ui-audit.test.ts` 3/3 (zero radix imports
+  outside ui/, zero palette literals, ai/ dep rules hold — incl. the
+  post-convergence `checkpoint.tsx` + VariantNav/BranchOverview rebuild).
+- S2 — visually verified: structured turn layout renders in the readable
+  transcript column; composer + attachment affordance anchored bottom;
+  header persona select, fusion model menus, metrics toggle all themed
+  (native selects readable in dark via `color-scheme` fix, `985fe0f`).
+- S3 — PASS (visible): System/Light/Dark all render correctly across
+  sidebar, header, transcript, composer; override persists in the footer
+  control. Extension live theme-sync (`pushTheme`) previously exercised
+  during the sidebar work; reduced-motion + narrow-window not
+  individually re-exercised this pass.
+- S4 — verified: Chats group (New chat, Import…, search field,
+  conversations), Extensions group (ext views + pack browsers +
+  Manage…), Configurations group (Models/Personas/Roles/Settings),
+  theme cycler footer; transcript capped at readable width with the
+  composer anchored. Collapse→icon-rail + panel focus previously
+  exercised during the panel-model work (incl. the TooltipProvider fix
+  at `fdb8f68`).
+
+Gate results unchanged: tsc clean, 395/395 tests, lint warnings
+pre-existing, renderer build PASS.
