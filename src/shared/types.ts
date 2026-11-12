@@ -520,4 +520,10 @@ export type WorkspaceTab =
       packId: string;
       title: string;
       packName: string;
+    }
+  | {
+      kind: "surface"; // feature 021: app surface — each alone on screen
+      id: string; // `surface:${surfaceId}`
+      surfaceId: "models" | "personas" | "roles" | "settings" | "extensions";
+      title: string;
     };

@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/sidebar";
 import { ConversationNav } from "./ConversationNav";
 import { ThemeSettings } from "../settings/ThemeSettings";
+import { cn } from "@/lib/utils";
 import { ChevronDown, Library, Settings2, Tags, Users } from "lucide-react";
 
 interface Props {
@@ -110,39 +111,38 @@ export function AppSidebar({
             onSelectHit={onSelectHit}
           />
         </NavGroup>
-        {extTabs.length > 0 && (
-          <NavGroup label="Extensions" defaultOpen>
-            <SidebarMenu>
-              {extTabs.map((t) => (
-                <SidebarMenuItem key={t.id}>
-                  <SidebarMenuButton
-                    isActive={selectedTabId === t.id}
-                    tooltip={t.title}
-                    onClick={() => onSelectTab(t.id)}
-                    className="h-8"
-                  >
-                    {t.kind === "pack" ? (
-                      <Puzzle className="size-4" />
-                    ) : (
-                      <MessageSquare className="size-4" />
-                    )}
-                    <span className="truncate">{t.title}</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-              <SidebarMenuItem>
+        <NavGroup label="Extensions" defaultOpen>
+          <SidebarMenu>
+            {extTabs.map((t) => (
+              <SidebarMenuItem key={t.id}>
                 <SidebarMenuButton
-                  tooltip="Manage extensions"
-                  onClick={onManageExtensions}
-                  className="h-8 text-muted-foreground"
+                  isActive={selectedTabId === t.id}
+                  tooltip={t.title}
+                  onClick={() => onSelectTab(t.id)}
+                  className="h-8"
                 >
-                  <Settings2 className="size-4" />
-                  <span>Manage…</span>
+                  {t.kind === "pack" ? (
+                    <Puzzle className="size-4" />
+                  ) : (
+                    <MessageSquare className="size-4" />
+                  )}
+                  <span className="truncate">{t.title}</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
-            </SidebarMenu>
-          </NavGroup>
-        )}
+            ))}
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                isActive={selectedTabId === "surface:extensions"}
+                tooltip="Manage extensions"
+                onClick={onManageExtensions}
+                className={cn("h-8", extTabs.length === 0 ? "" : "text-muted-foreground")}
+              >
+                <Settings2 className="size-4" />
+                <span>Manage…</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </NavGroup>
       </SidebarContent>
       <SidebarFooter>
         <SidebarMenu>

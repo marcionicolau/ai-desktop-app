@@ -5,13 +5,24 @@ import type { InstalledPackView, WorkspaceTab } from "@shared/types";
 
 export const CHAT_TAB: WorkspaceTab = { kind: "chat", id: "chat", title: "Chat" };
 
+// feature 021: app surfaces are workspace items — each alone on screen.
+// Extensions surface hosts the manage/browse/runs panels; ids are stable
+// so sidebar nav and accordion selection share the same addressing.
+export const SURFACE_TABS: WorkspaceTab[] = [
+  { kind: "surface", id: "surface:models", surfaceId: "models", title: "Models" },
+  { kind: "surface", id: "surface:personas", surfaceId: "personas", title: "Personas" },
+  { kind: "surface", id: "surface:roles", surfaceId: "roles", title: "Roles" },
+  { kind: "surface", id: "surface:settings", surfaceId: "settings", title: "Settings" },
+  { kind: "surface", id: "surface:extensions", surfaceId: "extensions", title: "Extensions" },
+];
+
 export interface TabState {
   tabs: WorkspaceTab[];
   selectedId: string;
 }
 
 export function deriveTabs(packs: InstalledPackView[]): WorkspaceTab[] {
-  const tabs: WorkspaceTab[] = [CHAT_TAB];
+  const tabs: WorkspaceTab[] = [CHAT_TAB, ...SURFACE_TABS];
   for (const p of packs) {
     if (p.state !== "enabled") continue;
     const tabViews = (p.manifest.contributions.views ?? []).filter(

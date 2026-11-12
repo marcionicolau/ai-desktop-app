@@ -27,6 +27,8 @@ interface Props {
   select: (id: string) => void;
   focusView: (packId: string, viewId: string) => void;
   chat: ReactNode;
+  /** feature 021: renders a `surface` item's body (models/personas/…). */
+  renderSurface: (surfaceId: string) => ReactNode;
   focusRunId: string | null;
   onRunStarted: (runId: string) => void;
   onOpenPanelView: (packId: string, viewId: string) => void;
@@ -46,6 +48,7 @@ export function WorkspaceAccordion({
   select,
   focusView,
   chat,
+  renderSurface,
   focusRunId,
   onRunStarted,
   onOpenPanelView,
@@ -105,6 +108,23 @@ export function WorkspaceAccordion({
         </AccordionContent>
       </AccordionItem>
       {tabs.map((t) => {
+        if (t.kind === "surface") {
+          return (
+            <AccordionItem key={t.id} value={t.id} className={itemCls} data-testid={`workspace-item-${t.id}`}>
+              <AccordionTrigger
+                title={t.title}
+                className="data-[state=open]:bg-muted/50 data-[state=open]:text-foreground"
+              >
+                <span className="truncate">{t.title}</span>
+              </AccordionTrigger>
+              <AccordionContent forceMount className={contentCls}>
+                <div className="min-h-0 flex-1 overflow-y-auto">
+                  {renderSurface(t.surfaceId)}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          );
+        }
         if (t.kind === "ext") {
           const isCrashed = crashed.has(t.id);
           return (

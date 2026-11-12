@@ -71,19 +71,15 @@ export function ChatPage() {
     const r = await invoke("role.resolve", { name: tag });
     await loadModel(r.resolved.path);
   };
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [libraryOpen, setLibraryOpen] = useState(false);
-  const [rolesOpen, setRolesOpen] = useState(false);
   const [branchesOpen, setBranchesOpen] = useState(false);
-  const [personasOpen, setPersonasOpen] = useState(false);
   // feature 006: preferred-tag offer from conversation.setPersona —
   // suggestion only; the user applies or dismisses
   const [tagOffer, setTagOffer] = useState<string | null>(null);
   // feature 016 (T012): header switch → persisted settings.outputPanel;
   // the same flag gates collection on the bun side
   const [metricsOpen, setMetricsOpen] = useState(false);
-  // feature 017: extensions drawer + focused workspace/run/view sessions
-  const [extOpen, setExtOpen] = useState(false);
+  // feature 017/021: extension browse/run/view sessions — rendered inside
+  // the "extensions" workspace surface
   const [browsePack, setBrowsePack] = useState<string | null>(null);
   const [focusRun, setFocusRun] = useState<string | null>(null);
   const [openView, setOpenView] = useState<{
@@ -109,18 +105,21 @@ export function ChatPage() {
     if (d === "wait") return;
     startupEval.current = true;
     if (d === "open") {
-      setLibraryOpen(true);
+      select("surface:models");
       setStartupPrompted(true);
     }
     // "settle" (ready) — evaluated latch alone suppresses future prompts
   }, [state.modelStatusHydrated, state.modelStatus]);
-  // dismissal = closing the auto-opened library before a model is ready
-  // (FR-004); a ready transition just ends the prompted state (T004)
+  // dismissal = leaving the auto-opened models surface before a model is
+  // ready (FR-004); a ready transition just ends the prompted state (T004)
   useEffect(() => {
-    if (startupPrompted && (!libraryOpen || state.modelStatus === "ready")) {
+    if (
+      startupPrompted &&
+      (selectedId !== "surface:models" || state.modelStatus === "ready")
+    ) {
       setStartupPrompted(false);
     }
-  }, [libraryOpen, startupPrompted, state.modelStatus]);
+  }, [selectedId, startupPrompted, state.modelStatus]);
   useEffect(() => {
     void invoke("settings.get", {}).then((s) => setMetricsOpen(s.outputPanel));
   }, []);
@@ -178,14 +177,11 @@ export function ChatPage() {
         workspaceTabs={tabs}
         selectedTabId={selectedId}
         onSelectTab={select}
-        onOpenLibrary={() => setLibraryOpen((v) => !v)}
-        onOpenPersonas={() => setPersonasOpen((v) => !v)}
-        onOpenRoles={() => setRolesOpen((v) => !v)}
-        onOpenSettings={() => setSettingsOpen((v) => !v)}
-        onManageExtensions={() => {
-          setExtOpen(true);
-          select("chat");
-        }}
+        onOpenLibrary={() => select("surface:models")}
+        onOpenPersonas={() => select("surface:personas")}
+        onOpenRoles={() => select("surface:roles")}
+        onOpenSettings={() => select("surface:settings")}
+        onManageExtensions={() => select("surface:extensions")}
       />
       <SidebarInset>
         <header className="flex items-center justify-between border-b border-border px-4 py-2">
@@ -218,7 +214,7 @@ export function ChatPage() {
                   value={state.plannerTag}
                   options={boundTags}
                   onSelect={(t) => void setMode("fusion", t, state.executorTag)}
-                  onManage={() => setRolesOpen(true)}
+                  onManage={() => select("surface:roles")}
                   disabled={state.generatingId !== null}
                 />
                 <ModelSelector
@@ -226,7 +222,7 @@ export function ChatPage() {
                   value={state.executorTag}
                   options={boundTags}
                   onSelect={(t) => void setMode("fusion", state.plannerTag, t)}
-                  onManage={() => setRolesOpen(true)}
+                  onManage={() => select("surface:roles")}
                   disabled={state.generatingId !== null}
                 />
               </>
@@ -236,7 +232,7 @@ export function ChatPage() {
                 value={modelTagName}
                 options={boundTags}
                 onSelect={(t) => void applyTag(t)}
-                onManage={() => setLibraryOpen(true)}
+                onManage={() => select("surface:models")}
                 disabled={state.generatingId !== null}
               />
             )}
@@ -264,21 +260,6 @@ export function ChatPage() {
             </label>
           </div>
         </header>
-        {settingsOpen && (
-          <>
-            <ToolSettings />
-            <DataPanel />
-          </>
-        )}
-        {rolesOpen && <RolesPanel />}
-        {personasOpen && <PersonasPanel />}
-        {libraryOpen && (
-          <ModelLibrary
-            activeName={state.modelName}
-            onLoad={(p) => void loadModel(p)}
-            autoLoadOnDownload={startupPrompted}
-          />
-        )}
         <WorkspaceAccordion
           tabs={tabs}
           selectedId={selectedId}
@@ -288,9 +269,62 @@ export function ChatPage() {
           onRunStarted={setFocusRun}
           onOpenPanelView={(packId, viewId) => {
             setOpenView({ packId, viewId, slot: "panel" });
-            select("chat");
+            select("surface:extensions");
           }}
           onCloseTab={(packId) => void invoke("extension.disable", { packId })}
+          renderSurface={(surfaceId) => {
+            switch (surfaceId) {
+              case "models":
+                return (
+                  <ModelLibrary
+                    activeName={state.modelName}
+                    onLoad={(p) => void loadModel(p)}
+                    autoLoadOnDownload={startupPrompted}
+                  />
+                );
+              case "personas":
+                return <PersonasPanel />;
+              case "roles":
+                return <RolesPanel />;
+              case "settings":
+                return (
+                  <>
+                    <ToolSettings />
+                    <DataPanel />
+                  </>
+                );
+              case "extensions":
+                return (
+                  <>
+                    <ExtensionsPanel
+                      onBrowse={(packId) => setBrowsePack(packId)}
+                    />
+                    {browsePack && (
+                      <WorkspaceBrowser
+                        packId={browsePack}
+                        onRunStarted={(runId) => setFocusRun(runId)}
+                        onOpenView={(packId, viewId, slot) =>
+                          slot === "tab"
+                            ? focusView(packId, viewId)
+                            : setOpenView({ packId, viewId, slot })
+                        }
+                      />
+                    )}
+                    <RunView focusRunId={focusRun} />
+                    {openView && (
+                      <ExtViewHost
+                        packId={openView.packId}
+                        viewId={openView.viewId}
+                        slot={openView.slot}
+                        onClose={() => setOpenView(null)}
+                      />
+                    )}
+                  </>
+                );
+              default:
+                return null;
+            }
+          }}
           chat={
             <>
               {tagOffer && (
@@ -314,7 +348,7 @@ export function ChatPage() {
               {state.modelStatus === "unloaded" && (
                 <button
                   className="w-full border-b border-border bg-muted px-4 py-2 text-center text-sm text-muted-foreground hover:bg-accent hover:text-foreground"
-                  onClick={() => setLibraryOpen(true)}
+                  onClick={() => select("surface:models")}
                 >
                   No model is loaded — click to pick a .gguf file to start
                   chatting.
@@ -332,7 +366,7 @@ export function ChatPage() {
                 executorTag={state.executorTag}
                 generating={state.generatingId !== null}
                 onSetMode={setMode}
-                onUnbound={() => setRolesOpen(true)}
+                onUnbound={() => select("surface:roles")}
               />
               {state.notice && (
                 <div className="border-b border-border bg-warning/15 px-4 py-2 text-center text-sm text-warning">
@@ -361,36 +395,13 @@ export function ChatPage() {
                 onEdit={(id, c) => void editMessage(id, c)}
                 onSelectVariant={selectVariant}
               />
-              {extOpen && (
-                <ExtensionsPanel onBrowse={(packId) => setBrowsePack(packId)} />
-              )}
-              {extOpen && browsePack && (
-                <WorkspaceBrowser
-                  packId={browsePack}
-                  onRunStarted={(runId) => setFocusRun(runId)}
-                  onOpenView={(packId, viewId, slot) =>
-                    slot === "tab"
-                      ? focusView(packId, viewId)
-                      : setOpenView({ packId, viewId, slot })
-                  }
-                />
-              )}
-              {extOpen && <RunView focusRunId={focusRun} />}
-              {extOpen && openView && (
-                <ExtViewHost
-                  packId={openView.packId}
-                  viewId={openView.viewId}
-                  slot={openView.slot}
-                  onClose={() => setOpenView(null)}
-                />
-              )}
               <Composer
                 generating={state.generatingId !== null}
                 modelReady={modelReady}
                 snippets={snippets}
                 onSend={(c, ids, chips) => void send(c, ids, chips)}
                 onStop={stop}
-                onPickModel={() => setLibraryOpen(true)}
+                onPickModel={() => select("surface:models")}
               />
               {/* feature 016: bottom dock — sibling shrinks the message area */}
               <OutputPanel open={metricsOpen} />
