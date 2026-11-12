@@ -50,19 +50,19 @@
 
 **Independent Test**: quickstart.md S2 — fusion turn shows collapsible plan trace; tool call shows confirmation; composer/context/selector/tree all render.
 
-- [ ] T010 [US2] Build `src/renderer/src/components/ai/message.tsx` — Message/Turn composition (role-aware layout, actions slot, attachment chips) and migrate `src/renderer/src/components/ai/ai-message.tsx` onto it; update `src/renderer/src/features/chat/MessageList.tsx` to render turns via it (markdown/code-block/regenerate/edit/variants preserved, FR-006)
-- [ ] T011 [US2] Add scroll-anchoring to `src/renderer/src/features/chat/MessageList.tsx` (Chat/Message-Scroller pattern: stick to bottom while streaming unless user scrolled up; research.md R5)
-- [ ] T012 [US2] Build `src/renderer/src/components/ai/prompt-input.tsx` and migrate `src/renderer/src/features/chat/Composer.tsx` onto it — attachments chips, `/`-snippet insertion, send/stop, model-load shortcut all retained (FR-005)
-- [ ] T013 [US2] Build `src/renderer/src/components/ai/tool.tsx` + `stack-trace` part + `confirmation.tsx`; rebuild `src/renderer/src/features/chat/ToolCallCard.tsx` onto them — pending→approve/deny/allowSession becomes the Confirmation prompt, failed calls show Stack Trace (FR-004)
-- [ ] T014 [US2] Build `src/renderer/src/components/ai/chain-of-thought.tsx` (TraceCollapsible summary + Trace steps) and render fusion `phases.plan` inside it in `src/renderer/src/features/chat/MessageList.tsx`/message path — running→done/failed per-phase status, collapsible (FR-004)
-- [ ] T015 [US2] Build `src/renderer/src/components/ai/reasoning.tsx` (streaming thinking display) and use it for in-flight planner/phase text
-- [ ] T016 [US2] Build `src/renderer/src/components/ai/suggestion.tsx` and render snippet/persona picks as suggestion chips in the Composer area (data from `usePersonas`; one click inserts — FR-005 related)
-- [ ] T017 [P] [US2] Build `src/renderer/src/components/ai/checkpoint.tsx` and rebuild `src/renderer/src/features/chat/VariantNav.tsx` + `BranchOverview.tsx` onto it (return-point affordance)
+- [x] T010 [US2] Build `src/renderer/src/components/ai/message.tsx` — Message/Turn composition (role-aware layout, actions slot, attachment chips) and migrate `src/renderer/src/components/ai/ai-message.tsx` onto it; update `src/renderer/src/features/chat/MessageList.tsx` to render turns via it (markdown/code-block/regenerate/edit/variants preserved, FR-006)
+- [x] T011 [US2] Add scroll-anchoring to `src/renderer/src/features/chat/MessageList.tsx` (Chat/Message-Scroller pattern: stick to bottom while streaming unless user scrolled up; research.md R5)
+- [x] T012 [US2] Build `src/renderer/src/components/ai/prompt-input.tsx` and migrate `src/renderer/src/features/chat/Composer.tsx` onto it — attachments chips, `/`-snippet insertion, send/stop, model-load shortcut all retained (FR-005)
+- [x] T013 [US2] Build `src/renderer/src/components/ai/tool.tsx` + `stack-trace` part + `confirmation.tsx`; rebuild `src/renderer/src/features/chat/ToolCallCard.tsx` onto them — pending→approve/deny/allowSession becomes the Confirmation prompt, failed calls show Stack Trace (FR-004)
+- [x] T014 [US2] Build `src/renderer/src/components/ai/chain-of-thought.tsx` (TraceCollapsible summary + Trace steps) and render fusion `phases.plan` inside it in `src/renderer/src/features/chat/MessageList.tsx`/message path — running→done/failed per-phase status, collapsible (FR-004)
+- [x] T015 [US2] Build `src/renderer/src/components/ai/reasoning.tsx` (streaming thinking display) and use it for in-flight planner/phase text
+- [x] T016 [US2] Build `src/renderer/src/components/ai/suggestion.tsx` and render snippet/persona picks as suggestion chips in the Composer area (data from `usePersonas`; one click inserts — FR-005 related)
+- [x] T017 [P] [US2] Build `src/renderer/src/components/ai/checkpoint.tsx` and rebuild `src/renderer/src/features/chat/VariantNav.tsx` + `BranchOverview.tsx` onto it (return-point affordance)
 - [ ] T018 [P] [US2] Build `src/renderer/src/components/ai/context.tsx` — token-usage chip using `message.stats.promptTokens` + model context size; render in prompt-input footer / `src/renderer/src/features/metrics/OutputPanel.tsx` (hidden when data unavailable, research.md R7)
 - [ ] T019 [P] [US2] Build `src/renderer/src/components/ai/task.tsx`/`queue.tsx`/`subagent.tsx` (Trace compositions) and rebuild `src/renderer/src/features/extensions/RunView.tsx` run steps onto them (running/complete/failed per step)
 - [ ] T020 [P] [US2] Build `src/renderer/src/components/ai/file-tree.tsx` and apply to `src/renderer/src/features/extensions/WorkspaceBrowser.tsx` file/agent-tree rendering
 - [ ] T021 [US2] Build `src/renderer/src/components/ai/model-selector.tsx` (two-menu pattern: model + role/tag) and mount in the inset header — planner/executor tag pickers in fusion mode, "Manage…" opens `ModelLibrary` (research.md R6)
-- [ ] T022 [US2] Token-align `src/renderer/src/components/ai/code-block.tsx` to registry affordances (language label, copy) — no shiki (research.md R11)
+- [x] T022 [US2] Token-align `src/renderer/src/components/ai/code-block.tsx` to registry affordances (language label, copy) — no shiki (research.md R11)
 
 **Checkpoint**: quickstart S2 scenarios all render; `bunx tsc --noEmit` + `bun test ./tests` green
 
@@ -77,7 +77,7 @@
 - [ ] T023 [US3] Wire theme resolution in the renderer (`src/renderer/src/lib/theme.ts`): read `themeMode` via `settings.get`, resolve `"system"` via `matchMedia("(prefers-color-scheme: dark)")` + change listener, toggle `.dark` on the root element (contracts/theme.md)
 - [ ] T024 [US3] Add a theme control (light/dark/system) in `src/renderer/src/features/settings/` surfaces persisting via `settings.set` (FR-009)
 - [ ] T025 [US3] Broadcast resolved theme to extension views: `src/bun/rpc/handlers.ts` `settings.set` path pushes `{mode, vars}` via `ViewManager.pushTheme` to all open sessions when `themeMode` changes; `view.open` seeding already calls pushTheme — update it to send the resolved mode + real token vars (contracts/theme.md, FR-008)
-- [ ] T026 [US3] Migrate hardcoded styling to tokens across `src/renderer/src/features/**` — replace raw literals + non-semantic palette classes (`text-amber-400`, `bg-amber-950`, `text-red-300`…) with semantic tokens/warning-destructive variants per the T009 inventory (FR-007)
+- [x] T026 [US3] Migrate hardcoded styling to tokens across `src/renderer/src/features/**` — replace raw literals + non-semantic palette classes (`text-amber-400`, `bg-amber-950`, `text-red-300`…) with semantic tokens/warning-destructive variants per the T009 inventory (FR-007)
 - [ ] T027 [US3] Media-query pass: `motion-reduce:` guards on all animations app-wide + narrow-window resilience check for panels/dialogs (FR-011)
 
 **Checkpoint**: quickstart S3 passes; audit rule (b) fully green after T026

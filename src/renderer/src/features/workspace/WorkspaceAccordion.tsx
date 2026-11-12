@@ -113,10 +113,10 @@ export function WorkspaceAccordion({
                 title={`${t.title} — ${t.packName}`}
                 className={cn(
                   "data-[state=open]:bg-muted/50 data-[state=open]:text-foreground",
-                  isCrashed && "text-amber-400",
+                  isCrashed && "text-warning",
                 )}
               >
-                {isCrashed && <span className="shrink-0 text-amber-400">●</span>}
+                {isCrashed && <span className="shrink-0 text-warning">●</span>}
                 <span className="truncate">{t.title}</span>
               </AccordionTrigger>
               {closeBtn(t)}

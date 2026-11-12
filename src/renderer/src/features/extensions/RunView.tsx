@@ -68,10 +68,10 @@ export function RunView({ focusRunId }: { focusRunId: string | null }) {
                 <span
                   className={
                     r.status === "failed"
-                      ? "text-red-400"
+                      ? "text-destructive"
                       : r.status === "completed"
-                        ? "text-green-400"
-                        : "text-amber-400"
+                        ? "text-success"
+                        : "text-warning"
                   }
                 >
                   ●
@@ -96,7 +96,7 @@ export function RunView({ focusRunId }: { focusRunId: string | null }) {
                 </Button>
               )}
               {selected.error && (
-                <span className="text-red-400">
+                <span className="text-destructive">
                   {selected.error.code}: {selected.error.message}
                   {selected.error.path ? ` (${selected.error.path})` : ""}
                 </span>

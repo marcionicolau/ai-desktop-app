@@ -13,9 +13,9 @@ import { TagEditor } from "./TagEditor";
 const MEMORY_HINT_BYTES = 8 * 1024 * 1024 * 1024;
 
 const STATE_STYLE: Record<RoleView["state"], string> = {
-  bound: "bg-emerald-950 text-emerald-300",
+  bound: "bg-success/15 text-success",
   unbound: "bg-muted text-muted-foreground",
-  broken: "bg-red-950 text-red-300",
+  broken: "bg-destructive text-destructive",
 };
 
 export function RolesPanel() {
@@ -82,12 +82,12 @@ export function RolesPanel() {
           <h2 className="text-xs font-semibold">Model roles</h2>
         </div>
         {pressure && (
-          <p className="rounded border border-amber-800 bg-amber-950/60 px-2 py-1 text-xs text-amber-300">
+          <p className="rounded border border-warning/40 bg-warning/15 px-2 py-1 text-xs text-warning">
             Planner + executor bindings total {(combinedBytes / 1e9).toFixed(1)} GB —
             fusion keeps both loaded; watch memory.
           </p>
         )}
-        {error && <p className="text-xs text-red-400">{error}</p>}
+        {error && <p className="text-xs text-destructive">{error}</p>}
         <div className="divide-y divide-border text-xs">
           {tags.map((t) => (
             <div key={t.name} className="py-2">

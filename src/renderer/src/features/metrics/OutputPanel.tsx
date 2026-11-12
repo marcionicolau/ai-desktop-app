@@ -116,12 +116,12 @@ export function OutputPanel({ open }: { open: boolean }) {
                         </span>
                       )}
                       {e.fallback && (
-                        <span className="shrink-0 rounded bg-amber-900 px-1 text-[10px] text-amber-200">
+                        <span className="shrink-0 rounded bg-warning/15 px-1 text-[10px] text-warning">
                           fallback
                         </span>
                       )}
                       {e.status === "failed" ? (
-                        <span className="shrink-0 text-red-400">failed</span>
+                        <span className="shrink-0 text-destructive">failed</span>
                       ) : (
                         <span className="shrink-0 text-muted-foreground">
                           {e.promptTokens}→{e.outputTokens} tok ·{" "}

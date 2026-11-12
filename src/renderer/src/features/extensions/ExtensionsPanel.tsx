@@ -75,7 +75,7 @@ export function ExtensionsPanel({ onBrowse }: Props) {
         </Button>
       </div>
       {error && (
-        <div className="mb-2 rounded bg-red-950 px-2 py-1 text-xs text-red-300">{error}</div>
+        <div className="mb-2 rounded bg-destructive px-2 py-1 text-xs text-destructive">{error}</div>
       )}
       {packs.length === 0 && (
         <p className="text-xs text-muted-foreground">
@@ -97,7 +97,7 @@ export function ExtensionsPanel({ onBrowse }: Props) {
                   </p>
                 )}
                 {p.error && (
-                  <p className="text-xs text-red-400">
+                  <p className="text-xs text-destructive">
                     {p.error.code}: {p.error.message}
                   </p>
                 )}

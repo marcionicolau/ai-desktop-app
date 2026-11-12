@@ -123,7 +123,7 @@ export function PersonasPanel() {
             <Plus className="size-3.5" /> New persona
           </Button>
         </div>
-        {error && <p className="text-xs text-red-400">{error}</p>}
+        {error && <p className="text-xs text-destructive">{error}</p>}
         <div className="divide-y divide-border text-xs">
           {personas.map((p) => (
             <div key={p.name} className="py-2">

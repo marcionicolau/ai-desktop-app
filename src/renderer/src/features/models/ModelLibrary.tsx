@@ -33,9 +33,9 @@ function fmtBytes(n: number): string {
 }
 
 const VERDICT: Record<ModelAdvise["verdict"], { label: string; cls: string }> = {
-  fits: { label: "fits", cls: "text-emerald-400" },
-  tight: { label: "tight", cls: "text-amber-400" },
-  wontfit: { label: "won't fit", cls: "text-red-400" },
+  fits: { label: "fits", cls: "text-success" },
+  tight: { label: "tight", cls: "text-warning" },
+  wontfit: { label: "won't fit", cls: "text-destructive" },
 };
 
 function defaultFileName(url: string): string {
@@ -197,20 +197,20 @@ export function ModelLibrary({ activeName, onLoad, autoLoadOnDownload }: Props) 
             <RefreshCw className="size-3.5" />
           </Button>
         </div>
-        {error && <p className="text-xs text-red-400">{error}</p>}
+        {error && <p className="text-xs text-destructive">{error}</p>}
         {Object.values(downloads).map((d) => (
           <div key={d.fileName} className="text-xs">
             {d.phase === "progress" && (
-              <span className="text-amber-400">
+              <span className="text-warning">
                 {d.fileName}: {fmtBytes(d.downloadedBytes)}
                 {d.totalBytes ? ` / ${fmtBytes(d.totalBytes)}` : ""}
               </span>
             )}
             {d.phase === "done" && (
-              <span className="text-emerald-400">{d.fileName}: downloaded</span>
+              <span className="text-success">{d.fileName}: downloaded</span>
             )}
             {d.phase === "error" && (
-              <span className="text-red-400">
+              <span className="text-destructive">
                 {d.fileName}: {d.error ?? "failed"}
               </span>
             )}
@@ -232,7 +232,7 @@ export function ModelLibrary({ activeName, onLoad, autoLoadOnDownload }: Props) 
                   <span
                     className={cn(
                       "flex-1 truncate font-medium",
-                      active && "text-emerald-400",
+                      active && "text-success",
                     )}
                     title={m.path}
                   >
@@ -268,7 +268,7 @@ export function ModelLibrary({ activeName, onLoad, autoLoadOnDownload }: Props) 
                     );
                   })()}
                   {dl?.phase === "progress" ? (
-                    <Loader2 className="size-3.5 animate-spin text-amber-400" />
+                    <Loader2 className="size-3.5 animate-spin text-warning" />
                   ) : (
                     <>
                       <Button

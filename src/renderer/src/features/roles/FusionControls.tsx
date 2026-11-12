@@ -144,7 +144,7 @@ export function FusionControls({
             />
           </label>
           {(!plannerBound || !executorBound) && (
-            <span className="text-amber-500">
+            <span className="text-warning">
               bind both roles in the Roles panel to enable fusion
             </span>
           )}
@@ -152,10 +152,10 @@ export function FusionControls({
             <span
               className={
                 fusion.verdict === "fits"
-                  ? "text-emerald-400"
+                  ? "text-success"
                   : fusion.verdict === "tight"
-                    ? "text-amber-400"
-                    : "text-red-400"
+                    ? "text-warning"
+                    : "text-destructive"
               }
               title={`sequential peak ${fmtGb(fusion.sequentialPeakBytes)} · both resident ${fmtGb(fusion.combinedBytes)}`}
             >
@@ -168,7 +168,7 @@ export function FusionControls({
           )}
         </>
       )}
-      {error && <span className="text-red-400">{error}</span>}
+      {error && <span className="text-destructive">{error}</span>}
     </div>
   );
 }

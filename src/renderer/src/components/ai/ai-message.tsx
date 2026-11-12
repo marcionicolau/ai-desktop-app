@@ -37,7 +37,7 @@ export function AiMessage({ content }: Props) {
             return (
               <a
                 href={href}
-                className="text-blue-400 underline"
+                className="text-info underline"
                 target="_blank"
                 rel="noreferrer"
               >

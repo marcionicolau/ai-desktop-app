@@ -312,7 +312,7 @@ export function ChatPage() {
                 </button>
               )}
               {state.modelStatus === "error" && (
-                <div className="border-b border-border bg-red-950 px-4 py-2 text-center text-sm text-red-300">
+                <div className="border-b border-border bg-destructive px-4 py-2 text-center text-sm text-destructive">
                   Model failed to load
                   {state.modelError ? `: ${state.modelError}` : ""}
                 </div>
@@ -326,12 +326,12 @@ export function ChatPage() {
                 onUnbound={() => setRolesOpen(true)}
               />
               {state.notice && (
-                <div className="border-b border-border bg-amber-950 px-4 py-2 text-center text-sm text-amber-300">
+                <div className="border-b border-border bg-warning/15 px-4 py-2 text-center text-sm text-warning">
                   {state.notice}
                 </div>
               )}
               {state.lastError && (
-                <div className="border-b border-border bg-red-950 px-4 py-2 text-center text-sm text-red-300">
+                <div className="border-b border-border bg-destructive px-4 py-2 text-center text-sm text-destructive">
                   {state.lastError.code}: {state.lastError.message}
                 </div>
               )}

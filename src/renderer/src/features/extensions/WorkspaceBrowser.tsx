@@ -190,7 +190,7 @@ export function WorkspaceBrowser({ packId, onRunStarted, onOpenView }: Props) {
       .catch((e: Error) => setError(e.message));
   };
 
-  if (error) return <div className="px-4 py-2 text-xs text-red-400">{error}</div>;
+  if (error) return <div className="px-4 py-2 text-xs text-destructive">{error}</div>;
   if (!c) return <div className="px-4 py-2 text-xs text-muted-foreground">Loading…</div>;
 
   return (
