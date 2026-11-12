@@ -8,6 +8,13 @@
 
 **Input**: User description: "criar uma especificação para que cada extensão instalada e habilitada, abra sua UI em uma nova aba (com titulos na parte de cima) na qual a primeira aba é o componente ChatPage.tsx e assim sucessivamente para cada extensão habilitada"
 
+## Clarifications
+
+### Session 2026-11-12
+
+- Q: When a pack is enabled and its extension tab appears, should the new tab take focus immediately, or appear unselected in the background? → A: Auto-select on enable (and on consent-gated enable); restart restore adds tabs without stealing focus.
+- Q: If a `tab`-slot view already has a top tab, what should Browse → Open do — focus the existing tab, or allow a second copy of the view in the drawer? → A: Focus the existing tab — one view session per `tab` view; Browse → Open switches to it instead of spawning a drawer duplicate.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Extension views become peer tabs of Chat (Priority: P1)
@@ -40,7 +47,8 @@ As a user, tabs appear and disappear in the same session as packs are enabled, d
 1. **Given** an enabled pack with a visible tab, **When** the user disables the pack, **Then** its tab closes and the selection falls back to a sensible neighbor (Chat if the closed tab was selected).
 2. **Given** a disabled pack, **When** the user re-enables it, **Then** its tab(s) reappear without restart.
 3. **Given** a removed pack, **When** the user removes it, **Then** its tab(s) close permanently.
-4. **Given** a pack with an enabled `tab` view, **When** the app restarts, **Then** its tab is restored alongside Chat (state survives restart via existing extension persistence).
+4. **Given** a pack with an enabled `tab` view, **When** the app restarts, **Then** its tab is restored alongside Chat (state survives restart via existing extension persistence) and selection stays on Chat or the previously selected tab.
+5. **Given** a `tab` view open as a top tab, **When** the user clicks Open for that view in the Browse surface, **Then** its existing top tab is selected — no second copy of the view opens in the drawer.
 
 ---
 
@@ -76,14 +84,15 @@ As a user, I can tell which pack owns each tab, and I can see when an extension 
 - **FR-002**: The Chat tab MUST be fixed in first position and MUST NOT be closable.
 - **FR-003**: For every enabled extension pack, each view declared with the `tab` slot MUST produce a titled top-level tab hosting that view's UI.
 - **FR-004**: Tab titles MUST come from the declared view title, falling back to the view id or pack name when absent.
-- **FR-005**: Enabling a pack MUST add its `tab` view tab(s) in the same session without restart; disabling or removing a pack MUST close its tab(s) in the same session.
-- **FR-006**: On startup, enabled packs' `tab` views MUST be restored as tabs (existing extension state persistence governs enablement).
+- **FR-005**: Enabling a pack MUST add its `tab` view tab(s) in the same session without restart, and the newly added tab MUST take focus (auto-select); disabling or removing a pack MUST close its tab(s) in the same session.
+- **FR-006**: On startup, enabled packs' `tab` views MUST be restored as tabs without stealing focus (previously selected tab, defaulting to Chat, remains selected).
 - **FR-007**: Switching tabs MUST preserve the hidden tab's running state — Chat conversation state and extension view sessions must not be torn down on tab switch.
 - **FR-008**: A crashed extension view MUST render its contained-crash state (with reload affordance) inside its own tab without affecting other tabs.
 - **FR-009**: Tab tooltips MUST identify the owning pack name in addition to the view title.
 - **FR-010**: When the selected tab closes (pack disabled/removed), selection MUST move to a sensible neighbor — Chat by default.
 - **FR-011**: The tab bar MUST remain usable when many tabs exist (horizontal scroll or equivalent overflow handling).
 - **FR-012**: `panel`-slot views and packs with no declared `tab` views MUST NOT create top tabs (unchanged drawer behavior).
+- **FR-013**: Each `tab` view has exactly one live view session — opening it from Browse while its top tab exists MUST focus that tab, not spawn a duplicate session.
 
 ### Key Entities
 
