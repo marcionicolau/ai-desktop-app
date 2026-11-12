@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "hutch dev",
+    "dev:devtools": "react-devtools",
     "dev:renderer": "vite --config src/renderer/vite.config.ts",
     "build:renderer": "vite build --config src/renderer/vite.config.ts",
     "build:native": "./scripts/build-native.sh",
@@ -35,6 +36,7 @@
     "electrobun": "^2",
     "lucide-react": "^1.72.0",
     "oxlint": "^1.25.0",
+    "react-devtools": "^8.0.0",
     "tailwind-merge": "^3.7.0",
     "tailwindcss": "^4.1.17",
     "typescript": "^5.9.3",
