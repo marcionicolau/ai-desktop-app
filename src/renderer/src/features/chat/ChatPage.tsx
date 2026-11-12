@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   GitBranch,
   Library,
@@ -14,6 +14,7 @@ import { Composer } from "./Composer";
 import { Sidebar } from "./Sidebar";
 import { ModelPicker } from "../models/ModelPicker";
 import { ModelLibrary } from "../models/ModelLibrary";
+import { decideStartupPrompt } from "./startup-prompt";
 import { GenerationSettings } from "../settings/GenerationSettings";
 import { DataPanel } from "../settings/DataPanel";
 import { ToolSettings } from "../settings/ToolSettings";
@@ -73,6 +74,32 @@ export function ChatPage() {
     viewId: string;
     slot: "tab" | "panel";
   } | null>(null);
+  // feature 018 (T003/T004): first-launch auto-open of the model library.
+  // Evaluates once, after model.status hydration, on the first terminal
+  // status — never during "loading", never again this session (FR-001/4/6)
+  const startupEval = useRef(false);
+  const [startupPrompted, setStartupPrompted] = useState(false);
+  useEffect(() => {
+    const d = decideStartupPrompt({
+      hydrated: state.modelStatusHydrated,
+      evaluated: startupEval.current,
+      status: state.modelStatus,
+    });
+    if (d === "wait") return;
+    startupEval.current = true;
+    if (d === "open") {
+      setLibraryOpen(true);
+      setStartupPrompted(true);
+    }
+    // "settle" (ready) — evaluated latch alone suppresses future prompts
+  }, [state.modelStatusHydrated, state.modelStatus]);
+  // dismissal = closing the auto-opened library before a model is ready
+  // (FR-004); a ready transition just ends the prompted state (T004)
+  useEffect(() => {
+    if (startupPrompted && (!libraryOpen || state.modelStatus === "ready")) {
+      setStartupPrompted(false);
+    }
+  }, [libraryOpen, startupPrompted, state.modelStatus]);
   useEffect(() => {
     void invoke("settings.get", {}).then((s) => setMetricsOpen(s.outputPanel));
   }, []);
@@ -254,6 +281,7 @@ export function ChatPage() {
           <ModelLibrary
             activeName={state.modelName}
             onLoad={(p) => void loadModel(p)}
+            autoLoadOnDownload={startupPrompted}
           />
         )}
         {state.modelStatus === "unloaded" && (
