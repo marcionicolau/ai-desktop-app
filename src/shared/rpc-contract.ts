@@ -29,6 +29,7 @@ import type {
   Persona,
   Snippet,
   ToolCallRecord,
+  ThemeMode,
   ToolPolicy,
 } from "./types";
 
@@ -134,6 +135,7 @@ export interface ChatRpcSchema extends ElectrobunRPCSchema {
           modelOverrides: Record<string, Partial<GenerationParams>>;
           outputPanel: boolean; // feature 016
           tools: ToolPolicy; // feature 015
+          themeMode: ThemeMode; // feature 021
         };
       };
       "settings.set": {
@@ -145,6 +147,10 @@ export interface ChatRpcSchema extends ElectrobunRPCSchema {
           };
           outputPanel?: boolean; // feature 016
           tools?: Partial<ToolPolicy>; // feature 015
+          themeMode?: ThemeMode; // feature 021
+          // transient: resolved color scheme reported by the renderer;
+          // not persisted — triggers pushTheme to extension views
+          resolvedTheme?: "light" | "dark"; // feature 021
         };
         response: Record<string, never>;
       };

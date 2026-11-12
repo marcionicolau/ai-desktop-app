@@ -18,7 +18,7 @@ export function CodeBlock({ language, code, className }: Props) {
   };
 
   return (
-    <div className="group relative my-2 overflow-hidden rounded-md border border-border">
+    <div className="not-typeset group relative my-2 overflow-hidden rounded-md border border-border">
       <div className="flex items-center justify-between bg-zinc-800 px-3 py-1.5">
         <span className="text-xs text-zinc-400">{language ?? "code"}</span>
         <button

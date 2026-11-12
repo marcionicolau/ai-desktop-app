@@ -166,7 +166,11 @@ export interface Settings {
   // feature 015: undefined → {sandboxRoot: null, mode: "deny"} —
   // tools inactive until a root is configured
   tools?: ToolPolicy;
+  // feature 021: theme preference; undefined/absent → "system"
+  themeMode?: ThemeMode;
 }
+
+export type ThemeMode = "light" | "dark" | "system";
 
 // ---- feature 015: sandboxed local tool use ----
 

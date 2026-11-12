@@ -16,16 +16,16 @@
 
 ## Phase 1: Setup
 
-- [ ] T001 Install new primitive deps in `package.json`: `bun add @radix-ui/react-collapsible @radix-ui/react-tooltip @radix-ui/react-separator @radix-ui/react-dropdown-menu @radix-ui/react-progress @radix-ui/react-sheet @radix-ui/react-popover` — pin resolved versions in `bun.lock` (research.md R12 maps each to its recipe; hover-card intentionally absent — deferred)
-- [ ] T002 Scaffold the token system in `src/renderer/src/index.css`: `@custom-variant dark (&:where(.dark, .dark *))`, `:root` light token set + `.dark` refined dark set covering the full contract palette (`--background --foreground --card --card-foreground --popover --popover-foreground --primary --primary-foreground --secondary --secondary-foreground --muted --muted-foreground --accent --accent-foreground --destructive --destructive-foreground --border --input --ring --sidebar --sidebar-foreground --sidebar-accent --sidebar-accent-foreground --sidebar-border --sidebar-ring --radius`) + type scale tokens (research.md R10); existing `--color-*` names remap onto the new tokens so current utilities keep resolving
+- [x] T001 Install new primitive deps in `package.json`: `bun add @radix-ui/react-collapsible @radix-ui/react-tooltip @radix-ui/react-separator @radix-ui/react-dropdown-menu @radix-ui/react-progress @radix-ui/react-sheet @radix-ui/react-popover` — pin resolved versions in `bun.lock` (research.md R12 maps each to its recipe; hover-card intentionally absent — deferred)
+- [x] T002 Scaffold the token system in `src/renderer/src/index.css`: `@custom-variant dark (&:where(.dark, .dark *))`, `:root` light token set + `.dark` refined dark set covering the full contract palette (`--background --foreground --card --card-foreground --popover --popover-foreground --primary --primary-foreground --secondary --secondary-foreground --muted --muted-foreground --accent --accent-foreground --destructive --destructive-foreground --border --input --ring --sidebar --sidebar-foreground --sidebar-accent --sidebar-accent-foreground --sidebar-border --sidebar-ring --radius`) + type scale tokens (research.md R10); existing `--color-*` names remap onto the new tokens so current utilities keep resolving
 
 ## Phase 2: Foundational (blocks all stories)
 
-- [ ] T003 [P] Vendor base ui primitives in `src/renderer/src/components/ui/`: `collapsible.tsx`, `tooltip.tsx`, `separator.tsx`, `dropdown-menu.tsx`, `progress.tsx`, `popover.tsx` — forwardRef + `cn` conventions per `alert-dialog.tsx` (contracts/components.md)
-- [ ] T004 [P] Vendor markup primitives in `src/renderer/src/components/ui/`: `badge.tsx` (cva variants), `card.tsx`, `kbd.tsx`, `skeleton.tsx`, `breadcrumb.tsx`
-- [ ] T005 Vendor `src/renderer/src/components/ui/trace.tsx` — Trace/TraceCollapsible/TraceCollapsibleTrigger/TraceCollapsibleContent/TraceLine/TraceIcon/TraceTitle/TraceDescription composition per ai-elements chain-of-thought recipe, built on `ui/collapsible` + `ui/badge`
-- [ ] T006 Write `tests/ui-audit.test.ts` — headless file-scan test enforcing data-model audit rules: (a) zero `@radix-ui/*` imports under `src/renderer/src/` outside `components/ui/`; (b) zero raw color literals (`#hex`, `oklch(`, `rgb(`, `hsl(`) outside `index.css`; (c) new `components/ui/*.tsx` export wrappers. Must pass on day one (imports already clean); color-literal violations found now get tracked for the US3 migration tasks
-- [ ] T007 Extend `Settings` in `src/shared/types.ts` with `themeMode?: "system" | "light" | "dark"` (default `"system"` when absent) + persist in `src/bun/store/json-store.ts` settings plumbing (same path as `outputPanel`, feature 016)
+- [x] T003 [P] Vendor base ui primitives in `src/renderer/src/components/ui/`: `collapsible.tsx`, `tooltip.tsx`, `separator.tsx`, `dropdown-menu.tsx`, `progress.tsx`, `popover.tsx` — forwardRef + `cn` conventions per `alert-dialog.tsx` (contracts/components.md)
+- [x] T004 [P] Vendor markup primitives in `src/renderer/src/components/ui/`: `badge.tsx` (cva variants), `card.tsx`, `kbd.tsx`, `skeleton.tsx`, `breadcrumb.tsx`
+- [x] T005 Vendor `src/renderer/src/components/ui/trace.tsx` — Trace/TraceCollapsible/TraceCollapsibleTrigger/TraceCollapsibleContent/TraceLine/TraceIcon/TraceTitle/TraceDescription composition per ai-elements chain-of-thought recipe, built on `ui/collapsible` + `ui/badge`
+- [x] T006 Write `tests/ui-audit.test.ts` — headless file-scan test enforcing data-model audit rules: (a) zero `@radix-ui/*` imports under `src/renderer/src/` outside `components/ui/`; (b) zero raw color literals (`#hex`, `oklch(`, `rgb(`, `hsl(`) outside `index.css`; (c) new `components/ui/*.tsx` export wrappers. Must pass on day one (imports already clean); color-literal violations found now get tracked for the US3 migration tasks
+- [x] T007 Extend `Settings` in `src/shared/types.ts` with `themeMode?: "system" | "light" | "dark"` (default `"system"` when absent) + persist in `src/bun/store/json-store.ts` settings plumbing (same path as `outputPanel`, feature 016)
 
 **Checkpoint**: `bunx tsc --noEmit` + `bun test ./tests` green (audit test included)
 
@@ -37,7 +37,7 @@
 
 **Independent Test**: `tests/ui-audit.test.ts` passes; manual `rg "@radix-ui" src/renderer/src --glob '!components/ui/**'` empty.
 
-- [ ] T008 [US1] Audit-fix pass: run the T006 test; migrate any direct primitive imports or missing wrappers it flags into `components/ui/` wrappers (expected: none for imports — confirm and document in validation notes)
+- [x] T008 [US1] Audit-fix pass: run the T006 test; migrate any direct primitive imports or missing wrappers it flags into `components/ui/` wrappers (expected: none for imports — confirm and document in validation notes)
 - [ ] T009 [US1] Audit-fix pass: catalog raw color literals flagged by T006 rule (b) and open `specs/021-ai-ui-modernize/validation.md` listing each site + its US3 token replacement target (migration itself happens in US3; this task produces the inventory)
 
 **Checkpoint**: audit test green; inventory file lists remaining literal sites

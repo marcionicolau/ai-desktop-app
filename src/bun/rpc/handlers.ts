@@ -194,6 +194,11 @@ const isCtxOverflow = (e: unknown) =>
 // full bodies never leave the engine)
 const preview = (t: string) => t.replace(/\s+/g, " ").slice(0, 120);
 
+// feature 021: resolved color scheme reported by the renderer via
+// settings.set{resolvedTheme}; transient (not persisted), defaults dark
+// to match the app's original palette.
+let resolvedTheme: "light" | "dark" = "dark";
+
 export function createRequestHandlers(deps: HandlerDeps) {
   let activeMessageId: string | null = null;
   // a stop that lands before the engine starts (run() yields first so
@@ -1279,6 +1284,8 @@ export function createRequestHandlers(deps: HandlerDeps) {
         outputPanel: s.outputPanel ?? false,
         // feature 015: default {root: null, mode: deny} = inactive
         tools: s.tools ?? { sandboxRoot: null, mode: "deny" },
+        // feature 021: absent → "system"
+        themeMode: s.themeMode ?? "system",
       };
     },
     "settings.set": ({
@@ -1286,6 +1293,8 @@ export function createRequestHandlers(deps: HandlerDeps) {
       modelOverride,
       outputPanel,
       tools: toolsPatch,
+      themeMode,
+      resolvedTheme: resolvedPatch,
     }: {
       generation?: Partial<GenerationParams>;
       outputPanel?: boolean;
@@ -1294,6 +1303,8 @@ export function createRequestHandlers(deps: HandlerDeps) {
         params: Partial<GenerationParams> | null;
       };
       tools?: Partial<import("../../shared/types").ToolPolicy>;
+      themeMode?: import("../../shared/types").ThemeMode;
+      resolvedTheme?: "light" | "dark";
     }) => {
       const err =
         (generation ? validateParams(generation) : null) ??
@@ -1305,6 +1316,19 @@ export function createRequestHandlers(deps: HandlerDeps) {
         next.generation = mergeParams(s.generation, generation);
       }
       if (outputPanel !== undefined) next.outputPanel = outputPanel;
+      if (themeMode !== undefined) {
+        if (themeMode !== "light" && themeMode !== "dark" && themeMode !== "system") {
+          fail("INVALID_PARAMS", `unknown theme mode: ${themeMode}`);
+        }
+        next.themeMode = themeMode;
+      }
+      if (
+        resolvedPatch !== undefined &&
+        resolvedPatch !== resolvedTheme
+      ) {
+        resolvedTheme = resolvedPatch;
+        deps.views?.pushTheme({ mode: resolvedTheme, vars: {} });
+      }
       if (toolsPatch) {
         // feature 015: merge into existing policy; a set root must be an
         // existing directory, mode must be a known value
@@ -1483,7 +1507,7 @@ export function createRequestHandlers(deps: HandlerDeps) {
       const bridge = createViewBridge(pack, viewId, {
         engine: () => deps.engine,
         runs: () => fabric,
-        theme: () => ({ mode: "dark", vars: {} }),
+        theme: () => ({ mode: resolvedTheme, vars: {} }),
         startRun: (pid, target, params) =>
           fabric.start({ packId: pid, target: { ...target, id: target.id.includes(":") ? target.id : `${pid}:${target.id}` }, objective: `command:${viewId}`, params }),
         reportError: (message) => {
@@ -1493,7 +1517,7 @@ export function createRequestHandlers(deps: HandlerDeps) {
       const s = viewMgr().open(pack, viewId, bridge, rect);
       sessionId = s.sessionId;
       // initial theme sync; change pushes go through the same path (FR-015)
-      viewMgr().pushTheme({ mode: "dark", vars: {} });
+      viewMgr().pushTheme({ mode: resolvedTheme, vars: {} });
       void slot;
       return { sessionId: s.sessionId };
     },
