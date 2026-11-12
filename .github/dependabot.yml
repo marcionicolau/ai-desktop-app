@@ -9,6 +9,7 @@ updates:
     groups:
       actions:
         patterns: ["*"]
+    labels: ["dependencies", "area:ci"]
 
   # package.json + bun.lock — monthly version bumps; security updates
   # raise PRs immediately (independent of this schedule)
@@ -21,6 +22,7 @@ updates:
     groups:
       bun-minor-patch:
         update-types: ["minor", "patch"]
+    labels: ["dependencies", "bun"]
     commit-message:
       prefix: chore(deps)
 
@@ -29,3 +31,4 @@ updates:
     directory: /
     schedule:
       interval: monthly
+    labels: ["dependencies", "area:native-ffi"]
