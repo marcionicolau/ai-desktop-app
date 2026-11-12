@@ -34,7 +34,9 @@ deriveTabs(packs: InstalledPackView[]): WorkspaceTab[]
 ## Lifecycle transitions (pure — headless-testable)
 
 ```ts
-reconcile(tabs: WorkspaceTab[], selectedId: string, changed: InstalledPackView):
+// `packs` is the full post-change scan result — removal is detectable only
+// by absence, so the single changed pack alone is insufficient.
+reconcile(tabs: WorkspaceTab[], selectedId: string, packs: InstalledPackView[]):
   { tabs: WorkspaceTab[]; selectedId: string }
 ```
 

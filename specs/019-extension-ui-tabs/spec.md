@@ -117,3 +117,5 @@ As a user, I can tell which pack owns each tab, and I can see when an extension 
 - **A4**: Tab order is Chat first, then extension views in enable/declaration order; no user tab reordering in v1.
 - **A5**: Users cannot close extension tabs directly — they close by disabling/removing the owning pack (consistent with "extensions are declarative" model).
 - **A6**: Extension view sessions already provide crash containment and reload (feature 017); this feature only re-hosts them at top level.
+- **A7**: Enabling a pack surfaces its `tab` views (auto-selected) but does NOT auto-open `panel`-slot views — enable browses the pack; panels open manually. This replaces the 018-era drawer auto-open.
+- **A8**: Extension view sessions open lazily — the session starts on first selection of the tab, not at enable/restore time; once open it stays alive (parked when hidden).

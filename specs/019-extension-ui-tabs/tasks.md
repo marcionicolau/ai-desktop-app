@@ -33,8 +33,8 @@ Shared types, contract, and the park/restore primitive every story depends on.
 
 - [ ] T008 [US1] Write `tests/workspace-tabs.test.ts` — `deriveTabs` (chat first, enabled-only, per-declared-`tab`-view, title fallback `title ?? viewId ?? packId`, scan→declaration order) + `reconcile` transitions per `data-model.md`
 - [ ] T009 [P] [US1] Create `TabBar.tsx` in `src/renderer/src/features/workspace/` — horizontal scrollable strip (`overflow-x-auto`, `shrink-0`), Chat tab fixed first with no close control, ext tabs titled, tooltip `<title> — <packName>`, click selects, `aria-selected`/`data-testid="workspace-tab"`
-- [ ] T010 [US1] Add `visible` prop (default `true`) to `ExtViewHost` in `src/renderer/src/features/extensions/ExtViewHost.tsx` — hidden → `view.setVisible(false)` + skip bounds pushes; visible → `view.setVisible(true)` + resume ResizeObserver pushes; keep crash/reload behavior
-- [ ] T011 [US1] Create `WorkspaceTabs.tsx` in `src/renderer/src/features/workspace/` — renders `TabBar` + all tab contents mounted (non-selected `hidden`/parked); Chat tab content = `<ChatPage />`; ext tab content = `<ExtViewHost visible={selected} />`
+- [ ] T010 [US1] Add `visible` (default `true`) and `bare` (default `false`) props to `ExtViewHost` in `src/renderer/src/features/extensions/ExtViewHost.tsx` — hidden → `view.setVisible(false)` + skip bounds pushes; visible → `view.setVisible(true)` + resume ResizeObserver pushes; **lazy-open**: defer `view.open` until the first `visible=true` (A8 — no eager webviews at boot); `bare` hides the `packId:viewId` header + Close button for tab-mode hosting (crash state + Reload stay inline)
+- [ ] T011 [US1] Create `WorkspaceTabs.tsx` in `src/renderer/src/features/workspace/` — renders `TabBar` + all tab contents mounted (non-selected `hidden`/parked); Chat tab content = `<ChatPage />`; ext tab content = `<ExtViewHost bare visible={selected} />`
 - [ ] T012 [US1] Mount `<WorkspaceTabs />` as root in `src/renderer/src/main.tsx` (replaces `<ChatPage />`); hook inside WorkspaceTabs does `extension.scan` on mount → `deriveTabs`
 
 **Checkpoint**: quickstart S1–S3 manually verifiable in dev window.
@@ -49,7 +49,7 @@ Shared types, contract, and the park/restore primitive every story depends on.
 
 - [ ] T013 [US2] Subscribe `extension.changed` in `use-workspace-tabs.ts` — re-derive + `reconcile` selection (auto-select on enable transition; fallback `"chat"` when selected tab vanishes)
 - [ ] T014 [US2] Startup restore keeps `selectedId="chat"` — covered by `reconcile` rule; assert in `tests/workspace-tabs.test.ts` (initial derive never selects ext tab)
-- [ ] T015 [US2] Retire drawer auto-open for `tab`-slot views in `src/renderer/src/features/extensions/ExtensionsPanel.tsx` — `afterEnable` keeps `onBrowse` only; the tab itself now surfaces via `extension.changed` (research D5)
+- [ ] T015 [US2] Retire drawer auto-open for `tab`-slot views in `src/renderer/src/features/extensions/ExtensionsPanel.tsx` — `afterEnable` keeps `onBrowse` only; the tab itself now surfaces via `extension.changed` (research D5). Panel-only packs also drop enable-time auto-open — enable browses; panels open manually (spec A7)
 - [ ] T016 [US2] Browse → Open on a `tab`-slot view selects its top tab instead of opening a drawer host — route `WorkspaceBrowser.onOpenView` through `WorkspaceTabs` selection in `src/renderer/src/features/chat/ChatPage.tsx` (FR-013); `panel`-slot views keep the drawer `ExtViewHost`
 
 **Checkpoint**: quickstart S4–S6.
