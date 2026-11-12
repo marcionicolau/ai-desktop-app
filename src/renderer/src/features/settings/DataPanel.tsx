@@ -30,7 +30,7 @@ export function DataPanel() {
           disabled={busy}
           onClick={() =>
             void run(async () => {
-              const r = await invoke("backup.export", {});
+              const r = await invoke("backup.export", {}, { maxRequestTime: Infinity });
               return r.path ? `Backup saved to ${r.path}` : "Export cancelled.";
             })
           }
@@ -43,7 +43,7 @@ export function DataPanel() {
           disabled={busy}
           onClick={() =>
             void run(async () => {
-              const r = await invoke("backup.import", {});
+              const r = await invoke("backup.import", {}, { maxRequestTime: Infinity });
               return r.imported === null
                 ? "Restore cancelled."
                 : `Restored ${r.imported} conversation${r.imported === 1 ? "" : "s"}.`;

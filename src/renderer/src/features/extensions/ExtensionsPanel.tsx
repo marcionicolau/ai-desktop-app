@@ -33,7 +33,8 @@ export function ExtensionsPanel({ onBrowse, onOpenView }: Props) {
       kind === "url"
         ? { kind: "url" as const, url }
         : { kind, path: "" }; // empty path → main opens the picker
-    void guard(invoke("extension.install", { source }));
+    // folder/archive open a picker, url can fetch slowly — no timeout
+    void guard(invoke("extension.install", { source }, { maxRequestTime: Infinity }));
     if (kind === "url") setUrl("");
   };
 

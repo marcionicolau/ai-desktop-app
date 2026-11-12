@@ -444,14 +444,14 @@ export function useChat() {
       const r = await invoke("conversation.export", {
         conversationId: id,
         format,
-      });
+      }, { maxRequestTime: Infinity });
       return r.path;
     },
     [],
   );
 
   const importConversation = useCallback(async () => {
-    const r = await invoke("conversation.import", {});
+    const r = await invoke("conversation.import", {}, { maxRequestTime: Infinity });
     await refreshList();
     if (r.conversationId) await selectConversation(r.conversationId);
     return r.conversationId;

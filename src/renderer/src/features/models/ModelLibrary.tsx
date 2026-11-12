@@ -94,7 +94,7 @@ export function ModelLibrary({ activeName, onLoad, autoLoadOnDownload }: Props) 
     setBenching(m.fileName);
     setError(null);
     try {
-      await invoke("model.benchmark", { path: m.path });
+      await invoke("model.benchmark", { path: m.path }, { maxRequestTime: Infinity });
       await refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -138,7 +138,7 @@ export function ModelLibrary({ activeName, onLoad, autoLoadOnDownload }: Props) 
         url: url.trim(),
         fileName: name,
         tagName: assignTag || undefined,
-      });
+      }, { maxRequestTime: Infinity });
       setUrl("");
       setFileName("");
     } catch (e) {

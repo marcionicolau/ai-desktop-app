@@ -102,7 +102,7 @@ export function Composer({
 
   const pickAttachments = async () => {
     try {
-      const r = await invoke("attachment.pick", {});
+      const r = await invoke("attachment.pick", {}, { maxRequestTime: Infinity });
       if (!r) return; // cancelled
       setDrafts((d) => {
         const have = new Set(d.map((x) => x.id));

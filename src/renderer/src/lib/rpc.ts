@@ -14,6 +14,9 @@ function dispatch<M extends keyof Events>(method: M, payload: Events[M]) {
 }
 
 export const rpc = Electroview.defineRPC<ChatRpcSchema>({
+  // Electrobun default is 1s — too short for any real work (downloads,
+  // pack installs). Dialog-bound calls pass Infinity per request.
+  maxRequestTime: 30_000,
   handlers: {
     messages: {
       "chat.token": (p) => dispatch("chat.token", p),
@@ -53,9 +56,12 @@ export function on<M extends keyof Events>(
 }
 
 // Invoke a request method; params/response types come from the schema.
+// options.maxRequestTime overrides the 30s default (Infinity for
+// user-paced calls like native file dialogs).
 export const invoke = rpc.request.bind(rpc) as <
   M extends keyof ChatRpcSchema["bun"]["requests"],
 >(
   method: M,
   params: ChatRpcSchema["bun"]["requests"][M]["params"],
+  options?: { maxRequestTime?: number },
 ) => Promise<ChatRpcSchema["bun"]["requests"][M]["response"]>;
