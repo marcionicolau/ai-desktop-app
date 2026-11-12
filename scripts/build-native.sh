@@ -4,6 +4,16 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
+# FR-004: fail fast naming the missing prerequisite (not a cmake/compiler dump)
+missing=()
+command -v bun   >/dev/null || missing+=("bun")
+command -v cmake >/dev/null || missing+=("cmake")
+command -v cc    >/dev/null || command -v c++ >/dev/null || command -v gcc >/dev/null || command -v clang >/dev/null || missing+=("c++ toolchain (gcc/clang)")
+if ((${#missing[@]})); then
+  echo "missing prerequisite: ${missing[*]}" >&2
+  exit 1
+fi
+
 case "$(uname -s)" in
   Linux)   OS="linux" ;;
   Darwin)  OS="darwin" ;;
@@ -16,7 +26,8 @@ case "$(uname -m)" in
 esac
 
 PLATFORM="${OS}-${ARCH}"
-BUILD_DIR="${ROOT}/native/out/${PLATFORM}/build"
+# cmake tree lives outside native/out/ — only the staged libs are packaged
+BUILD_DIR="${ROOT}/native/build/${PLATFORM}"
 
 cmake -S "${ROOT}/src/native/shim" -B "${BUILD_DIR}" -DCMAKE_BUILD_TYPE=Release
 cmake --build "${BUILD_DIR}" -j "$(nproc 2>/dev/null || sysctl -n hw.ncpu)"

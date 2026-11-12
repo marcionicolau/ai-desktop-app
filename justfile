@@ -22,6 +22,21 @@ kill-dev: kill
 # dev` in background, then watch the app. When the main window closes the
 # app exits — the whole stack (devtools, vite, hutch watchers) is torn
 # down with it. Ctrl+C hits the same teardown via the EXIT trap.
+# Package a canary artifact for the host platform (native → renderer →
+# electrobun build → verify). See docs/packaging.md.
+package:
+    @scripts/build-native.sh
+    @bun run build:renderer
+    @bun run build
+    @for d in build/canary-*; do scripts/verify-artifact.sh "$d"; done
+
+# Same, stable channel.
+package-stable:
+    @scripts/build-native.sh
+    @bun run build:renderer
+    @bun run build:stable
+    @for d in build/stable-*; do scripts/verify-artifact.sh "$d"; done
+
 dev: kill-dev
     #!/usr/bin/env bash
     set -euo pipefail

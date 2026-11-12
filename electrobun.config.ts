@@ -1,10 +1,12 @@
 import type { ElectrobunConfig } from "electrobun";
+import { computeVersion } from "./scripts/version";
 
 export default {
   app: {
     name: "AI Desktop App",
     identifier: "dev.local.ai-desktop-app",
-    version: "0.1.0",
+    // semver derived from git (scripts/version.ts) — no manual bumps
+    version: computeVersion(),
   },
   build: {
     mainProcess: "bun",
@@ -17,6 +19,22 @@ export default {
     copy: {
       "dist/renderer": "views/main",
       "native/out": "native",
+    },
+    // Per-OS sections: complete config for all three platforms; only the
+    // Linux lane is verified today (feature 012). Electrobun builds on-host
+    // — each section activates when a build runs on that OS.
+    mac: {
+      codesign: false, // flip with a Developer ID identity (see docs/packaging.md)
+      notarize: false, // requires codesign
+      createDmg: true,
+      defaultRenderer: "native",
+    },
+    win: {
+      autoGrantPermissions: [],
+      defaultRenderer: "native",
+    },
+    linux: {
+      defaultRenderer: "native",
     },
   },
   runtime: {

@@ -32,4 +32,15 @@ if(APPLE)
                 INSTALL_RPATH "@loader_path")
         endif()
     endforeach()
+elseif(UNIX)
+    # FR-008: $ORIGIN so the shim + ggml/llama resolve their deps next to
+    # themselves — in the cmake bin/ dir AND in the packaged bundle —
+    # never from an absolute build-tree path baked at compile time.
+    foreach(t llama_shim llama ggml ggml-base ggml-cpu)
+        if(TARGET ${t})
+            set_target_properties(${t} PROPERTIES
+                BUILD_RPATH "$ORIGIN"
+                INSTALL_RPATH "$ORIGIN")
+        endif()
+    endforeach()
 endif()

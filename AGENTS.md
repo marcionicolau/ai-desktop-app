@@ -8,8 +8,9 @@ Electrobun 2.x + Bun desktop AI chat app (local llama.cpp via `bun:ffi`).
 |------|---------|
 | Dev (window + HMR) | `bun run dev` — `hutch dev` → vite :5173 + `electrobun dev --watch` |
 | Canary package | `bun run build` — `hutch run build` → `electrobun build --env=canary` → `build/canary-<platform>/` |
-| Stable package | `bun run build:stable` |
-| Native libs | `bun run build:native` → `native/out/<platform>/` |
+| Full package | `just package` — native + renderer + canary build + `verify-artifact.sh` |
+| Stable package | `bun run build:stable` (`just package-stable`) |
+| Native libs | `bun run build:native` → `native/out/<platform>/` (cmake tree lives in `native/build/<platform>/`, never packaged) |
 | Typecheck | `bun run typecheck` (tsc strict) |
 | Lint | `bun run lint` (oxlint) |
 | Test | `bun test ./tests` — MUST be scoped; unscoped `bun test` picks up vendored llama.cpp tests |
@@ -444,3 +445,21 @@ draft-side; `MessageList` renders `Message.attachments` chips (`·trunc` /
   (`WorkspacePanels`) and config surfaces (Models/Personas/Roles/
   Settings/Extensions) are all mounted-hidden siblings selected by
   sidebar nav; there is no tab strip or accordion chrome.
+
+## Feature 012 — cross-platform packaging
+
+- `electrobun.config.ts` has complete `build.{mac,win,linux}` sections;
+  only linux-x64 is verified (mac/win configured, not verified).
+- `scripts/version.ts` `computeVersion()` — semver from git (tag →
+  exact / `-canary.N` / stable `+N`; no tags → `pkg.version-canary.total`),
+  wired into `app.version`.
+- Shim RUNPATH is `$ORIGIN`/`@loader_path` so bundled libs resolve next
+  to the shim (FR-008); cmake tree moved to `native/build/` out of the
+  packaged `native/out/` (~25 MB saved).
+- `scripts/verify-artifact.sh` handles dev (`Resources/app/`) and
+  canary/stable (`Resources/*.tar.zst`) layouts.
+- `.github/workflows/packaging.yml` — linux lane enabled; macos/windows
+  lanes present with `enabled: false`.
+- Canary `bin/launcher` is a self-extractor installing to
+  `~/.local/share/dev.local.ai-desktop-app/<channel>/app/`.
+- Docs: `docs/packaging.md` (steps, smoke checklist, signing notes).
