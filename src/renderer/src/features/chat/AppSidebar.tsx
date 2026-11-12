@@ -34,10 +34,13 @@ interface Props {
   onExport: (id: string, format: "markdown" | "json") => Promise<string | null>;
   onImport: () => Promise<string | null>;
   onSelectHit: (conversationId: string, messageId: string) => void;
-  // workspace accordion items beyond the Chat entry (ext views + packs)
+  // workspace panel items beyond the Chat entry (ext views + packs)
   workspaceTabs: WorkspaceTab[];
   selectedTabId: string;
   onSelectTab: (id: string) => void;
+  // tab chrome for ext/pack items — crash badge + hover × (disable pack)
+  crashedTabIds?: ReadonlySet<string>;
+  onCloseTab?: (packId: string) => void;
   // panel/surface toggles owned by ChatPage
   onOpenLibrary: () => void;
   onOpenPersonas: () => void;
@@ -88,6 +91,8 @@ export function AppSidebar({
   onOpenRoles,
   onOpenSettings,
   onManageExtensions,
+  crashedTabIds,
+  onCloseTab,
 }: Props) {
   const extTabs = workspaceTabs.filter(
     (t) => t.kind === "ext" || t.kind === "pack",
@@ -115,23 +120,41 @@ export function AppSidebar({
         </NavGroup>
         <NavGroup label="Extensions" defaultOpen>
           <SidebarMenu>
-            {extTabs.map((t) => (
-              <SidebarMenuItem key={t.id}>
-                <SidebarMenuButton
-                  isActive={selectedTabId === t.id}
-                  tooltip={t.title}
-                  onClick={() => onSelectTab(t.id)}
-                  className="h-8"
-                >
-                  {t.kind === "pack" ? (
-                    <Puzzle className="size-4" />
-                  ) : (
-                    <MessageSquare className="size-4" />
+            {extTabs.map((t) => {
+              const isCrashed = crashedTabIds?.has(t.id) ?? false;
+              return (
+                <SidebarMenuItem key={t.id}>
+                  <SidebarMenuButton
+                    isActive={selectedTabId === t.id}
+                    tooltip={isCrashed ? `${t.title} (view crashed)` : t.title}
+                    onClick={() => onSelectTab(t.id)}
+                    className={cn("h-8", isCrashed && "text-warning")}
+                  >
+                    {isCrashed ? (
+                      <span className="size-1.5 shrink-0 rounded-full bg-warning" />
+                    ) : t.kind === "pack" ? (
+                      <Puzzle className="size-4" />
+                    ) : (
+                      <MessageSquare className="size-4" />
+                    )}
+                    <span className="truncate">{t.title}</span>
+                  </SidebarMenuButton>
+                  {onCloseTab && (
+                    <button
+                      aria-label={`Disable ${t.title}`}
+                      title="Disable pack"
+                      className="absolute right-1 top-1/2 z-10 -translate-y-1/2 rounded px-1 leading-none text-muted-foreground opacity-0 hover:bg-sidebar-accent hover:text-foreground group-hover/menu-item:opacity-100"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onCloseTab(t.packId);
+                      }}
+                    >
+                      ×
+                    </button>
                   )}
-                  <span className="truncate">{t.title}</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
+                </SidebarMenuItem>
+              );
+            })}
             <SidebarMenuItem>
               <SidebarMenuButton
                 isActive={selectedTabId === "surface:extensions"}

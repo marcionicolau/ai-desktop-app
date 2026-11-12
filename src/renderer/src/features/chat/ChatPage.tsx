@@ -25,7 +25,7 @@ import { ExtensionsPanel } from "../extensions/ExtensionsPanel";
 import { WorkspaceBrowser } from "../extensions/WorkspaceBrowser";
 import { RunView } from "../extensions/RunView";
 import { ExtViewHost } from "../extensions/ExtViewHost";
-import { WorkspaceAccordion } from "../workspace/WorkspaceAccordion";
+import { WorkspacePanels } from "../workspace/WorkspacePanels";
 import { useWorkspaceItems } from "../workspace/use-workspace-items";
 import { invoke } from "@/lib/rpc";
 import { Button } from "@/components/ui/button";
@@ -87,15 +87,11 @@ export function ChatPage() {
     viewId: string;
     slot: "tab" | "panel";
   } | null>(null);
-  // feature 020: the workspace accordion is owned by ChatPage — the chat
-  // item hosts ALL chat UI (fusion controls, notices, messages, composer);
-  // ext `tab` views are peer items
-  const { tabs, selectedId, select, focusView } = useWorkspaceItems();
-  // surfaces live outside the accordion — remember the last workspace
-  // item so returning doesn't land on an all-collapsed accordion
-  const lastWorkspace = useRef("chat");
-  if (!selectedId.startsWith("surface:")) lastWorkspace.current = selectedId;
-  const workspaceId = lastWorkspace.current;
+  // feature 020/021: workspace panels are owned by ChatPage — every item
+  // (chat, ext `tab` views, pack browsers, surfaces) is a mounted-hidden
+  // full-screen panel; the sidebar selects which one is visible
+  const { tabs, selectedId, select, focusView, crashed, markCrashed, clearCrashed } =
+    useWorkspaceItems();
   // feature 018 (T003/T004): first-launch auto-open of the model library.
   // Evaluates once, after model.status hydration, on the first terminal
   // status — never during "loading", never again this session (FR-001/4/6)
@@ -182,6 +178,8 @@ export function ChatPage() {
         workspaceTabs={tabs}
         selectedTabId={selectedId}
         onSelectTab={select}
+        crashedTabIds={crashed}
+        onCloseTab={(packId) => void invoke("extension.disable", { packId })}
         onOpenLibrary={() => select("surface:models")}
         onOpenPersonas={() => select("surface:personas")}
         onOpenRoles={() => select("surface:roles")}
@@ -265,13 +263,10 @@ export function ChatPage() {
             </label>
           </div>
         </header>
-        <div
-          className="flex min-h-0 flex-1 flex-col"
-          hidden={selectedId.startsWith("surface:")}
-        >
-        <WorkspaceAccordion
+        <div className="flex min-h-0 flex-1 flex-col">
+        <WorkspacePanels
           tabs={tabs}
-          selectedId={workspaceId}
+          selectedId={selectedId}
           select={select}
           focusView={focusView}
           focusRunId={focusRun}
@@ -280,7 +275,8 @@ export function ChatPage() {
             setOpenView({ packId, viewId, slot: "panel" });
             select("surface:extensions");
           }}
-          onCloseTab={(packId) => void invoke("extension.disable", { packId })}
+          onCrash={markCrashed}
+          onRecovered={clearCrashed}
           chat={
             <>
               {tagOffer && (

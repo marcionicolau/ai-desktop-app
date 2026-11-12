@@ -375,9 +375,10 @@ draft-side; `MessageList` renders `Message.attachments` chips (`·trunc` /
 
 ## Feature 019 — workspace tabs
 
-- `features/workspace/` (renderer): `WorkspaceAccordion` root (owned by
-  `ChatPage` — a slot inside its column wrapping the chat block as the
-  chat item's content), `use-workspace-items` hook +
+- `features/workspace/` (renderer): `WorkspacePanels` root (owned by
+  `ChatPage` — renders each workspace item as a mounted-hidden
+  full-screen panel; see 020 note — the accordion was dropped),
+  `use-workspace-items` hook (also owns the per-item crash badge set) +
   `tab-model.ts` pure `deriveTabs`/`reconcile` (headless-tested;
   reconcile auto-selects fresh ext tabs, falls back to `"chat"` when the
   selected tab vanishes; the hook seeds baseline from the first scan so
@@ -396,27 +397,24 @@ draft-side; `MessageList` renders `Message.attachments` chips (`·trunc` /
   default timeout is 30 s (`maxRequestTime`) with `Infinity` for
   dialog/download calls.
 
-## Feature 020 — workspace accordion UX
+## Feature 020 — workspace item UX (was: accordion)
 
-- The horizontal `TabBar` was replaced by `components/ui/accordion.tsx`
-  (shadcn wrapper over `@radix-ui/react-accordion`,
-  `type="single" collapsible={false}` → tab semantics, free roving
-  keyboard nav). Item headers carry the 019 affordances (tooltip, crash
-  `●`, ×→disable as an absolutely-positioned real button — trigger is a
-  `<button>`, no nesting).
-- Sizing animation = `transition-[flex-grow]` on `AccordionItem`
-  (`data-[state=open]:grow`), NOT the docs' `--radix-accordion-content-
-  height` keyframes — those measure intrinsic scrollHeight and break
-  fill-layout regions (chat/extension views occupy all free space).
-  `motion-reduce:transition-none` honors reduced motion.
-- `AccordionContent forceMount` keeps collapsed chat/extension surfaces
-  mounted (React state + BrowserView sessions alive); `visible` prop →
-  `view.setVisible` still parks the native view on collapse.
+- Original design used a vertical Radix accordion (chat + ext/pack items,
+  forceMount). Reworked during 021: the accordion chrome was removed per
+  UX feedback — `WorkspacePanels.tsx` now renders every workspace item as
+  a mounted-hidden full-screen panel (`hidden` ↔ `flex min-h-0 flex-1`),
+  identical to how the 021 config surfaces render. Tab chrome (title,
+  crash `●`, ×→disable) moved to the `AppSidebar` Extensions group
+  (hover-reveal × absolutely positioned inside `SidebarMenuItem`,
+  crash badge from `use-workspace-items.crashed`).
+- Hidden panels stay mounted (React state + BrowserView sessions alive);
+  `visible` prop → `view.setVisible` still parks the native view when its
+  panel is hidden.
 
 ## Feature 021 — AI UI modernization (sidebar shell + ai-elements)
 
 - `components/ui/`: **only** place `@radix-ui/*` may be imported. Vendored
-  primitives: accordion, alert-dialog, breadcrumb, badge, button, card,
+  primitives: alert-dialog, breadcrumb, badge, button, card,
   collapsible, dropdown-menu, input, kbd, progress, scroll-area,
   separator, skeleton, textarea, tooltip, trace, sidebar (icon-rail only,
   localStorage + Ctrl/Cmd+B, no Sheet). `trace.tsx` = step-chain primitive
@@ -437,8 +435,12 @@ draft-side; `MessageList` renders `Message.attachments` chips (`·trunc` /
   `.dark` + `@theme inline`; semantic `--success/--warning/--info`.
   Fontsource variable fonts (Public Sans/Geist/JetBrains Mono) +
   `typeset.css` (shadcn typeset, `.typeset` scope, `.not-typeset` opt-out).
-- Shell: `SidebarProvider` > `AppSidebar` (ConversationNav + Extensions
-  group + footer surfaces incl. ThemeSettings) + `SidebarInset` (header
-  w/ `SidebarTrigger` + tab title + `ModelSelector` pair in fusion).
-  `Sidebar.tsx` was replaced by `ConversationNav.tsx` (list content
-  unchanged); workspace accordion remains the main surface.
+- Shell: `SidebarProvider` > `AppSidebar` (Chats/Extensions/
+  Configurations NavGroups + footer ThemeSettings) + `SidebarInset`
+  (header w/ `SidebarTrigger` + panel title + `ModelSelector` pair in
+  fusion). `Sidebar.tsx` was replaced by `ConversationNav.tsx` (list
+  content unchanged). The main area renders one full-screen panel per
+  workspace item — chat, ext `tab` views, pack browsers
+  (`WorkspacePanels`) and config surfaces (Models/Personas/Roles/
+  Settings/Extensions) are all mounted-hidden siblings selected by
+  sidebar nav; there is no tab strip or accordion chrome.
