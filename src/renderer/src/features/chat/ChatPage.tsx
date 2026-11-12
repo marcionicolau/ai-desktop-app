@@ -1,17 +1,17 @@
 import { useEffect, useRef, useState } from "react";
-import {
-  GitBranch,
-  Library,
-  Puzzle,
-  Settings2,
-  Tags,
-  Users,
-} from "lucide-react";
+import { GitBranch } from "lucide-react";
 import { useChat } from "./use-chat";
 import { MessageList } from "./MessageList";
 import { BranchOverview } from "./BranchOverview";
 import { Composer } from "./Composer";
-import { Sidebar } from "./Sidebar";
+import { AppSidebar } from "./AppSidebar";
+import {
+  SidebarInset,
+  SidebarProvider,
+  SidebarTrigger,
+} from "@/components/ui/sidebar";
+import { ModelSelector } from "@/components/ai/model-selector";
+import { useRoles } from "../roles/use-roles";
 import { ModelLibrary } from "../models/ModelLibrary";
 import { decideStartupPrompt } from "./startup-prompt";
 import { ToolSettings } from "../settings/ToolSettings";
@@ -52,6 +52,25 @@ export function ChatPage() {
     selectVariant,
   } = useChat();
   const modelReady = state.modelStatus === "ready";
+  // feature 021: header model selectors list bound role tags; single mode
+  // applies via role.resolve → loadModel, fusion re-picks via setMode
+  const { tags: roleTags } = useRoles();
+  const boundTags = roleTags
+    .filter((t) => t.state === "bound")
+    .map((t) => ({
+      id: t.name,
+      label: t.label || t.name,
+      hint: t.resolvedFile?.fileName,
+    }));
+  const modelTagName =
+    roleTags.find(
+      (t) =>
+        t.state === "bound" && t.resolvedFile?.fileName === state.modelName,
+    )?.name ?? null;
+  const applyTag = async (tag: string) => {
+    const r = await invoke("role.resolve", { name: tag });
+    await loadModel(r.resolved.path);
+  };
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [rolesOpen, setRolesOpen] = useState(false);
@@ -145,8 +164,8 @@ export function ChatPage() {
   };
 
   return (
-    <main className="flex h-screen bg-background text-foreground">
-      <Sidebar
+    <SidebarProvider className="h-screen bg-background text-foreground">
+      <AppSidebar
         conversations={state.conversations}
         activeId={state.conversationId}
         onSelect={(id) => void selectConversation(id)}
@@ -156,11 +175,25 @@ export function ChatPage() {
         onExport={(id, f) => exportConversation(id, f)}
         onImport={importConversation}
         onSelectHit={(cid, mid) => void selectConversation(cid, mid)}
+        workspaceTabs={tabs}
+        selectedTabId={selectedId}
+        onSelectTab={select}
+        onOpenLibrary={() => setLibraryOpen((v) => !v)}
+        onOpenPersonas={() => setPersonasOpen((v) => !v)}
+        onOpenRoles={() => setRolesOpen((v) => !v)}
+        onOpenSettings={() => setSettingsOpen((v) => !v)}
+        onManageExtensions={() => {
+          setExtOpen(true);
+          select("chat");
+        }}
       />
-      <div className="flex min-w-0 flex-1 flex-col">
+      <SidebarInset>
         <header className="flex items-center justify-between border-b border-border px-4 py-2">
           <div className="flex items-center gap-2">
-            <h1 className="text-sm font-semibold">AI Desktop App</h1>
+            <SidebarTrigger />
+            <h1 className="text-sm font-semibold">
+              {tabs.find((t) => t.id === selectedId)?.title ?? "Chat"}
+            </h1>
             {/* feature 006 (FR-006): per-conversation persona badge/select */}
             <select
               value={state.personaName ?? ""}
@@ -178,15 +211,35 @@ export function ChatPage() {
             </select>
           </div>
           <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Personas"
-              title="Personas"
-              onClick={() => setPersonasOpen((v) => !v)}
-            >
-              <Users className="h-4 w-4" />
-            </Button>
+            {state.mode === "fusion" ? (
+              <>
+                <ModelSelector
+                  label="Planner"
+                  value={state.plannerTag}
+                  options={boundTags}
+                  onSelect={(t) => void setMode("fusion", t, state.executorTag)}
+                  onManage={() => setRolesOpen(true)}
+                  disabled={state.generatingId !== null}
+                />
+                <ModelSelector
+                  label="Executor"
+                  value={state.executorTag}
+                  options={boundTags}
+                  onSelect={(t) => void setMode("fusion", state.plannerTag, t)}
+                  onManage={() => setRolesOpen(true)}
+                  disabled={state.generatingId !== null}
+                />
+              </>
+            ) : (
+              <ModelSelector
+                label="Model"
+                value={modelTagName}
+                options={boundTags}
+                onSelect={(t) => void applyTag(t)}
+                onManage={() => setLibraryOpen(true)}
+                disabled={state.generatingId !== null}
+              />
+            )}
             <Button
               variant="ghost"
               size="icon"
@@ -196,42 +249,6 @@ export function ChatPage() {
               onClick={() => setBranchesOpen((v) => !v)}
             >
               <GitBranch className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Model library"
-              title="Model library"
-              onClick={() => setLibraryOpen((v) => !v)}
-            >
-              <Library className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Model roles"
-              title="Model roles"
-              onClick={() => setRolesOpen((v) => !v)}
-            >
-              <Tags className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Generation settings"
-              title="Generation settings"
-              onClick={() => setSettingsOpen((v) => !v)}
-            >
-              <Settings2 className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Extensions"
-              title="Extensions"
-              onClick={() => setExtOpen((v) => !v)}
-            >
-              <Puzzle className="h-4 w-4" />
             </Button>
             <label
               className="flex cursor-pointer items-center gap-1 px-1 text-xs"
@@ -245,14 +262,6 @@ export function ChatPage() {
               />
               Metrics
             </label>
-            {state.modelName && (
-              <span
-                className="max-w-40 truncate text-xs text-muted-foreground"
-                title={state.modelName}
-              >
-                {state.modelName}
-              </span>
-            )}
           </div>
         </header>
         {settingsOpen && (
@@ -388,7 +397,7 @@ export function ChatPage() {
             </>
           }
         />
-      </div>
-    </main>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }

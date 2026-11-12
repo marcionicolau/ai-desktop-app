@@ -7,6 +7,7 @@ import type { MetricEntry } from "@shared/types";
 import { invoke, on } from "@/lib/rpc";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { ContextChip } from "@/components/ai/context";
 
 const fmtTime = (ts: string) =>
   new Date(ts).toLocaleTimeString([], { hour12: false });
@@ -17,11 +18,22 @@ const groupKey = (e: MetricEntry) => (e.fallback ? "fallback" : e.roleKey);
 export function OutputPanel({ open }: { open: boolean }) {
   const [entries, setEntries] = useState<MetricEntry[]>([]);
   const [tab, setTab] = useState<string>("*");
+  // fileName → trained context size (model.list is cheap — cached meta)
+  const [ctxSizes, setCtxSizes] = useState<Record<string, number>>({});
 
   useEffect(() => {
     if (!open) return;
     // hydrate on open; live appends arrive via metrics.entry
     void invoke("metrics.list", {}).then((r) => setEntries(r.entries));
+    void invoke("model.list", {}).then((r) =>
+      setCtxSizes(
+        Object.fromEntries(
+          r.models
+            .filter((m) => m.contextTrain !== null)
+            .map((m) => [m.fileName, m.contextTrain!]),
+        ),
+      ),
+    );
     return on("metrics.entry", (e) => setEntries((p) => [...p, e]));
   }, [open]);
 
@@ -45,11 +57,18 @@ export function OutputPanel({ open }: { open: boolean }) {
     return m;
   }, [visible]);
 
+  // feature 021: context-budget chip for the tabbed (or latest) model
+  const contextModel = tab === "*" ? entries.at(-1)?.modelFile : tab;
+  const latest = [...visible].reverse().find((e) => e.promptTokens > 0);
+  const ctxUsed = latest ? latest.promptTokens + latest.outputTokens : null;
+  const ctxTotal = contextModel ? (ctxSizes[contextModel] ?? null) : null;
+
   if (!open) return null;
   return (
     <div className="shrink-0 border-t border-border">
       <div className="flex items-center gap-2 px-4 py-1.5">
         <span className="text-xs font-medium">Metrics</span>
+        <ContextChip used={ctxUsed} total={ctxTotal} />
         {models.length > 1 && (
           <div className="flex gap-1">
             {["*", ...models].map((m) => (

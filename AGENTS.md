@@ -412,3 +412,33 @@ draft-side; `MessageList` renders `Message.attachments` chips (`·trunc` /
 - `AccordionContent forceMount` keeps collapsed chat/extension surfaces
   mounted (React state + BrowserView sessions alive); `visible` prop →
   `view.setVisible` still parks the native view on collapse.
+
+## Feature 021 — AI UI modernization (sidebar shell + ai-elements)
+
+- `components/ui/`: **only** place `@radix-ui/*` may be imported. Vendored
+  primitives: accordion, alert-dialog, breadcrumb, badge, button, card,
+  collapsible, dropdown-menu, input, kbd, progress, scroll-area,
+  separator, skeleton, textarea, tooltip, trace, sidebar (icon-rail only,
+  localStorage + Ctrl/Cmd+B, no Sheet). `trace.tsx` = step-chain primitive
+  (Trace/TraceStep/TraceCollapsible/TraceDot/TraceBadge) shared by plan
+  phases, tool calls, and run views.
+- `components/ai/`: ai-elements recipes — message, prompt-input
+  (SuggestionChips), tool-call (Confirmation + Stack Trace), context
+  (token chip), task/queue/subagent, file-tree, model-selector,
+  code-block, message-actions, ai-message (typeset markdown).
+- `tests/ui-audit.test.ts`: enforces the boundary — zero radix imports
+  outside `ui/`, zero palette literals outside `ui/`, `ai/` deps only on
+  `ui/`+`lib/`+`shared/`.
+- Theme: `lib/theme.ts` resolves `Settings.themeMode`
+  (light/dark/system, persisted via `settings.set`, absent→system),
+  toggles `.dark` on `<html>`, and reports `resolvedTheme` (transient
+  `settings.set` param — validated, not persisted) so main can
+  `pushTheme` to extension views. Tokens live in `index.css` `:root`/
+  `.dark` + `@theme inline`; semantic `--success/--warning/--info`.
+  Fontsource variable fonts (Public Sans/Geist/JetBrains Mono) +
+  `typeset.css` (shadcn typeset, `.typeset` scope, `.not-typeset` opt-out).
+- Shell: `SidebarProvider` > `AppSidebar` (ConversationNav + Extensions
+  group + footer surfaces incl. ThemeSettings) + `SidebarInset` (header
+  w/ `SidebarTrigger` + tab title + `ModelSelector` pair in fusion).
+  `Sidebar.tsx` was replaced by `ConversationNav.tsx` (list content
+  unchanged); workspace accordion remains the main surface.

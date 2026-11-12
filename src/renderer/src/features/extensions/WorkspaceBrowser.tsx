@@ -12,6 +12,8 @@ import type {
 } from "@shared/types";
 import { invoke } from "@/lib/rpc";
 import { Button } from "@/components/ui/button";
+import { FileTree, FileTreeFile, FileTreeFolder } from "@/components/ai/file-tree";
+import { Queue, Task } from "@/components/ai/task";
 
 interface Props {
   packId: string;
@@ -105,51 +107,54 @@ function PipelineDetail({ pipeline }: { pipeline: PipelineView }) {
       {pipeline.description && (
         <p className="text-xs text-muted-foreground">{pipeline.description}</p>
       )}
-      <ol className="space-y-1">
+      <Queue className="rounded border border-border bg-card p-2">
         {pipeline.steps.map((s, i) => (
-          <li key={s.id} className="rounded bg-muted p-1.5">
-            <div className="text-xs">
-              <span className="text-muted-foreground">{i + 1}.</span>{" "}
-              <span className="font-mono">{s.id}</span>{" "}
-              <span className="text-muted-foreground">→ {s.uses}</span>
-            </div>
-            {s.inputs && (
-              <div className="mt-0.5 font-mono text-[10px] text-muted-foreground">
-                in: {JSON.stringify(s.inputs)}
+          <Task
+            key={s.id}
+            last={i === pipeline.steps.length - 1}
+            status="queued"
+            statusNode={<span className="font-mono text-[10px] text-muted-foreground">→ {s.uses}</span>}
+            title={
+              <>
+                <span className="text-muted-foreground">{i + 1}.</span>{" "}
+                <span className="font-mono">{s.id}</span>
+              </>
+            }
+          >
+            {(s.inputs || s.params) && (
+              <div className="mt-0.5 space-y-0.5 font-mono text-[10px] text-muted-foreground">
+                {s.inputs && <div>in: {JSON.stringify(s.inputs)}</div>}
+                {s.params && <div>params: {JSON.stringify(s.params)}</div>}
               </div>
             )}
-            {s.params && (
-              <div className="font-mono text-[10px] text-muted-foreground">
-                params: {JSON.stringify(s.params)}
-              </div>
-            )}
-          </li>
+          </Task>
         ))}
-      </ol>
+      </Queue>
     </div>
   );
 }
 
-function AgentNode({ agent, depth }: { agent: AgentView; depth: number }) {
+function AgentNode({ agent }: { agent: AgentView }) {
+  const label = (
+    <>
+      <span className="font-mono">{agent.name}</span>{" "}
+      <span className="text-muted-foreground">
+        {agent.kind}
+        {agent.model ? ` · ${agent.model}` : ""}
+        {agent.pipeline ? ` · →${agent.pipeline}` : ""}
+        {agent.fallback ? ` · fb:${agent.fallback}` : ""}
+      </span>
+    </>
+  );
+  if (agent.children.length === 0) {
+    return <FileTreeFile name={label} onClick={(e) => e.preventDefault()} />;
+  }
   return (
-    <li style={{ marginLeft: depth * 12 }}>
-      <div className="text-xs">
-        <span className="font-mono">{agent.name}</span>{" "}
-        <span className="text-muted-foreground">
-          {agent.kind}
-          {agent.model ? ` · ${agent.model}` : ""}
-          {agent.pipeline ? ` · →${agent.pipeline}` : ""}
-          {agent.fallback ? ` · fb:${agent.fallback}` : ""}
-        </span>
-      </div>
-      {agent.children.length > 0 && (
-        <ul className="border-l border-border pl-1">
-          {agent.children.map((ch) => (
-            <AgentNode key={ch.id} agent={ch} depth={0} />
-          ))}
-        </ul>
-      )}
-    </li>
+    <FileTreeFolder name={label} defaultOpen>
+      {agent.children.map((ch) => (
+        <AgentNode key={ch.id} agent={ch} />
+      ))}
+    </FileTreeFolder>
   );
 }
 
@@ -157,9 +162,9 @@ function AgentTree({ agent }: { agent: AgentView }) {
   return (
     <div className="space-y-1" data-testid="agent-tree">
       <div className="text-xs font-medium">{agent.name}</div>
-      <ul className="rounded bg-muted p-1.5">
-        <AgentNode agent={agent} depth={0} />
-      </ul>
+      <FileTree className="rounded border border-border bg-card p-1.5 text-xs">
+        <AgentNode agent={agent} />
+      </FileTree>
     </div>
   );
 }

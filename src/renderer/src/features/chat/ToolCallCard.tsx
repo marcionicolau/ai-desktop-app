@@ -86,6 +86,11 @@ function Card({ record, block }: { record?: ToolCallRecord; block: ToolBlock }) 
           </Button>
         </div>
       )}
+      {status === "refused" && (
+        <p className="mt-1.5 text-muted-foreground">
+          {REFUSE_LABEL[record?.refuseReason ?? ""] ?? "refused"}
+        </p>
+      )}
       {record?.resultPreview && (
         <p className="mt-1.5 truncate text-muted-foreground">
           {record.resultPreview}
