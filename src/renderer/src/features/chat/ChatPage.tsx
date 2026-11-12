@@ -12,7 +12,6 @@ import { MessageList } from "./MessageList";
 import { BranchOverview } from "./BranchOverview";
 import { Composer } from "./Composer";
 import { Sidebar } from "./Sidebar";
-import { ModelPicker } from "../models/ModelPicker";
 import { ModelLibrary } from "../models/ModelLibrary";
 import { decideStartupPrompt } from "./startup-prompt";
 import { ToolSettings } from "../settings/ToolSettings";
@@ -43,7 +42,6 @@ export function ChatPage() {
     deleteConversation,
     exportConversation,
     importConversation,
-    pickModel,
     regenerate,
     editMessage,
     loadModel,
@@ -241,12 +239,14 @@ export function ChatPage() {
               />
               Metrics
             </label>
-            <ModelPicker
-              status={state.modelStatus}
-              name={state.modelName}
-              error={state.modelError}
-              onPick={() => void pickModel()}
-            />
+            {state.modelName && (
+              <span
+                className="max-w-40 truncate text-xs text-muted-foreground"
+                title={state.modelName}
+              >
+                {state.modelName}
+              </span>
+            )}
           </div>
         </header>
         {settingsOpen && (
