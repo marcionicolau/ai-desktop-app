@@ -14,6 +14,7 @@
 
 - Resolved interpretation: the referenced ai-elements documentation shows these components are **recipes composed from the standard component library** (e.g., chain-of-thought = Trace + collapsible + Badge + Code Block), where the primitive layer stays underneath the wrappers. "Replace Radix with shadcn" therefore means **feature code never imports low-level primitive libraries directly — everything goes through the project's standardized component wrappers** — not that primitives are removed.
 - Q: Does the visual refresh include a light theme or stay dark-only? → A: **System-following light + dark** — two full token sets driven by the OS preference (prefers-color-scheme), with a persisted manual override; extension view theme sync pushes the active palette.
+- Reference: the full ai-elements catalog (21 patterns) was enumerated; the adopted subset maps to existing surfaces as follows — Chat/Message Scroller (transcript), Message (turns), Prompt Input (composer), Plan/Chain of Thought (fusion planner phases), Tool + Stack Trace (tool calls + failures), Confirmation (tool ask-mode approvals), Suggestion (snippets/personas one-click prompts), Model Selector (model + fusion planner/executor tag picking), Checkpoint (conversation variant return points), Context (token budget usage), Task/Queue (pack pipeline run steps), Subagent (a pack run as a unit), File Tree (pack workspace files), Reasoning (streaming thinking), Code Block (standardized code). Deferred — no backing surface today: Sources, Inline Citation, Terminal, Test Results.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -80,8 +81,8 @@ As a user, the whole interface gets a coherent visual refresh — a refined colo
 
 - **FR-001**: Feature code MUST NOT import low-level UI primitive libraries directly; all primitive usage MUST flow through the project's standardized component wrappers.
 - **FR-002**: An audit MUST catalog every current ad-hoc/primitive usage and either migrate it to an existing wrapper or add a missing wrapper following project conventions.
-- **FR-003**: Conversational surfaces MUST use purpose-built AI components: a structured message component, a purpose-built prompt input, and an expandable step-trace for agent activity.
-- **FR-004**: Fusion planning phases and tool invocations MUST render as collapsible step traces showing per-step status (running, complete, failed), expandable into detail.
+- **FR-003**: Conversational surfaces MUST use purpose-built AI components per the adopted element map: a scroll-anchored transcript, structured turn messages, a purpose-built prompt input, collapsible step traces (fusion plan phases, tool calls), approval prompts for gated tool use, one-click prompt suggestions, model/role selection, conversation return points, context-usage indication, run-step views, pack workspace file trees, and standardized code presentation.
+- **FR-004**: Agent activity MUST render as collapsible step traces showing per-step status (running, complete, failed): fusion planning phases, tool invocations (with failure detail), and pack pipeline run steps.
 - **FR-005**: The prompt input MUST retain all existing capabilities — text compose, attachments, slash-snippet insertion, send/stop states, model-load shortcut.
 - **FR-006**: Message rendering MUST retain all existing capabilities — markdown, code blocks, regenerate/edit actions, variant navigation, attachment chips.
 - **FR-007**: A shared theme token set MUST define light and dark palettes, radii, spacing, and a bounded typography scale (font stacks, sizes, weights, line heights); feature code MUST reference tokens, not raw values.
@@ -94,7 +95,7 @@ As a user, the whole interface gets a coherent visual refresh — a refined colo
 
 - **Component Inventory**: catalog of interactive surfaces, which standardized wrapper each uses, and gaps needing new wrappers.
 - **Theme Tokens**: named palettes (light + dark), spacing, radius, and typography definitions consumed app-wide (including extension view sync); plus a persisted theme-mode preference (`system | light | dark`).
-- **AI Surface Map**: which purpose-built AI component renders each conversational element (messages, prompt, plan steps, tool calls, code, citations).
+- **AI Surface Map**: the adopted element set (from the 21-pattern ai-elements catalog) mapped to existing surfaces — transcript, turns, prompt input, plan/tool/run step traces, approvals, suggestions, model/role selection, checkpoints, context usage, file trees, code — with four deferred patterns (Sources, Inline Citation, Terminal, Test Results) adopted only if a real surface emerges.
 
 ## Success Criteria *(mandatory)*
 
@@ -115,3 +116,4 @@ As a user, the whole interface gets a coherent visual refresh — a refined colo
 - **A4**: Refreshed theme tokens propagate to extension views through the existing theme-sync mechanism introduced with extension views.
 - **A5**: Extension pack-authored view internals are excluded from restyling beyond shared tokens.
 - **A6**: The refresh includes a modest media-query pass (reduced motion, narrow-viewport resilience) — not a full responsive redesign for mobile form factors.
+- **A7**: AI elements with no backing surface in the app today (Sources, Inline Citation, Terminal, Test Results) are explicitly out of scope; they're adopted only when a real surface emerges.
