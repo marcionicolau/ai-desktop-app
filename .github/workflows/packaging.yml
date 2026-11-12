@@ -95,6 +95,14 @@ jobs:
           name: ai-desktop-app-${{ steps.channel.outputs.channel }}-${{ matrix.platform }}
           path: build/${{ steps.channel.outputs.channel }}-${{ matrix.platform }}/
           retention-days: 14
+      # feature 013: update manifests + bundles emitted by electrobun build
+      # (artifacts/ at repo root) — forwarded to the rolling `feed` release
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: hashFiles('artifacts/*-update*.json') != ''
+        with:
+          name: update-feed-${{ steps.channel.outputs.channel }}-${{ matrix.platform }}
+          path: artifacts/
+          retention-days: 14
 
   release:
     name: github release
@@ -119,3 +127,39 @@ jobs:
           args=(--generate-notes --title "${GITHUB_REF_NAME}")
           [[ "${GITHUB_REF_NAME}" == *-* ]] && args+=(--prerelease)
           gh release create "${GITHUB_REF_NAME}" dist/*.zip "${args[@]}"
+
+      # feature 013: publish update manifests/bundles + notes sidecars to
+      # the rolling `feed` release — the channel-scoped baseUrl clients
+      # poll (contracts/feed.md). Assets are clobbered per channel+platform.
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: update-feed-*
+          path: feed-src
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6.0.2
+        with:
+          fetch-depth: 0 # needed for notes git log
+      - name: publish update feed
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          mkdir -p feed
+          shopt -s nullglob
+          # each update-feed-* artifact holds that lane's artifacts/ contents
+          for lane in feed-src/*/; do
+            cp "$lane"* feed/ 2>/dev/null || true
+          done
+          # notes sidecar per channel+platform prefix found in the feed
+          channel=canary; [[ "${GITHUB_REF_NAME}" != *-* ]] && channel=stable
+          prev=$(git tag -l "v*-*" --sort=-v:refname | head -1)
+          [ "$channel" = "stable" ] && prev=$(git tag -l "v*" --exclude="*-*" --sort=-v:refname | grep -v "^${GITHUB_REF_NAME}$" | head -1)
+          for mf in feed/*-update-v2.json; do
+            prefix=$(basename "$mf" -update-v2.json)
+            {
+              echo "date: $(date +%F)"
+              git log "${prev:+$prev..}${GITHUB_REF_NAME}" --pretty=format:'- %s' | head -30
+            } > "feed/${prefix}-notes.md"
+          done
+          gh release view feed >/dev/null 2>&1 || \
+            gh release create feed --title "Update feed" --prerelease --notes "Rolling auto-update manifests and bundles — do not tag commits."
+          gh release upload feed feed/* --clobber

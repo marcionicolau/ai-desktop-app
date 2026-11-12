@@ -33,6 +33,7 @@ export const rpc = Electroview.defineRPC<ChatRpcSchema>({
       "run.event": (p) => dispatch("run.event", p),
       "run.status": (p) => dispatch("run.status", p),
       "view.error": (p) => dispatch("view.error", p),
+      "update.status": (p) => dispatch("update.status", p),
     },
     requests: {},
   },

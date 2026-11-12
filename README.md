@@ -40,6 +40,11 @@ settings are local JSON.
   follow-ups skip re-prefill across restarts.
 - **Output stats panel** — per-call token/latency metrics grouped by model,
   role and persona.
+- **Auto-update** — packaged builds check a channel-scoped release feed on
+  launch, download verified (`tarSha256`) bundles in the background, and
+  apply on explicit restart; stable/canary channel selection, silent
+  offline degradation, fully disableable (`AI_DESKTOP_APP_UPDATE=off`).
+  The feed is the app's only update-network surface — see `docs/updates.md`.
 
 ## Requirements
 

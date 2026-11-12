@@ -17,6 +17,8 @@ import type {
   Snippet,
   RoleRef,
   PackSource,
+  UpdateChannel,
+  UpdateView,
 } from "../../shared/types";
 import { DEFAULT_GENERATION } from "../../shared/types";
 import { EngineError } from "../llama/engine";
@@ -70,6 +72,9 @@ import { RunManager } from "../fabric/runtime";
 import { ViewManager, type ViewFactory } from "../extensions/views";
 import { createViewBridge } from "../extensions/bridge";
 import { electrobunViewFactory, type HostTarget } from "../extensions/electrobun-view";
+import { Updater } from "electrobun/main/updater";
+import { UpdateError, UpdateService } from "../updater/service";
+import type { UpdateServiceLike } from "../updater/types-internal";
 import {
   deepestLeaf,
   leafOf,
@@ -169,11 +174,29 @@ export interface HandlerDeps {
   fabric?: RunManager;
   views?: ViewManager;
   viewFactory?: ViewFactory;
+  // feature 013: update service; absent → update.* rejects UPDATE_DISABLED
+  updater?: UpdateServiceLike;
 }
 
 function fail(code: RpcErrorCode, message: string): never {
   throw new EngineError(code, message);
 }
+
+// feature 013: bridge UpdateService's UpdateError to the RPC error code
+const updateCall = async <T>(fn: () => Promise<T>): Promise<T> => {
+  try {
+    return await fn();
+  } catch (e) {
+    if (e instanceof UpdateError) fail(e.code, e.message);
+    throw e;
+  }
+};
+
+const IDLE_UPDATE_VIEW: UpdateView = {
+  status: "idle",
+  current: { version: "0.0.0", channel: "dev" },
+  preferredChannel: "canary",
+};
 
 const now = () => new Date().toISOString();
 const newId = () => crypto.randomUUID();
@@ -1275,6 +1298,25 @@ export function createRequestHandlers(deps: HandlerDeps) {
       const path = (await deps.dialogs?.pickFolder()) ?? null;
       return { path };
     },
+    // feature 013: auto-update (contracts/rpc.md). manual=true surfaces
+    // errors; launch checks run manual=false and degrade silently.
+    "update.check": async ({ manual }: { manual?: boolean }) => {
+      const u = deps.updater;
+      if (!u) fail("UPDATE_DISABLED", "Update service unavailable");
+      return updateCall(() => u.check(manual === true));
+    },
+    "update.download": async () => {
+      const u = deps.updater;
+      if (!u) fail("UPDATE_DISABLED", "Update service unavailable");
+      return updateCall(() => u.download());
+    },
+    "update.apply": async () => {
+      const u = deps.updater;
+      if (!u) fail("UPDATE_DISABLED", "Update service unavailable");
+      await updateCall(() => u.apply());
+      return {};
+    },
+    "update.state": () => deps.updater?.state() ?? { ...IDLE_UPDATE_VIEW },
     "settings.get": () => {
       const s = deps.store.getSettings();
       return {
@@ -1286,6 +1328,13 @@ export function createRequestHandlers(deps: HandlerDeps) {
         tools: s.tools ?? { sandboxRoot: null, mode: "deny" },
         // feature 021: absent → "system"
         themeMode: s.themeMode ?? "system",
+        // feature 013: reports the stored pref (env kill-switch affects
+        // behavior, not this field); channel default = installed channel
+        updates: {
+          enabled: s.updates?.enabled ?? true,
+          channel:
+            s.updates?.channel ?? deps.updater?.preferredChannel() ?? "canary",
+        },
       };
     },
     "settings.set": ({
@@ -1295,6 +1344,7 @@ export function createRequestHandlers(deps: HandlerDeps) {
       tools: toolsPatch,
       themeMode,
       resolvedTheme: resolvedPatch,
+      updates: updatesPatch,
     }: {
       generation?: Partial<GenerationParams>;
       outputPanel?: boolean;
@@ -1305,6 +1355,7 @@ export function createRequestHandlers(deps: HandlerDeps) {
       tools?: Partial<import("../../shared/types").ToolPolicy>;
       themeMode?: import("../../shared/types").ThemeMode;
       resolvedTheme?: "light" | "dark";
+      updates?: { enabled?: boolean; channel?: UpdateChannel };
     }) => {
       const err =
         (generation ? validateParams(generation) : null) ??
@@ -1362,6 +1413,25 @@ export function createRequestHandlers(deps: HandlerDeps) {
             ...modelOverride.params,
           };
         }
+      }
+      if (updatesPatch) {
+        if (
+          updatesPatch.channel !== undefined &&
+          updatesPatch.channel !== "stable" &&
+          updatesPatch.channel !== "canary"
+        ) {
+          fail("INVALID_PARAMS", `unknown update channel: ${updatesPatch.channel}`);
+        }
+        next.updates = {
+          enabled: s.updates?.enabled ?? true,
+          channel: s.updates?.channel ?? "canary",
+          ...(updatesPatch.enabled !== undefined
+            ? { enabled: updatesPatch.enabled }
+            : {}),
+          ...(updatesPatch.channel !== undefined
+            ? { channel: updatesPatch.channel }
+            : {}),
+        };
       }
       deps.store.saveSettings(next);
       return {};
@@ -1946,6 +2016,13 @@ function makeDialogs() {
 export function createRpc(getHost?: () => HostTarget | null) {
   // oxlint-disable-next-line consistent-function-scoping -- placeholder reassigned below
   let emit: Emit = () => {};
+  // feature 013: wraps the devkit Updater singleton; emits update.status
+  // through the same transport once the webview attaches
+  const updater = new UpdateService({
+    updater: Updater,
+    getSettings: () => store.getSettings(),
+    emit: (m, p) => emit(m, p),
+  });
   const handlers = createRequestHandlers({
     engine,
     roles,
@@ -1955,6 +2032,7 @@ export function createRpc(getHost?: () => HostTarget | null) {
     metrics: metricsStore(),
     emit: (m, p) => emit(m, p),
     store,
+    updater,
     viewFactory: electrobunViewFactory(getHost ?? (() => null)),
     dialogs: makeDialogs(),
   });
@@ -1970,7 +2048,12 @@ export function createRpc(getHost?: () => HostTarget | null) {
     }
   };
   // bootstrap must run after a BrowserWindow attaches the rpc transport
-  const start = () => void bootstrapModel(emit);
+  const start = () => {
+    void bootstrapModel(emit);
+    // feature 013: launch check — fire-and-forget, never blocks startup;
+    // non-manual so failures degrade silently (FR-001/FR-007, SC-001)
+    void updater.check(false).catch(() => {});
+  };
   return { rpc, start };
 }
 

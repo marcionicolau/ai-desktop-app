@@ -168,6 +168,60 @@ export interface Settings {
   tools?: ToolPolicy;
   // feature 021: theme preference; undefined/absent → "system"
   themeMode?: ThemeMode;
+  // feature 013: update preferences; undefined → {enabled:true,
+  // channel:<installed>} — AI_DESKTOP_APP_UPDATE=off forces enabled=false
+  updates?: UpdatesPrefs;
+}
+
+// ---- feature 013: auto-update ----
+
+export type UpdateChannel = "stable" | "canary";
+
+export interface UpdatesPrefs {
+  enabled: boolean;
+  channel: UpdateChannel;
+}
+
+export type UpdateStatus =
+  | "idle"
+  | "checking"
+  | "available"
+  | "downloading"
+  | "ready"
+  | "error";
+
+export type UpdateErrorCode =
+  | "UPDATE_INVALID"
+  | "UPDATE_FAILED"
+  | "UPDATE_DISABLED";
+
+// contracts/feed.md: derived from the Electrobun update manifest +
+// {prefix}-notes.md sidecar
+export interface ReleaseDescriptor {
+  version: string;
+  channel: UpdateChannel;
+  hash: string;
+  artifactUrl: string;
+  tarSha256: string;
+  tarSize?: number;
+  changelog: string;
+  publishedAt?: string;
+}
+
+// single RPC-visible update state (data-model.md)
+export interface UpdateView {
+  status: UpdateStatus;
+  current: { version: string; channel: "stable" | "canary" | "dev" | string };
+  preferredChannel: UpdateChannel;
+  release?: ReleaseDescriptor;
+  channelSwitch?: boolean;
+  progress?: {
+    bytesDownloaded: number;
+    totalBytes: number;
+    percent: number;
+  };
+  error?: { code: UpdateErrorCode; message: string };
+  lastCheckedAt?: number;
 }
 
 export type ThemeMode = "light" | "dark" | "system";

@@ -28,9 +28,9 @@ description: "Task list for 013-auto-update implementation"
 
 **Purpose**: Module skeleton + build config the updater needs
 
-- [ ] T001 Create `src/bun/updater/` module skeleton (`service.ts`, `feed.ts`, `status-map.ts` stubs exporting the interfaces from data-model.md) and `tests/bun/updater/` + `tests/rpc/` directories
-- [ ] T002 Add `release: { baseUrl: process.env.UPDATE_FEED_BASE_URL ?? "<github releases feed URL>" }` to `electrobun.config.ts` so `version.json` carries the feed URL in packaged builds (see contracts/feed.md URL layout; use `releases/download/feed` as the production placeholder)
-- [ ] T003 [P] Add `UpdateView`, `ReleaseDescriptor`, and `UpdateStatus` types to `src/shared/types.ts` matching data-model.md exactly (`status: idle|checking|available|downloading|ready|error`; `channelSwitch?: boolean`; `progress?: { bytesDownloaded; totalBytes; percent }`)
+- [X] T001 Create `src/bun/updater/` module skeleton (`service.ts`, `feed.ts`, `status-map.ts` stubs exporting the interfaces from data-model.md) and `tests/bun/updater/` + `tests/rpc/` directories
+- [X] T002 Add `release: { baseUrl: process.env.UPDATE_FEED_BASE_URL ?? "<github releases feed URL>" }` to `electrobun.config.ts` so `version.json` carries the feed URL in packaged builds (see contracts/feed.md URL layout; use `releases/download/feed` as the production placeholder)
+- [X] T003 [P] Add `UpdateView`, `ReleaseDescriptor`, and `UpdateStatus` types to `src/shared/types.ts` matching data-model.md exactly (`status: idle|checking|available|downloading|ready|error`; `channelSwitch?: boolean`; `progress?: { bytesDownloaded; totalBytes; percent }`)
 
 ---
 
@@ -40,10 +40,10 @@ description: "Task list for 013-auto-update implementation"
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T004 Extend `src/shared/rpc-contract.ts`: add `"UPDATE_INVALID"`, `"UPDATE_FAILED"`, `"UPDATE_DISABLED"` to `RPC_ERROR_CODES`; add `update.check`/`update.download`/`update.apply`/`update.state` requests to `bun.requests` and the `update.status: UpdateView` message to `webview.messages` (shapes per contracts/rpc.md); add `updates?: { enabled?: boolean; channel?: "stable" | "canary" }` to `settings.set` params and `updates: { enabled: boolean; channel: "stable" | "canary" }` to `settings.get` response
-- [ ] T005 Persist `updates.enabled` (default `true`) and `updates.channel` (default = installed channel) in `src/bun/store/` settings, honoring `AI_DESKTOP_APP_UPDATE=off` as an env override forcing `enabled=false` (FR-010); wire both fields through the `settings.get`/`settings.set` handlers in `src/bun/rpc/handlers.ts`
-- [ ] T006 Implement `status-map.ts`: pure function mapping devkit `UpdateStatusEntry.status` → `UpdateView.status` and deriving `error.code` (`UPDATE_INVALID` for artifact/manifest/disk failures, `UPDATE_FAILED` for transport) per the mapping table in data-model.md
-- [ ] T007 Implement `feed.ts`: `checkChannelFeed(preferredChannel, localInfo, fetchImpl?)` — builds `{baseUrl}/{preferred}-{os}-{arch}-update-v2.json` URL, fetches via injected fetch (timeout 5 s for launch checks), validates with the devkit `validateUpdateManifest` (`expected.channel = preferred`), requires `tarSha256`, applies the semver downgrade guard (manifest version must be `>=` installed version), and fetches the `{prefix}-notes.md` sidecar into `ReleaseDescriptor.changelog` (non-fatal on 404)
+- [X] T004 Extend `src/shared/rpc-contract.ts`: add `"UPDATE_INVALID"`, `"UPDATE_FAILED"`, `"UPDATE_DISABLED"` to `RPC_ERROR_CODES`; add `update.check`/`update.download`/`update.apply`/`update.state` requests to `bun.requests` and the `update.status: UpdateView` message to `webview.messages` (shapes per contracts/rpc.md); add `updates?: { enabled?: boolean; channel?: "stable" | "canary" }` to `settings.set` params and `updates: { enabled: boolean; channel: "stable" | "canary" }` to `settings.get` response
+- [X] T005 Persist `updates.enabled` (default `true`) and `updates.channel` (default = installed channel) in `src/bun/store/` settings, honoring `AI_DESKTOP_APP_UPDATE=off` as an env override forcing `enabled=false` (FR-010); wire both fields through the `settings.get`/`settings.set` handlers in `src/bun/rpc/handlers.ts`
+- [X] T006 Implement `status-map.ts`: pure function mapping devkit `UpdateStatusEntry.status` → `UpdateView.status` and deriving `error.code` (`UPDATE_INVALID` for artifact/manifest/disk failures, `UPDATE_FAILED` for transport) per the mapping table in data-model.md
+- [X] T007 Implement `feed.ts`: `checkChannelFeed(preferredChannel, localInfo, fetchImpl?)` — builds `{baseUrl}/{preferred}-{os}-{arch}-update-v2.json` URL, fetches via injected fetch (timeout 5 s for launch checks), validates with the devkit `validateUpdateManifest` (`expected.channel = preferred`), requires `tarSha256`, applies the semver downgrade guard (manifest version must be `>=` installed version), and fetches the `{prefix}-notes.md` sidecar into `ReleaseDescriptor.changelog` (non-fatal on 404)
 
 **Checkpoint**: Contract, settings, and feed layers compile — `bun run typecheck` clean
 
@@ -57,18 +57,18 @@ description: "Task list for 013-auto-update implementation"
 
 ### Tests for User Story 1 ⚠️ write first, must FAIL
 
-- [ ] T008 [P] [US1] `tests/bun/updater/feed.test.ts` — fixture manifest/notes served via injected fetch: valid manifest parses into `ReleaseDescriptor`; missing `tarSha256` rejected; invalid JSON rejected; older-version manifest ignored (downgrade guard); notes 404 → empty changelog, not an error
-- [ ] T009 [P] [US1] `tests/bun/updater/status-map.test.ts` — every `UpdateStatusType` maps to the correct `UpdateView.status`; `error` entries with artifact/integrity messages → `UPDATE_INVALID`, transport messages → `UPDATE_FAILED`; `download-progress` details → `progress` fields
-- [ ] T010 [P] [US1] `tests/rpc/update.test.ts` — contract test with a stubbed `Updater` (dependency-injected like existing rpc tests): `update.check` returns `UpdateView`; `update.download`/`update.apply` are ack-only and delegate; `update.state` returns the snapshot; disabled/unsupported-channel requests → `UPDATE_DISABLED`/`idle` per contracts/rpc.md
+- [X] T008 [P] [US1] `tests/bun/updater/feed.test.ts` — fixture manifest/notes served via injected fetch: valid manifest parses into `ReleaseDescriptor`; missing `tarSha256` rejected; invalid JSON rejected; older-version manifest ignored (downgrade guard); notes 404 → empty changelog, not an error
+- [X] T009 [P] [US1] `tests/bun/updater/status-map.test.ts` — every `UpdateStatusType` maps to the correct `UpdateView.status`; `error` entries with artifact/integrity messages → `UPDATE_INVALID`, transport messages → `UPDATE_FAILED`; `download-progress` details → `progress` fields
+- [X] T010 [P] [US1] `tests/rpc/update.test.ts` — contract test with a stubbed `Updater` (dependency-injected like existing rpc tests): `update.check` returns `UpdateView`; `update.download`/`update.apply` are ack-only and delegate; `update.state` returns the snapshot; disabled/unsupported-channel requests → `UPDATE_DISABLED`/`idle` per contracts/rpc.md
 
 ### Implementation for User Story 1
 
-- [ ] T011 [US1] Implement `UpdateService` in `src/bun/updater/service.ts` — constructor takes `{ updater, localInfo, settings, emit }`; `check(manual)` calls `feed.checkChannelFeed` for the preferred channel, then delegates to `Updater.checkForUpdate()` when `preferred == installed` and a newer release exists (populates devkit's private manifest for download); subscribes `Updater.onStatusChange` → maps entries via `status-map` → emits `update.status`; launch-mode failures stay `idle`-silent (FR-007)
-- [ ] T012 [US1] Add `download()`/`apply()`/`state()` to `UpdateService` — `download()` no-ops unless `updateAvailable`, delegates to `Updater.downloadUpdate()`; `apply()` throws `UPDATE_FAILED` unless `updateReady`, delegates to `Updater.applyUpdate()`; all three short-circuit to `UPDATE_DISABLED` when `updates.enabled === false` or channel is `dev`
-- [ ] T013 [US1] Register the four `update.*` request handlers + `update.status` push in `src/bun/rpc/handlers.ts` and construct/wire `UpdateService` in `src/bun/index.ts`; fire the launch check fire-and-forget after first window ready (never blocks startup — SC-001)
-- [ ] T014 [P] [US1] Create `src/renderer/src/features/update/UpdateBanner.tsx` — discrete banner on `update.status`: shows `release.version` + changelog summary (render `changelog` markdown minimally), progress bar from `progress.percent`, and a "Restart to update" action calling `update.apply`; suppressed while a generation is active (apply still user-explicit — FR-005)
-- [ ] T015 [P] [US1] Create `src/renderer/src/features/settings/UpdatesSection.tsx` — "Updates" block in Settings: enabled toggle (`updates.enabled`), current version + installed channel (from `update.state`), "Check for updates" button (`update.check { manual: true }`), last-checked display; honors `UPDATE_DISABLED` with an explanatory note on dev builds
-- [ ] T016 [US1] Add feed publish to `.github/workflows/packaging.yml` release job — after existing artifact upload: `gh release upload feed artifacts/* --clobber` (create the rolling `feed` prerelease if absent) plus a step generating `{prefix}-notes.md` via `git log <prev-channel-tag>..<tag> --pretty=format:'- %s'` per contracts/feed.md publisher contract; keep assets unrenamed
+- [X] T011 [US1] Implement `UpdateService` in `src/bun/updater/service.ts` — constructor takes `{ updater, localInfo, settings, emit }`; `check(manual)` calls `feed.checkChannelFeed` for the preferred channel, then delegates to `Updater.checkForUpdate()` when `preferred == installed` and a newer release exists (populates devkit's private manifest for download); subscribes `Updater.onStatusChange` → maps entries via `status-map` → emits `update.status`; launch-mode failures stay `idle`-silent (FR-007)
+- [X] T012 [US1] Add `download()`/`apply()`/`state()` to `UpdateService` — `download()` no-ops unless `updateAvailable`, delegates to `Updater.downloadUpdate()`; `apply()` throws `UPDATE_FAILED` unless `updateReady`, delegates to `Updater.applyUpdate()`; all three short-circuit to `UPDATE_DISABLED` when `updates.enabled === false` or channel is `dev`
+- [X] T013 [US1] Register the four `update.*` request handlers + `update.status` push in `src/bun/rpc/handlers.ts` and construct/wire `UpdateService` in `src/bun/index.ts`; fire the launch check fire-and-forget after first window ready (never blocks startup — SC-001)
+- [X] T014 [P] [US1] Create `src/renderer/src/features/update/UpdateBanner.tsx` — discrete banner on `update.status`: shows `release.version` + changelog summary (render `changelog` markdown minimally), progress bar from `progress.percent`, and a "Restart to update" action calling `update.apply`; suppressed while a generation is active (apply still user-explicit — FR-005)
+- [X] T015 [P] [US1] Create `src/renderer/src/features/settings/UpdatesSection.tsx` — "Updates" block in Settings: enabled toggle (`updates.enabled`), current version + installed channel (from `update.state`), "Check for updates" button (`update.check { manual: true }`), last-checked display; honors `UPDATE_DISABLED` with an explanatory note on dev builds
+- [X] T016 [US1] Add feed publish to `.github/workflows/packaging.yml` release job — after existing artifact upload: `gh release upload feed artifacts/* --clobber` (create the rolling `feed` prerelease if absent) plus a step generating `{prefix}-notes.md` via `git log <prev-channel-tag>..<tag> --pretty=format:'- %s'` per contracts/feed.md publisher contract; keep assets unrenamed
 
 **Checkpoint**: End-to-end loop works on the loopback feed (quickstart.md steps 1–4); US1 independently demonstrable
 
@@ -82,14 +82,14 @@ description: "Task list for 013-auto-update implementation"
 
 ### Tests for User Story 2 ⚠️ write first, must FAIL
 
-- [ ] T017 [P] [US2] Extend `tests/bun/updater/feed.test.ts` — preferred-channel isolation: requesting `stable` never surfaces a canary manifest (fixture serves both); manifest whose `channel` mismatches the requested prefix fails validation
-- [ ] T018 [P] [US2] Extend `tests/rpc/update.test.ts` — `preferred != installed` + newer release → `UpdateView.release` present with `channelSwitch: true`; `update.download` in that state returns `{ installerPath }` instead of calling `Updater.downloadUpdate`; corrupted-artifact stub → `UPDATE_INVALID` surfaced on `update.status`
+- [X] T017 [P] [US2] Extend `tests/bun/updater/feed.test.ts` — preferred-channel isolation: requesting `stable` never surfaces a canary manifest (fixture serves both); manifest whose `channel` mismatches the requested prefix fails validation
+- [X] T018 [P] [US2] Extend `tests/rpc/update.test.ts` — `preferred != installed` + newer release → `UpdateView.release` present with `channelSwitch: true`; `update.download` in that state returns `{ installerPath }` instead of calling `Updater.downloadUpdate`; corrupted-artifact stub → `UPDATE_INVALID` surfaced on `update.status`
 
 ### Implementation for User Story 2
 
-- [ ] T019 [US2] Add the channel selector to `UpdatesSection.tsx` — `stable|canary` radio/select writing `updates.channel` via `settings.set`; shows a "channel differs from installed build" hint when `preferred != installed`; `dev` is never selectable (FR-006)
-- [ ] T020 [US2] Implement cross-channel path in `src/bun/updater/service.ts` — when `preferred != installed` and the feed has a newer release, mark `UpdateView.channelSwitch = true`; `update.download` then downloads the packaged installer zip `{repo}/releases/download/v{manifest.version}/ai-desktop-app-{channel}-{os}-{arch}.zip` (contracts/feed.md "Installer assets") into the platform downloads dir and returns `{ installerPath }` — never invokes `Updater.downloadUpdate`/`applyUpdate` (devkit enforces `channel == installed`, see research.md D4)
-- [ ] T021 [US2] Surface `channelSwitch` in `UpdateBanner.tsx` — instead of the in-place download/apply actions, show "Switch to `<channel>` `<version>`" which triggers `update.download` then instructs to run the downloaded installer; document side-by-side channel dirs (`~/.local/share/<identifier>/<channel>/`) preserve user data (FR-009)
+- [X] T019 [US2] Add the channel selector to `UpdatesSection.tsx` — `stable|canary` radio/select writing `updates.channel` via `settings.set`; shows a "channel differs from installed build" hint when `preferred != installed`; `dev` is never selectable (FR-006)
+- [X] T020 [US2] Implement cross-channel path in `src/bun/updater/service.ts` — when `preferred != installed` and the feed has a newer release, mark `UpdateView.channelSwitch = true`; `update.download` then downloads the packaged installer zip `{repo}/releases/download/v{manifest.version}/ai-desktop-app-{channel}-{os}-{arch}.zip` (contracts/feed.md "Installer assets") into the platform downloads dir and returns `{ installerPath }` — never invokes `Updater.downloadUpdate`/`applyUpdate` (devkit enforces `channel == installed`, see research.md D4)
+- [X] T021 [US2] Surface `channelSwitch` in `UpdateBanner.tsx` — instead of the in-place download/apply actions, show "Switch to `<channel>` `<version>`" which triggers `update.download` then instructs to run the downloaded installer; document side-by-side channel dirs (`~/.local/share/<identifier>/<channel>/`) preserve user data (FR-009)
 
 **Checkpoint**: Channel isolation + refusal verified; US1 and US2 both independently functional
 
@@ -99,10 +99,10 @@ description: "Task list for 013-auto-update implementation"
 
 **Purpose**: Documentation, verification, hardening
 
-- [ ] T022 [P] Create `docs/updates.md` — documents the single permitted network surface (feed fetch), the `updates.enabled` toggle + `AI_DESKTOP_APP_UPDATE=off` kill-switch, feed layout per contracts/feed.md, and the private-repo hosting caveat (FR-010)
-- [ ] T023 [P] Update `README.md` features/`AGENTS.md` module map with the updater module and its local-first exception note
+- [X] T022 [P] Create `docs/updates.md` — documents the single permitted network surface (feed fetch), the `updates.enabled` toggle + `AI_DESKTOP_APP_UPDATE=off` kill-switch, feed layout per contracts/feed.md, and the private-repo hosting caveat (FR-010)
+- [X] T023 [P] Update `README.md` features/`AGENTS.md` module map with the updater module and its local-first exception note
 - [ ] T024 Run the quickstart.md checklist end-to-end on linux-x64: newer release detected → download → restart applies; corrupted artifact refused; offline launch check silent; channel switch offers guided install
-- [ ] T025 Final gates: `bun run typecheck`, `bun run lint`, `bun test` — zero new warnings, all 395+ tests green (SC-005)
+- [X] T025 Final gates: `bun run typecheck`, `bun run lint`, `bun test` — zero new warnings, all 395+ tests green (SC-005)
 
 ---
 
