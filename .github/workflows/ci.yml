@@ -25,12 +25,16 @@ jobs:
         run: bun install --frozen-lockfile
       - name: project electrobun devkit
         run: bun x electrobun prepare
-      - name: cache native build
+      # ccache, not the cmake tree — fresh checkout mtimes would rebuild every
+      # object anyway; llama.cpp auto-uses ccache when present (GGML_CCACHE)
+      - name: install ccache
+        run: sudo apt-get install -y ccache
+      - name: cache ccache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: native/build/linux-x64
-          key: linux-x64-native-${{ hashFiles('src/native/shim/**', 'src/native/vendor/llama.cpp/CMakeLists.txt', 'scripts/build-native.sh', 'scripts/stage-native.ts') }}
-          restore-keys: linux-x64-native-
+          path: ~/.cache/ccache
+          key: linux-x64-ccache-${{ hashFiles('src/native/shim/**', 'src/native/vendor/llama.cpp/CMakeLists.txt', 'scripts/build-native.sh', 'scripts/stage-native.ts') }}
+          restore-keys: linux-x64-ccache-
       # gguf-meta/scanModels/engine tests call the shim over bun:ffi
       - name: build native shim
         run: scripts/build-native.sh
