@@ -12,7 +12,9 @@ describe("lls_gguf_meta", () => {
     const meta = readGgufMeta(MODEL);
     // SmolLM2 registers under the llama architecture namespace
     expect(meta.architecture).toBe("llama");
-    expect(meta.name).toContain("SmolLM2");
+    // case-insensitive: repacked quants write their own general.name
+    // (bartowski mirror = "Smollm2 135M 8k Lc100K Mix1 Ep2")
+    expect(meta.name).toMatch(/smollm2/i);
     expect(meta.quantization).toBe("Q4_K_M");
     expect(meta.contextTrain).toBeGreaterThan(0);
     // paramCount is optional in GGUF — accept null or a formatted string
