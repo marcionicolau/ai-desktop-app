@@ -79,8 +79,8 @@ with located error while others load.
   traversal `../` entries rejected; >64 MiB cap → `ARCHIVE_INVALID`;
   registry JSON → entry url resolution; `file://` URL source works.
 - [x] T014 `tests/extensions/fixtures/`: build `notes-pack` (manifest +
-  `summarize_notes` SKILL.md + `document_summary` pipeline SKILL.md +
-  `note_taker` AGENT.md tree, capabilities `["models.generate","storage"]`),
+  `summarize-notes` SKILL.md + `document-summary` pipeline SKILL.md +
+  `note-taker` AGENT.md tree, capabilities `["models.generate","storage"]`),
   `broken-pack` (bad frontmatter), `incompatible-pack` (`apiLevel: 99`);
   pack them as `.tgz` fixtures for T013.
 - [x] T015 `src/bun/rpc/handlers.ts`: `ExtensionsStore` dep; handlers for
@@ -108,8 +108,8 @@ of a pack via UI with zero registry content rendering.
 DAGs from enabled packs — read-only, namespaced.
 
 **Independent Test**: enable notes-pack; workspace lists
-`notes-pack:summarize_notes`, `notes-pack:document_summary`,
-`notes-pack:note_taker` with contracts; second pack with same names → no
+`notes-pack:summarize-notes`, `notes-pack:document-summary`,
+`notes-pack:note-taker` with contracts; second pack with same names → no
 collision.
 
 - [x] T019 `src/bun/fabric/frontmatter.ts` (extend): `parseSkill` produces
@@ -148,7 +148,7 @@ collision.
 **Goal**: run pipelines/agent trees via embedded fabric runtime on
 `EngineLike`; live progress, cancel, history.
 
-**Independent Test**: run `notes-pack:document_summary` with objective →
+**Independent Test**: run `notes-pack:document-summary` with objective →
 live step events → artifacts + trace persisted; cancel mid-run; history
 lists run; failed run surfaces located error.
 

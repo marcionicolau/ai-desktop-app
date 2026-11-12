@@ -10,4 +10,4 @@ contributions:
   commands:
     - id: digest
       title: Digest a transcript
-      run: { pipeline: document_summary }
+      run: { pipeline: document-summary }

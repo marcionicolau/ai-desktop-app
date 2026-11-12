@@ -16,7 +16,7 @@ const manifest = (capabilities: Capability[]): PackManifest => ({
   apiLevel: 1,
   capabilities,
   contributions: {
-    commands: [{ id: "digest", title: "Digest", run: { pipeline: "document_summary" } }],
+    commands: [{ id: "digest", title: "Digest", run: { pipeline: "document-summary" } }],
   },
 });
 
@@ -89,7 +89,7 @@ describe("view bridge", () => {
     const b = createViewBridge(pack(["commands.invoke"]), "v", deps(() => null, started));
     const r = b["ext.invoke"]({ commandId: "digest" }) as { runId: string };
     expect(r.runId).toBe("run_x");
-    expect(started[0]).toBe("views-pack:document_summary");
+    expect(started[0]).toBe("views-pack:document-summary");
     expect(() => b["ext.invoke"]({ commandId: "nope" })).toThrowError(/CONTRIBUTION_NOT_FOUND|no command/);
   });
 

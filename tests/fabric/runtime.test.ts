@@ -33,8 +33,8 @@ const waitStatus = async (mgr: RunManager, runId: string, want: RunStatus[], tri
   throw new Error(`run ${runId} never reached ${want.join("|")}`);
 };
 
-// both prompt steps share one answer shape: summarize_notes needs
-// `summary`, action_items needs `actions` — extra keys are ignored
+// both prompt steps share one answer shape: summarize-notes needs
+// `summary`, action-items needs `actions` — extra keys are ignored
 const answeringEngine = (answer = '{"summary":"s","actions":"a"}'): ComponentEngine => ({
   tokenCount: (t) => t.length,
   generate: async (_p, onToken) => {
@@ -55,7 +55,7 @@ describe("RunManager", () => {
     });
     const runId = mgr.start({
       packId: "notes-pack",
-      target: { kind: "pipeline", id: "notes-pack:document_summary" },
+      target: { kind: "pipeline", id: "notes-pack:document-summary" },
       objective: "digest the transcript",
       params: { transcript: "a long meeting transcript with many words spoken" },
     });
@@ -85,7 +85,7 @@ describe("RunManager", () => {
     const mgr = new RunManager({ registry: reg, engine: () => blocking });
     const runId = mgr.start({
       packId: "notes-pack",
-      target: { kind: "pipeline", id: "notes-pack:document_summary" },
+      target: { kind: "pipeline", id: "notes-pack:document-summary" },
       objective: "o",
       params: { transcript: "a long meeting transcript with many words spoken" },
     });
@@ -115,7 +115,7 @@ describe("RunManager", () => {
     const mgr = new RunManager({ registry: reg, engine: () => stoppable });
     mgr.start({
       packId: "notes-pack",
-      target: { kind: "pipeline", id: "notes-pack:document_summary" },
+      target: { kind: "pipeline", id: "notes-pack:document-summary" },
       objective: "o",
       params: { transcript: "a long meeting transcript with many words spoken" },
     });
@@ -135,7 +135,7 @@ describe("RunManager", () => {
     const mgr = new RunManager({ registry: reg, engine: () => boom });
     const runId = mgr.start({
       packId: "notes-pack",
-      target: { kind: "pipeline", id: "notes-pack:document_summary" },
+      target: { kind: "pipeline", id: "notes-pack:document-summary" },
       objective: "o",
       params: { transcript: "a long meeting transcript with many words spoken" },
     });
@@ -155,7 +155,7 @@ test("history cap: oldest runs pruned beyond 50 per pack (T032)", async () => {
       join(runsDir("notes-pack"), `aaa_old_${String(i).padStart(3, "0")}.json`),
       JSON.stringify({
         id: `aaa_old_${i}`, packId: "notes-pack",
-        target: { kind: "pipeline", id: "notes-pack:document_summary" },
+        target: { kind: "pipeline", id: "notes-pack:document-summary" },
         objective: "old", params: {}, status: "completed",
         trace: [], artifacts: [], budget: {},
         usage: { steps: 0, delegations: 0, modelCalls: 0, promptTokens: 0, outputTokens: 0, elapsedMs: 0 },
@@ -165,7 +165,7 @@ test("history cap: oldest runs pruned beyond 50 per pack (T032)", async () => {
   }
   const runId = mgr.start({
     packId: "notes-pack",
-    target: { kind: "pipeline", id: "notes-pack:document_summary" },
+    target: { kind: "pipeline", id: "notes-pack:document-summary" },
     objective: "o",
     params: { transcript: "a long meeting transcript with many words spoken" },
   });
