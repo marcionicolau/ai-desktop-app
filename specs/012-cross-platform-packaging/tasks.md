@@ -9,6 +9,7 @@ macOS/Windows lanes ship configured but inactive (user directive).
 - [ ] T001 [P] Fill `electrobun.config.ts` `build.{mac,win,linux}` sections: mac `codesign:false`,`notarize:false`,`createDmg:true`,`defaultRenderer:"native"`; win `autoGrantPermissions:[]`,`defaultRenderer:"native"`; linux `defaultRenderer:"native"` — research R2
 - [ ] T002 [P] Add prereq fail-fast to `scripts/build-native.sh` (name missing `cmake`/`c++`/`bun` before invoking — FR-004)
 - [ ] T003 [P] Mirror the prereq check in `scripts/build-native.ps1` (win-x64 lane)
+- [ ] T013 [P] Automatic semver version: create `scripts/version.ts` — derives `X.Y.Z` from `git describe --tags --abbrev=0` (fallback `package.json` version), appends `-canary.N` (N = commits since tag) for canary env, exact tag for stable; wire `electrobun.config.ts` `app.version` to `computeVersion()` instead of the hardcoded `"0.1.0"`
 
 ## Phase 2: Foundational
 
@@ -21,6 +22,7 @@ macOS/Windows lanes ship configured but inactive (user directive).
 **Independent Test**: `bun run build` → `verify-artifact.sh` PASS → manual smoke checklist green
 
 - [ ] T005 [US1] Run the full Linux packaging flow (`bun install` → `scripts/build-native.sh` → `bun run build:renderer` → `bun run build` → `verify-artifact.sh` on `build/canary-linux-*/`) and fix any staging gaps found
+- [ ] T014 [US1] Fix `libllama_shim` RUNPATH in `src/native/shim/CMakeLists.txt`: bake `$ORIGIN` (Linux) / `@loader_path` (macOS) instead of the absolute build-tree path, so packaged deps resolve next to the shim (FR-008); verify via `ldd` on the staged shim + relaunching the packaged app
 - [ ] T006 [US1] Walk the manual smoke checklist on the produced artifact (launch → model load → chat → stream → clean exit); record pass/fail
 - [ ] T007 [P] [US1] Write `docs/packaging.md` from `contracts/packaging.md`: per-OS build steps, smoke checklist, arch policy — mac/win sections marked "configured, not verified"
 
