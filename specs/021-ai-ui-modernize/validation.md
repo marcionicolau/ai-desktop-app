@@ -26,3 +26,20 @@
 - Fonts: fontsource-bundled Public Sans/Geist/JetBrains Mono variable fonts
   (user-provided) — bundled assets, offline-safe; replaces the spec's
   assumed system stack (A3 updated in spirit).
+
+## Gate results (implementation)
+
+- `tsc --noEmit`: PASS
+- `bun test ./tests`: PASS — 395 tests, 0 fail
+- `bun run lint`: 0 errors (pre-existing warnings only)
+- `bun run build:renderer`: PASS (pre-existing chunk-size warning)
+- `tests/ui-audit.test.ts`: 3/3 PASS — zero radix imports outside ui/,
+  zero palette literals outside ui/, ai/ dep rules hold
+
+## T035 status
+
+Dev server serves the new shell on :5173 (SidebarProvider + AppSidebar +
+SidebarInset verified via build/typecheck; existing dev session
+pid 1226474 was reused — hutch refused a second). Interactive S1–S4
+walkthrough + light/dark screenshots still pending human eyes on the
+running app.
