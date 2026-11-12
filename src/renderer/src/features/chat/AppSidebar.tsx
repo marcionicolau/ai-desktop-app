@@ -89,7 +89,9 @@ export function AppSidebar({
   onOpenSettings,
   onManageExtensions,
 }: Props) {
-  const extTabs = workspaceTabs.filter((t) => t.kind !== "chat");
+  const extTabs = workspaceTabs.filter(
+    (t) => t.kind === "ext" || t.kind === "pack",
+  );
   return (
     <Sidebar>
       <SidebarHeader>
