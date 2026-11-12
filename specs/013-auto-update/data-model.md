@@ -31,7 +31,8 @@ interface ReleaseDescriptor {
   tarSha256: string;        // artifact.tarSha256 — verified by native helper
   tarSize?: number;         // artifact.tarSize — used for progress denominator
   changelog: string;        // sidecar {prefix}-notes.md, markdown (may be "")
-  publishedAt?: string;     // ISO date we write into the manifest companion
+  publishedAt?: string;     // parsed from the notes sidecar's `date: YYYY-MM-DD`
+                            // first line (see contracts/feed.md); undefined if absent
 }
 ```
 

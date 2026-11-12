@@ -83,12 +83,12 @@ description: "Task list for 013-auto-update implementation"
 ### Tests for User Story 2 ⚠️ write first, must FAIL
 
 - [ ] T017 [P] [US2] Extend `tests/bun/updater/feed.test.ts` — preferred-channel isolation: requesting `stable` never surfaces a canary manifest (fixture serves both); manifest whose `channel` mismatches the requested prefix fails validation
-- [ ] T018 [P] [US2] Extend `tests/rpc/update.test.ts` — `preferred != installed` + newer release → `UpdateView.release` present with `channelSwitch: true`; `update.download` in that state returns the guided-install descriptor instead of calling `Updater.downloadUpdate`; corrupted-artifact stub → `UPDATE_INVALID` surfaced on `update.status`
+- [ ] T018 [P] [US2] Extend `tests/rpc/update.test.ts` — `preferred != installed` + newer release → `UpdateView.release` present with `channelSwitch: true`; `update.download` in that state returns `{ installerPath }` instead of calling `Updater.downloadUpdate`; corrupted-artifact stub → `UPDATE_INVALID` surfaced on `update.status`
 
 ### Implementation for User Story 2
 
 - [ ] T019 [US2] Add the channel selector to `UpdatesSection.tsx` — `stable|canary` radio/select writing `updates.channel` via `settings.set`; shows a "channel differs from installed build" hint when `preferred != installed`; `dev` is never selectable (FR-006)
-- [ ] T020 [US2] Implement cross-channel path in `src/bun/updater/service.ts` — when `preferred != installed` and the feed has a newer release, mark `UpdateView.channelSwitch = true`; `update.download` then fetches the channel's packaged installer artifact (`buildUpdateArtifactUrl` asset) into `~/Downloads` (or platform download dir) and `update.status` reports the saved path — never invokes `Updater.downloadUpdate`/`applyUpdate` (devkit enforces `channel == installed`, see research.md D4)
+- [ ] T020 [US2] Implement cross-channel path in `src/bun/updater/service.ts` — when `preferred != installed` and the feed has a newer release, mark `UpdateView.channelSwitch = true`; `update.download` then downloads the packaged installer zip `{repo}/releases/download/v{manifest.version}/ai-desktop-app-{channel}-{os}-{arch}.zip` (contracts/feed.md "Installer assets") into the platform downloads dir and returns `{ installerPath }` — never invokes `Updater.downloadUpdate`/`applyUpdate` (devkit enforces `channel == installed`, see research.md D4)
 - [ ] T021 [US2] Surface `channelSwitch` in `UpdateBanner.tsx` — instead of the in-place download/apply actions, show "Switch to `<channel>` `<version>`" which triggers `update.download` then instructs to run the downloaded installer; document side-by-side channel dirs (`~/.local/share/<identifier>/<channel>/`) preserve user data (FR-009)
 
 **Checkpoint**: Channel isolation + refusal verified; US1 and US2 both independently functional

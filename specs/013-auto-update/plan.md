@@ -48,10 +48,14 @@ normal connection (devkit fetch timeout is 30 s); downloads throttled
 progress events; zero startup impact when disabled/offline
 
 **Constraints**: local-first — update feed is the only permitted
-network call (FR-010), documented + disableable; never force a
-mid-session restart; private repo → feed needs public hosting or
-public-asset URLs (ops decision, documented); no new dependencies
-(devkit `Updater` is already vendored)
+network call (FR-010), documented + disableable; apply is
+**explicit-restart only** for v1 — FR-005's "or restart-on-quit" option
+is deliberately not implemented (no task); downloads satisfy FR-003 via
+clean-restart semantics, not byte-range resume (devkit behavior);
+private repo → `release.baseUrl` placeholder is resolved at
+release-config time (env override `UPDATE_FEED_BASE_URL` already covers
+test/alternate hosts); no new dependencies (devkit `Updater` is already
+vendored)
 
 **Scale/Scope**: ~5 new source files + RPC contract extension +
 settings UI section + one packaging-workflow publish step

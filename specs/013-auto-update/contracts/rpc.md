@@ -20,7 +20,10 @@ the requests below; the webview receives one pushed message.
 }
 "update.download": {
   params: Record<string, never>;       // no-op if !updateAvailable
-  response: Record<string, never>;     // ack; progress via update.status
+  response: { installerPath?: string }; // set only on the channelSwitch
+                                      // path — absolute path of the
+                                      // saved installer zip; otherwise
+                                      // ack-only, progress via update.status
 }
 "update.apply": {
   params: Record<string, never>;       // explicit user action only (FR-005)

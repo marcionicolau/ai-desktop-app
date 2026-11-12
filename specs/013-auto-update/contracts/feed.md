@@ -47,10 +47,36 @@ Produced by `electrobun build --env=<channel>` when
 
 ## Notes sidecar (`{prefix}-notes.md`)
 
-Generated in the release job from `git log <prev-channel-tag>..<tag>
---pretty=format:'- %s'`. Fetched only when a manifest advertises a newer
-build; absent or unreadable → changelog shows "No notes published"
+Generated in the release job. Format — a machine-readable first line
+followed by `git log <prev-channel-tag>..<tag> --pretty=format:'- %s'`
+bullets:
+
+```text
+date: 2026-02-19
+- feat: ...
+- fix: ...
+```
+
+The first line supplies `ReleaseDescriptor.publishedAt`. Fetched only
+when a manifest advertises a newer build; absent or unreadable →
+changelog shows "No notes published" and `publishedAt` is undefined
 (non-fatal).
+
+## Installer assets (cross-channel guided install only)
+
+Update artifacts are **not** runnable installers — the `.tar.zst` above
+is the Resources payload consumed by the native update helper. The
+guided-install path (preferred channel ≠ installed channel, research.md
+D4) instead uses the packaged app archives the release job already
+attaches to each versioned tag:
+
+```
+{repo}/releases/download/v{manifest.version}/ai-desktop-app-{channel}-{os}-{arch}.zip
+```
+
+where `v{manifest.version}` is the git tag (`1.2.3` → `v1.2.3`,
+`1.2.3-rc.4` → `v1.2.3-rc.4`). The update service downloads this zip to
+the user's downloads folder; it never attempts in-place apply.
 
 ## Publisher contract (packaging workflow)
 
