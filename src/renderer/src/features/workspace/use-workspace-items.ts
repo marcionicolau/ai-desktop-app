@@ -6,7 +6,7 @@ import type { InstalledPackView } from "@shared/types";
 import { invoke, on } from "@/lib/rpc";
 import { CHAT_TAB, deriveTabs, reconcile, type TabState } from "./tab-model";
 
-export function useWorkspaceTabs() {
+export function useWorkspaceItems() {
   const [state, setState] = useState<TabState>({ tabs: [CHAT_TAB], selectedId: "chat" });
   const seeded = useRef(false);
 
