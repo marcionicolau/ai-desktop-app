@@ -25,8 +25,8 @@ import { ExtensionsPanel } from "../extensions/ExtensionsPanel";
 import { WorkspaceBrowser } from "../extensions/WorkspaceBrowser";
 import { RunView } from "../extensions/RunView";
 import { ExtViewHost } from "../extensions/ExtViewHost";
-import { WorkspaceTabs } from "../workspace/WorkspaceTabs";
-import { useWorkspaceTabs } from "../workspace/use-workspace-tabs";
+import { WorkspaceAccordion } from "../workspace/WorkspaceAccordion";
+import { useWorkspaceItems } from "../workspace/use-workspace-items";
 import { invoke } from "@/lib/rpc";
 import { Button } from "@/components/ui/button";
 
@@ -74,7 +74,7 @@ export function ChatPage() {
   } | null>(null);
   // feature 019: the workspace tab system is owned by ChatPage — the chat
   // tab hosts MessageList..Composer; ext `tab` views are peer tabs
-  const { tabs, selectedId, select, focusView } = useWorkspaceTabs();
+  const { tabs, selectedId, select, focusView } = useWorkspaceItems();
   // feature 018 (T003/T004): first-launch auto-open of the model library.
   // Evaluates once, after model.status hydration, on the first terminal
   // status — never during "loading", never again this session (FR-001/4/6)
@@ -323,7 +323,7 @@ export function ChatPage() {
             onClose={() => setBranchesOpen(false)}
           />
         )}
-        <WorkspaceTabs
+        <WorkspaceAccordion
           tabs={tabs}
           selectedId={selectedId}
           select={select}

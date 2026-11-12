@@ -375,10 +375,10 @@ draft-side; `MessageList` renders `Message.attachments` chips (`·trunc` /
 
 ## Feature 019 — workspace tabs
 
-- `features/workspace/` (renderer): `WorkspaceTabs` root (mounted by
-  `main.tsx` — ChatPage is tab-1 content), `TabBar` (scrollable strip,
-  Chat unclosable, pack-name tooltips, crash dot), `use-workspace-tabs`
-  hook + `tab-model.ts` pure `deriveTabs`/`reconcile` (headless-tested;
+- `features/workspace/` (renderer): `WorkspaceAccordion` root (owned by
+  `ChatPage` — a slot inside its column wrapping the chat block as the
+  chat item's content), `use-workspace-items` hook +
+  `tab-model.ts` pure `deriveTabs`/`reconcile` (headless-tested;
   reconcile auto-selects fresh ext tabs, falls back to `"chat"` when the
   selected tab vanishes; the hook seeds baseline from the first scan so
   restored tabs never steal focus).
@@ -395,3 +395,20 @@ draft-side; `MessageList` renders `Message.attachments` chips (`·trunc` /
   `AI_DESKTOP_NATIVE_DIALOGS=1` forces the native path. Renderer RPC
   default timeout is 30 s (`maxRequestTime`) with `Infinity` for
   dialog/download calls.
+
+## Feature 020 — workspace accordion UX
+
+- The horizontal `TabBar` was replaced by `components/ui/accordion.tsx`
+  (shadcn wrapper over `@radix-ui/react-accordion`,
+  `type="single" collapsible={false}` → tab semantics, free roving
+  keyboard nav). Item headers carry the 019 affordances (tooltip, crash
+  `●`, ×→disable as an absolutely-positioned real button — trigger is a
+  `<button>`, no nesting).
+- Sizing animation = `transition-[flex-grow]` on `AccordionItem`
+  (`data-[state=open]:grow`), NOT the docs' `--radix-accordion-content-
+  height` keyframes — those measure intrinsic scrollHeight and break
+  fill-layout regions (chat/extension views occupy all free space).
+  `motion-reduce:transition-none` honors reduced motion.
+- `AccordionContent forceMount` keeps collapsed chat/extension surfaces
+  mounted (React state + BrowserView sessions alive); `visible` prop →
+  `view.setVisible` still parks the native view on collapse.

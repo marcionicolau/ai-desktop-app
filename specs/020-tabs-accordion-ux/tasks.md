@@ -16,14 +16,14 @@
 
 ## Phase 1: Setup
 
-- [ ] T001 Install the accordion primitive: `bun add @radix-ui/react-accordion@latest` in `package.json` — pin to the resolved version in `bun.lock` (§VI justification in plan.md: `forceMount` keep-alive + roving keyboard nav + ARIA, consistent with the existing `@radix-ui/react-*` deps)
-- [ ] T002 Add accordion animation CSS to `src/renderer/src/index.css`: `accordionDown`/`accordionUp` keyframes animating `height: 0 ↔ var(--radix-accordion-content-height)` (~250–300 ms `ease-out`), plus Tailwind v4 utilities `animate-accordion-down`/`animate-accordion-up` usable as `data-[state=open]`/`data-[state=closed]` classes, each guarded by `motion-reduce` so reduced-motion users get instant transitions (FR-005)
+- [X] T001 Install the accordion primitive: `bun add @radix-ui/react-accordion@latest` in `package.json` — pin to the resolved version in `bun.lock` (§VI justification in plan.md: `forceMount` keep-alive + roving keyboard nav + ARIA, consistent with the existing `@radix-ui/react-*` deps)
+- [X] T002 Add accordion animation CSS to `src/renderer/src/index.css`: `accordionDown`/`accordionUp` keyframes animating `height: 0 ↔ var(--radix-accordion-content-height)` (~250–300 ms `ease-out`), plus Tailwind v4 utilities `animate-accordion-down`/`animate-accordion-up` usable as `data-[state=open]`/`data-[state=closed]` classes, each guarded by `motion-reduce` so reduced-motion users get instant transitions (FR-005). **Implemented as `transition-[flex-grow]` on `AccordionItem` + `motion-reduce:transition-none` instead of `--radix-accordion-content-height` keyframes — the measured-var approach breaks fill-layout regions (research.md R3 fallback); no index.css changes needed**
 
 ---
 
 ## Phase 2: Foundational (blocks all stories)
 
-- [ ] T003 Create the shadcn wrapper `src/renderer/src/components/ui/accordion.tsx` exporting `Accordion`, `AccordionItem`, `AccordionTrigger`, `AccordionContent` — `forwardRef` + `cn` over `AccordionPrimitive.*`, mirroring `src/renderer/src/components/ui/alert-dialog.tsx` conventions; `AccordionContent` accepts `forceMount` and applies the `data-[state]` animation classes from T002 plus `overflow-hidden` (contract: `contracts/accordion.md`)
+- [X] T003 Create the shadcn wrapper `src/renderer/src/components/ui/accordion.tsx` exporting `Accordion`, `AccordionItem`, `AccordionTrigger`, `AccordionContent` — `forwardRef` + `cn` over `AccordionPrimitive.*`, mirroring `src/renderer/src/components/ui/alert-dialog.tsx` conventions; `AccordionContent` accepts `forceMount` and applies the `data-[state]` animation classes from T002 plus `overflow-hidden` (contract: `contracts/accordion.md`)
 
 **Checkpoint**: `bunx tsc --noEmit` clean — primitive ready for the rewrite
 
@@ -35,9 +35,9 @@
 
 **Independent Test**: views-pack enabled → expand Chat → Results Explorer → notes-pack in turn → each region animates open/closed; first paint after restart shows the expanded surface with no open animation.
 
-- [ ] T004 [US1] Rewrite `src/renderer/src/features/workspace/WorkspaceTabs.tsx` (name stays for now — renamed in US2): replace `<TabBar>` + the `hidden`-toggled `<div>` layers with `<Accordion type="single" collapsible={false} value={selectedId} onValueChange={select}>`; render `chat` first as `AccordionItem value="chat"`, then per `t` — `ext` → `ExtViewHost bare visible={selectedId === t.id}` inside `AccordionContent forceMount`, `pack` → `WorkspaceBrowser` + `RunView` inside `AccordionContent forceMount`; keep the existing `crashed` Set logic, `markCrashed`/`clearCrashed`, prune-on-vanish effect, `onClose={() => select("chat")}`, and all props unchanged
-- [ ] T005 [US1] Layout + scroll in `src/renderer/src/features/workspace/WorkspaceTabs.tsx`: root `min-h-0 flex-1 overflow-y-auto`, each `AccordionItem` as flow children; expanded `AccordionContent` fills remaining column space (`flex-1 min-h-0` + `h-full` inner) so MessageList/ExtViewHost aren't shrink-to-content — if `--radix-accordion-content-height` fights the fill layout, switch the content wrapper to the `grid-template-rows: 0fr→1fr` transition fallback (research.md R3)
-- [ ] T006 [US1] Verify animation correctness in `src/renderer/src/index.css` + the component: closed items must be `hidden` at exit end (Radix applies it post-animation with `forceMount`), first render with initial `value` plays no open keyframes (US1-AC3), rapid `value` changes interrupt cleanly (FR-006) — adjust animation classes/overflow as needed, no JS animation timing logic
+- [X] T004 [US1] Rewrite `src/renderer/src/features/workspace/WorkspaceTabs.tsx` (name stays for now — renamed in US2): replace `<TabBar>` + the `hidden`-toggled `<div>` layers with `<Accordion type="single" collapsible={false} value={selectedId} onValueChange={select}>`; render `chat` first as `AccordionItem value="chat"`, then per `t` — `ext` → `ExtViewHost bare visible={selectedId === t.id}` inside `AccordionContent forceMount`, `pack` → `WorkspaceBrowser` + `RunView` inside `AccordionContent forceMount`; keep the existing `crashed` Set logic, `markCrashed`/`clearCrashed`, prune-on-vanish effect, `onClose={() => select("chat")}`, and all props unchanged
+- [X] T005 [US1] Layout + scroll in `src/renderer/src/features/workspace/WorkspaceTabs.tsx`: root `min-h-0 flex-1 overflow-y-auto`, each `AccordionItem` as flow children; expanded `AccordionContent` fills remaining column space (`flex-1 min-h-0` + `h-full` inner) so MessageList/ExtViewHost aren't shrink-to-content — if `--radix-accordion-content-height` fights the fill layout, switch the content wrapper to the `grid-template-rows: 0fr→1fr` transition fallback (research.md R3)
+- [X] T006 [US1] Verify animation correctness in `src/renderer/src/index.css` + the component: closed items must be `hidden` at exit end (Radix applies it post-animation with `forceMount`), first render with initial `value` plays no open keyframes (US1-AC3), rapid `value` changes interrupt cleanly (FR-006) — adjust animation classes/overflow as needed, no JS animation timing logic
 
 **Checkpoint**: S1/S2/S4/S5(restart) of `quickstart.md` pass live in `bun run dev`; `bunx tsc --noEmit` + `bun test ./tests` green
 
@@ -49,10 +49,10 @@
 
 **Independent Test**: code review — each export identifies its role without opening the file.
 
-- [ ] T007 [US2] Rename `src/renderer/src/features/workspace/WorkspaceTabs.tsx` → `src/renderer/src/features/workspace/WorkspaceAccordion.tsx` (`git mv`); component `WorkspaceTabs` → `WorkspaceAccordion`; update the file's header comment to describe the accordion workspace
-- [ ] T008 [US2] Rename `src/renderer/src/features/workspace/use-workspace-tabs.ts` → `src/renderer/src/features/workspace/use-workspace-items.ts` (`git mv`); hook `useWorkspaceTabs` → `useWorkspaceItems` (same signature `{ tabs, selectedId, select, focusView }`)
-- [ ] T009 [US2] Update all references: `src/renderer/src/features/chat/ChatPage.tsx` imports (`WorkspaceAccordion`, `useWorkspaceItems`) and `<WorkspaceTabs …>` usage; `src/renderer/src/features/workspace/tab-model.ts` and `tests/workspace-tabs.test.ts` keep names — data model, not components (spec A4)
-- [ ] T010 [US2] Delete `src/renderer/src/features/workspace/TabBar.tsx` — its trigger row is absorbed by `AccordionItem`/`AccordionTrigger`; confirm no remaining imports (`rg TabBar src/`)
+- [X] T007 [US2] Rename `src/renderer/src/features/workspace/WorkspaceTabs.tsx` → `src/renderer/src/features/workspace/WorkspaceAccordion.tsx` (`git mv`); component `WorkspaceTabs` → `WorkspaceAccordion`; update the file's header comment to describe the accordion workspace
+- [X] T008 [US2] Rename `src/renderer/src/features/workspace/use-workspace-tabs.ts` → `src/renderer/src/features/workspace/use-workspace-items.ts` (`git mv`); hook `useWorkspaceTabs` → `useWorkspaceItems` (same signature `{ tabs, selectedId, select, focusView }`)
+- [X] T009 [US2] Update all references: `src/renderer/src/features/chat/ChatPage.tsx` imports (`WorkspaceAccordion`, `useWorkspaceItems`) and `<WorkspaceTabs …>` usage; `src/renderer/src/features/workspace/tab-model.ts` and `tests/workspace-tabs.test.ts` keep names — data model, not components (spec A4)
+- [X] T010 [US2] Delete `src/renderer/src/features/workspace/TabBar.tsx` — its trigger row is absorbed by `AccordionItem`/`AccordionTrigger`; confirm no remaining imports (`rg TabBar src/`)
 
 **Checkpoint**: `rg "WorkspaceTabs|useWorkspaceTabs|TabBar" src/` returns zero hits; `bunx tsc --noEmit` + `bun test ./tests` green
 
@@ -64,9 +64,9 @@
 
 **Independent Test**: disable/re-enable a pack mid-session → item closes/opens; hover trigger → pack tooltip; crash a view → `●` on trigger; arrows + Enter/Space navigate/expand.
 
-- [ ] T011 [US3] Trigger affordances in `src/renderer/src/features/workspace/WorkspaceAccordion.tsx`: inside each `AccordionTrigger` render the same chrome as old TabBar — `title` tooltip (`"title — packName"`, `chat` → "Chat"), crash `●` indicator from the `crashed` set, × button (`stopPropagation` → `onCloseTab(packId)`) on `ext`/`pack` items only — Chat's trigger has no close affordance (FR-002)
-- [ ] T012 [US3] Trigger styling in `src/renderer/src/features/workspace/WorkspaceAccordion.tsx` + `components/ui/accordion.tsx`: selected-state styling via `data-state=open`, `focus-visible` ring, hover state; keep headers compact rows (text truncation for long titles)
-- [ ] T013 [US3] Verify keyboard nav works through Radix in `src/renderer/src/features/workspace/WorkspaceAccordion.tsx` (roving focus + ↑/↓/←/→, Home/End, Enter/Space toggles — free from the primitive); only add code if a wrapped affordance (the × button) traps focus — ensure × is `tabIndex` reachable but doesn't steal arrow-key handling
+- [X] T011 [US3] Trigger affordances in `src/renderer/src/features/workspace/WorkspaceAccordion.tsx`: inside each `AccordionTrigger` render the same chrome as old TabBar — `title` tooltip (`"title — packName"`, `chat` → "Chat"), crash `●` indicator from the `crashed` set, × button (`stopPropagation` → `onCloseTab(packId)`) on `ext`/`pack` items only — Chat's trigger has no close affordance (FR-002)
+- [X] T012 [US3] Trigger styling in `src/renderer/src/features/workspace/WorkspaceAccordion.tsx` + `components/ui/accordion.tsx`: selected-state styling via `data-state=open`, `focus-visible` ring, hover state; keep headers compact rows (text truncation for long titles)
+- [X] T013 [US3] Verify keyboard nav works through Radix in `src/renderer/src/features/workspace/WorkspaceAccordion.tsx` (roving focus + ↑/↓/←/→, Home/End, Enter/Space toggles — free from the primitive); only add code if a wrapped affordance (the × button) traps focus — ensure × is `tabIndex` reachable but doesn't steal arrow-key handling
 
 **Checkpoint**: S3/S5–S9 of `quickstart.md` pass; `bunx tsc --noEmit` + `bun test ./tests` green
 
@@ -74,9 +74,9 @@
 
 ## Phase 6: Polish & Cross-Cutting
 
-- [ ] T014 [P] Strip feature-019 debug instrumentation: remove the temporary `console.log` diagnostics in `src/bun/rpc/handlers.ts` and `src/renderer/src/features/extensions/ExtViewHost.tsx` (research.md R9 — re-add briefly only if the blank-view symptom recurs)
-- [ ] T015 [P] Update `AGENTS.md` workspace module map entry: `TabBar`/`WorkspaceTabs` → `WorkspaceAccordion`/`use-workspace-items`/`components/ui/accordion.tsx`
-- [ ] T016 Run full gates: `bunx tsc --noEmit`, `bun test ./tests`, `bun run lint`, `bun run build:renderer` — all green (lint may keep pre-existing warnings)
+- [X] T014 [P] Strip feature-019 debug instrumentation: remove the temporary `console.log` diagnostics in `src/bun/rpc/handlers.ts` and `src/renderer/src/features/extensions/ExtViewHost.tsx` (research.md R9 — re-add briefly only if the blank-view symptom recurs)
+- [X] T015 [P] Update `AGENTS.md` workspace module map entry: `TabBar`/`WorkspaceTabs` → `WorkspaceAccordion`/`use-workspace-items`/`components/ui/accordion.tsx`
+- [X] T016 Run full gates: `bunx tsc --noEmit`, `bun test ./tests`, `bun run lint`, `bun run build:renderer` — all green (lint may keep pre-existing warnings)
 - [ ] T017 Live-validate `quickstart.md` S1–S9 in `bun run dev`; record results in `specs/020-tabs-accordion-ux/validation.md` (animation smoothness, state preservation, keyboard nav, crash badge, reduced-motion if settable)
 
 ---
