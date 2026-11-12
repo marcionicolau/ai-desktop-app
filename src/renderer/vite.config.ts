@@ -5,9 +5,22 @@ import { defineConfig } from "vite";
 
 const rendererRoot = fileURLToPath(new URL(".", import.meta.url));
 
+// dev-only: inject the react-devtools standalone backend at parse time —
+// it must install __REACT_DEVTOOLS_GLOBAL_HOOK__ before react-dom
+// evaluates, which module imports make impossible from main.tsx
+const reactDevtools = () => ({
+  name: "react-devtools-inject",
+  apply: "serve" as const,
+  transformIndexHtml: (html: string) =>
+    html.replace(
+      "<head>",
+      '<head>\n    <script src="http://localhost:8097"></script>',
+    ),
+});
+
 export default defineConfig({
   root: rendererRoot,
-  plugins: [react(), tailwindcss()],
+  plugins: [reactDevtools(), react(), tailwindcss()],
   resolve: {
     alias: {
       "@": `${rendererRoot}/src`,
