@@ -6,32 +6,40 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
+  # per-lane switch — flip `enabled` when a runner (and signing certs,
+  # for release lanes) are arranged. Linux is the verified lane.
+  # Job-level `if` can't see the `matrix` context, so the enabled lanes
+  # are filtered here and fed to `package` via fromJSON.
+  lanes:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set.outputs.matrix }}
+    steps:
+      - id: set
+        run: |
+          matrix=$(jq -nc '{
+            include: [
+              {os: "ubuntu-latest",  platform: "linux-x64",    enabled: true,
+               "native-script": "scripts/build-native.sh"},
+              {os: "macos-latest",   platform: "darwin-arm64", enabled: false,
+               "native-script": "scripts/build-native.sh"},
+              {os: "windows-latest", platform: "win-x64",      enabled: false,
+               "native-script": "scripts/build-native.ps1"}
+            ]
+          } | {include: [.include[] | select(.enabled)]}')
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+
   package:
     name: package ${{ matrix.platform }}
-    # per-lane switch — flip `enabled` when a runner (and signing certs,
-    # for release lanes) are arranged. Linux is the verified lane.
-    if: matrix.enabled
+    needs: lanes
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-latest
-            platform: linux-x64
-            enabled: true
-            native-script: scripts/build-native.sh
-            shell-kind: bash
-          - os: macos-latest
-            platform: darwin-arm64
-            enabled: false
-            native-script: scripts/build-native.sh
-            shell-kind: bash
-          - os: windows-latest
-            platform: win-x64
-            enabled: false
-            native-script: scripts/build-native.ps1
-            shell-kind: pwsh
+      matrix: ${{ fromJSON(needs.lanes.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -40,7 +48,6 @@ jobs:
       - name: install deps
         run: bun install
       - name: build native shim
-        shell: ${{ matrix.shell-kind }}
         run: ${{ matrix.native-script }}
       - name: build renderer
         run: bun run build:renderer
