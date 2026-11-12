@@ -40,4 +40,12 @@ export default {
   runtime: {
     exitOnLastWindowClosed: true,
   },
+  // feature 013: update feed — manifests + artifacts published to the
+  // rolling `feed` GitHub Release by packaging.yml. UPDATE_FEED_BASE_URL
+  // overrides for test/alternate hosts (loopback http is legal locally).
+  release: {
+    baseUrl:
+      process.env.UPDATE_FEED_BASE_URL ??
+      "https://github.com/marcionicolau/ai-desktop-app/releases/download/feed",
+  },
 } satisfies ElectrobunConfig;

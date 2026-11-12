@@ -31,6 +31,8 @@ import type {
   ToolCallRecord,
   ThemeMode,
   ToolPolicy,
+  UpdateChannel,
+  UpdateView,
 } from "./types";
 
 export const RPC_ERROR_CODES = [
@@ -61,6 +63,10 @@ export const RPC_ERROR_CODES = [
   "ARCHIVE_INVALID",
   "CONTRIBUTION_NOT_FOUND",
   "CONTRACT_VIOLATION",
+  // feature 013: auto-update
+  "UPDATE_INVALID",
+  "UPDATE_FAILED",
+  "UPDATE_DISABLED",
 ] as const;
 
 export type RpcErrorCode = (typeof RPC_ERROR_CODES)[number];
@@ -136,6 +142,7 @@ export interface ChatRpcSchema extends ElectrobunRPCSchema {
           outputPanel: boolean; // feature 016
           tools: ToolPolicy; // feature 015
           themeMode: ThemeMode; // feature 021
+          updates: { enabled: boolean; channel: UpdateChannel }; // feature 013
         };
       };
       "settings.set": {
@@ -151,8 +158,34 @@ export interface ChatRpcSchema extends ElectrobunRPCSchema {
           // transient: resolved color scheme reported by the renderer;
           // not persisted — triggers pushTheme to extension views
           resolvedTheme?: "light" | "dark"; // feature 021
+          // feature 013: update preferences
+          updates?: { enabled?: boolean; channel?: UpdateChannel };
         };
         response: Record<string, never>;
+      };
+      // feature 013: check the preferred-channel feed for a newer release;
+      // manual surfaces errors, launch-mode degrades silently (FR-007)
+      "update.check": {
+        params: { manual?: boolean };
+        response: UpdateView;
+      };
+      // feature 013: start the background download; same-channel → native
+      // staging, channelSwitch → downloads the installer zip and returns
+      // installerPath (contracts/rpc.md)
+      "update.download": {
+        params: Record<string, never>;
+        response: { installerPath?: string };
+      };
+      // feature 013: apply the staged update via restart; explicit user
+      // action only (FR-005)
+      "update.apply": {
+        params: Record<string, never>;
+        response: Record<string, never>;
+      };
+      // feature 013: snapshot for late-mounting UI
+      "update.state": {
+        params: Record<string, never>;
+        response: UpdateView;
       };
       // feature 015: decision on a pending tool call; NOT_FOUND when the
       // call isn't pending (already decided or discarded)
@@ -464,6 +497,8 @@ export interface ChatRpcSchema extends ElectrobunRPCSchema {
       // feature 015: full record on every status transition; the
       // renderer keeps a callId-keyed map for inline cards
       "tool.update": { messageId: string; call: ToolCallRecord };
+      // feature 013: pushed on every devkit status transition + progress
+      "update.status": UpdateView;
       // feature 017
       "extension.changed": { pack: InstalledPackView };
       "run.event": { runId: string; entry: TraceEntry };

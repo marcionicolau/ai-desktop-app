@@ -15,6 +15,8 @@ import { useRoles } from "../roles/use-roles";
 import { ModelLibrary } from "../models/ModelLibrary";
 import { decideStartupPrompt } from "./startup-prompt";
 import { ToolSettings } from "../settings/ToolSettings";
+import { UpdatesSection } from "../settings/UpdatesSection";
+import { UpdateBanner } from "../update/UpdateBanner";
 import { DataPanel } from "../settings/DataPanel";
 import { RolesPanel } from "../roles/RolesPanel";
 import { FusionControls } from "../roles/FusionControls";
@@ -292,6 +294,7 @@ export function ChatPage() {
           onRecovered={clearCrashed}
           chat={
             <>
+              <UpdateBanner generating={state.generatingId !== null} />
               {tagOffer && (
                 <div className="flex items-center justify-center gap-2 border-b border-border bg-muted px-4 py-2 text-xs">
                   <span>
@@ -403,6 +406,7 @@ export function ChatPage() {
           hidden={selectedId !== "surface:settings"}
         >
           <ToolSettings />
+          <UpdatesSection />
           <DataPanel />
         </div>
         <div

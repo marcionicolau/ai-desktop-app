@@ -464,3 +464,23 @@ draft-side; `MessageList` renders `Message.attachments` chips (`·trunc` /
 - Canary `bin/launcher` is a self-extractor installing to
   `~/.local/share/dev.local.ai-desktop-app/<channel>/app/`.
 - Docs: `docs/packaging.md` (steps, smoke checklist, signing notes).
+
+## Feature 013 — auto-update
+
+- `src/bun/updater/` wraps the devkit `Updater` singleton: `service.ts`
+  (UpdateService — check/download/apply + channelSwitch path),
+  `feed.ts` (preferred-channel manifest + notes sidecar fetch/validate,
+  semver downgrade guard), `status-map.ts` (devkit status → UpdateView),
+  `types-internal.ts` (structural UpdaterLike/UpdateServiceLike).
+- RPC: `update.check|download|apply|state` + `update.status` push;
+  `UPDATE_INVALID|UPDATE_FAILED|UPDATE_DISABLED` codes; `updates`
+  settings field (enabled default true, channel default = installed).
+  `AI_DESKTOP_APP_UPDATE=off` kills all update networking.
+- Channel selection: preferred channel picks the checked feed;
+  cross-channel = guided installer download (devkit enforces
+  channel==installed for in-place apply).
+- `electrobun.config.ts release.baseUrl` → rolling `feed` GitHub
+  Release; packaging.yml publishes manifests/bundles/notes per tag.
+- Renderer: `features/update/UpdateBanner.tsx` (notice+progress+restart,
+  hidden while generating), `features/settings/UpdatesSection.tsx`.
+- Docs: `docs/updates.md` (network surface, disable, feed layout).
