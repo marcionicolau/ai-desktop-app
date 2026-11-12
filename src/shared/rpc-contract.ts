@@ -413,6 +413,10 @@ export interface ChatRpcSchema extends ElectrobunRPCSchema {
         params: { sessionId: string; rect: { x: number; y: number; width: number; height: number } };
         response: Record<string, never>;
       };
+      "view.setVisible": {
+        params: { sessionId: string; visible: boolean };
+        response: Record<string, never>;
+      };
     };
     messages: Record<string, never>;
   };

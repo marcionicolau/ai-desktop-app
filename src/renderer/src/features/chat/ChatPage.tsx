@@ -28,7 +28,7 @@ import { ExtViewHost } from "../extensions/ExtViewHost";
 import { invoke } from "@/lib/rpc";
 import { Button } from "@/components/ui/button";
 
-export function ChatPage() {
+export function ChatPage({ onOpenTabView }: { onOpenTabView?: (packId: string, viewId: string) => void } = {}) {
   const {
     state,
     path,
@@ -328,19 +328,16 @@ export function ChatPage() {
           onSelectVariant={selectVariant}
         />
         {extOpen && (
-          <ExtensionsPanel
-            onBrowse={(packId) => setBrowsePack(packId)}
-            onOpenView={(packId, viewId, slot) =>
-              setOpenView({ packId, viewId, slot })
-            }
-          />
+          <ExtensionsPanel onBrowse={(packId) => setBrowsePack(packId)} />
         )}
         {extOpen && browsePack && (
           <WorkspaceBrowser
             packId={browsePack}
             onRunStarted={(runId) => setFocusRun(runId)}
             onOpenView={(packId, viewId, slot) =>
-              setOpenView({ packId, viewId, slot })
+              slot === "tab" && onOpenTabView
+                ? onOpenTabView(packId, viewId)
+                : setOpenView({ packId, viewId, slot })
             }
           />
         )}

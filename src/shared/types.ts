@@ -497,3 +497,16 @@ export interface RunSummary {
   startedAt: number;
   endedAt?: number;
 }
+
+// feature 019: workspace tab model — renderer derives these from
+// extension.scan; ext tabs bind one ViewSession each (packId:viewId).
+export type WorkspaceTab =
+  | { kind: "chat"; id: "chat"; title: "Chat" }
+  | {
+      kind: "ext";
+      id: string; // `${packId}:${viewId}`
+      packId: string;
+      viewId: string;
+      title: string;
+      packName: string;
+    };

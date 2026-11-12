@@ -1505,6 +1505,10 @@ export function createRequestHandlers(deps: HandlerDeps) {
       viewMgr().setBounds(sessionId, rect);
       return {};
     },
+    "view.setVisible": ({ sessionId, visible }: { sessionId: string; visible: boolean }) => {
+      viewMgr().setVisible(sessionId, visible);
+      return {};
+    },
     "model.setOverride": ({
       fileName,
       params,

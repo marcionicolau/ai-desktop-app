@@ -98,6 +98,15 @@ export class ViewManager {
     s.view.setBounds?.(rect);
   }
 
+  // feature 019: hidden tabs keep their session alive but parked offscreen —
+  // Electrobun BrowserView has no setVisible, only frame/remove (research D2).
+  setVisible(sessionId: string, visible: boolean): void {
+    const s = this.sessions.get(sessionId);
+    if (!s) throw new PackError("NOT_FOUND", `no view session "${sessionId}"`);
+    if (!visible) s.view.setBounds?.({ x: -10000, y: -10000, width: 1, height: 1 });
+    // visible=true is a bounds no-op: the host's ResizeObserver re-pushes
+  }
+
   get(sessionId: string): ViewSession | null {
     return this.sessions.get(sessionId) ?? null;
   }
