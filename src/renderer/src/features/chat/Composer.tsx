@@ -26,6 +26,8 @@ interface Props {
     chips: MessageAttachment[],
   ) => void;
   onStop: () => void;
+  // opens model selection when no model is loaded (clickable hint)
+  onPickModel?: () => void;
 }
 
 // feature 006 (T013): "/name" at the caret opens a filtered snippet picker;
@@ -43,6 +45,7 @@ export function Composer({
   snippets = [],
   onSend,
   onStop,
+  onPickModel,
 }: Props) {
   const [value, setValue] = useState("");
   const [drafts, setDrafts] = useState<DraftAttachment[]>([]);
@@ -247,7 +250,14 @@ export function Composer({
       </div>
       {!modelReady && (
         <p className="mx-auto mt-2 max-w-2xl text-xs text-muted-foreground">
-          No model loaded — load one via the model picker or MODEL_PATH.
+          No model loaded —{" "}
+          <button
+            className="underline underline-offset-2 hover:text-foreground"
+            onClick={() => onPickModel?.()}
+          >
+            open the model picker
+          </button>{" "}
+          to start chatting.
         </p>
       )}
       {generating && (

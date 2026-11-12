@@ -360,6 +360,7 @@ export function ChatPage() {
           snippets={snippets}
           onSend={(c, ids, chips) => void send(c, ids, chips)}
           onStop={stop}
+          onPickModel={() => setLibraryOpen(true)}
         />
         {/* feature 016: bottom dock — sibling shrinks the message area */}
         <OutputPanel open={metricsOpen} />
