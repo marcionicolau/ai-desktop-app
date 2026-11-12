@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { GitBranch, Library, Settings2, Tags, Users } from "lucide-react";
+import { GitBranch, Library, Puzzle, Settings2, Tags, Users } from "lucide-react";
 import { useChat } from "./use-chat";
 import { MessageList } from "./MessageList";
 import { BranchOverview } from "./BranchOverview";
@@ -15,6 +15,10 @@ import { FusionControls } from "../roles/FusionControls";
 import { PersonasPanel } from "../personas/PersonasPanel";
 import { usePersonas } from "../personas/use-personas";
 import { OutputPanel } from "../metrics/OutputPanel";
+import { ExtensionsPanel } from "../extensions/ExtensionsPanel";
+import { WorkspaceBrowser } from "../extensions/WorkspaceBrowser";
+import { RunView } from "../extensions/RunView";
+import { ExtViewHost } from "../extensions/ExtViewHost";
 import { invoke } from "@/lib/rpc";
 import { Button } from "@/components/ui/button";
 
@@ -53,6 +57,11 @@ export function ChatPage() {
   // feature 016 (T012): header switch → persisted settings.outputPanel;
   // the same flag gates collection on the bun side
   const [metricsOpen, setMetricsOpen] = useState(false);
+  // feature 017: extensions drawer + focused workspace/run/view sessions
+  const [extOpen, setExtOpen] = useState(false);
+  const [browsePack, setBrowsePack] = useState<string | null>(null);
+  const [focusRun, setFocusRun] = useState<string | null>(null);
+  const [openView, setOpenView] = useState<{ packId: string; viewId: string } | null>(null);
   useEffect(() => {
     void invoke("settings.get", {}).then((s) =>
       setMetricsOpen(s.outputPanel),
@@ -172,6 +181,14 @@ export function ChatPage() {
             >
               <Settings2 className="h-4 w-4" />
             </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Extensions"
+              onClick={() => setExtOpen((v) => !v)}
+            >
+              <Puzzle className="h-4 w-4" />
+            </Button>
             <label
               className="flex cursor-pointer items-center gap-1 px-1 text-xs"
               title="Output metrics panel"
@@ -272,6 +289,26 @@ export function ChatPage() {
           onEdit={(id, c) => void editMessage(id, c)}
           onSelectVariant={selectVariant}
         />
+        {extOpen && (
+          <ExtensionsPanel
+            onBrowse={(packId) => setBrowsePack(packId)}
+          />
+        )}
+        {extOpen && browsePack && (
+          <WorkspaceBrowser
+            packId={browsePack}
+            onRunStarted={(runId) => setFocusRun(runId)}
+            onOpenView={(packId, viewId) => setOpenView({ packId, viewId })}
+          />
+        )}
+        {extOpen && <RunView focusRunId={focusRun} />}
+        {extOpen && openView && (
+          <ExtViewHost
+            packId={openView.packId}
+            viewId={openView.viewId}
+            onClose={() => setOpenView(null)}
+          />
+        )}
         <Composer
           generating={state.generatingId !== null}
           modelReady={modelReady}

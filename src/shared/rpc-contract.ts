@@ -8,15 +8,21 @@ import type {
   FusionAdvise,
   FusionPhase,
   GenerationParams,
+  InstalledPackView,
   ModelAdvise,
   ModelMeta,
   ModelTag,
+  PackContributionsView,
+  PackSource,
   ResolvedRole,
   RoleRef,
   RoleView,
+  RunRecord,
+  RunSummary,
   SearchGroup,
   SnapshotClearResult,
   SnapshotStats,
+  TraceEntry,
   TurnStats,
   MetricEntry,
   ModelStatus,
@@ -43,6 +49,17 @@ export const RPC_ERROR_CODES = [
   "ALREADY_EXISTS",
   "ROLE_UNBOUND",
   "ROLE_IN_USE",
+  // feature 017: extension packs + fabric runs
+  "PACK_INVALID",
+  "PACK_INCOMPATIBLE",
+  "PACK_NOT_FOUND",
+  "CAPABILITY_DENIED",
+  "RUN_NOT_FOUND",
+  "RUN_ACTIVE",
+  "SOURCE_UNREACHABLE",
+  "ARCHIVE_INVALID",
+  "CONTRIBUTION_NOT_FOUND",
+  "CONTRACT_VIOLATION",
 ] as const;
 
 export type RpcErrorCode = (typeof RPC_ERROR_CODES)[number];
@@ -322,6 +339,80 @@ export interface ChatRpcSchema extends ElectrobunRPCSchema {
         params: Record<string, never>;
         response: { removed: number };
       };
+      // feature 017: extension packs (contracts/rpc.md)
+      "extension.scan": {
+        params: Record<string, never>;
+        response: { packs: InstalledPackView[] };
+      };
+      "extension.install": {
+        params: { source: PackSource };
+        // null = user cancelled the folder/archive picker
+        response: { pack: InstalledPackView | null };
+      };
+      // dry-run: fetch + validate only; powers the consent UI (FR-020)
+      "extension.preview": {
+        params: { source: PackSource };
+        response: { manifest: InstalledPackView["manifest"]; warnings: string[] };
+      };
+      "extension.enable": {
+        // consent required when the pack declares capabilities (FR-005)
+        params: { packId: string; consent?: boolean };
+        response: { pack: InstalledPackView };
+      };
+      "extension.disable": {
+        params: { packId: string };
+        response: { pack: InstalledPackView };
+      };
+      "extension.remove": {
+        params: { packId: string; purgeData?: boolean };
+        response: { removed: true };
+      };
+      "pack.contributions": {
+        params: { packId: string };
+        response: PackContributionsView;
+      };
+      "pack.readSpec": {
+        params: { contributionId: string };
+        response: { frontmatter: Record<string, unknown>; body: string };
+      };
+      "run.start": {
+        params: {
+          packId: string;
+          target: { kind: "pipeline" | "agent"; id: string };
+          objective: string;
+          params?: Record<string, unknown>;
+          budget?: { maxSteps?: number; maxDelegations?: number; maxModelCalls?: number; maxDepth?: number };
+        };
+        response: { runId: string };
+      };
+      "run.cancel": {
+        params: { runId: string };
+        response: { cancelled: true };
+      };
+      "run.list": {
+        params: { packId?: string; status?: string };
+        response: { runs: RunSummary[] };
+      };
+      "run.get": {
+        params: { runId: string };
+        response: { run: RunRecord };
+      };
+      "run.clear": {
+        params: { packId: string };
+        response: { removed: number };
+      };
+      "view.open": {
+        params: { packId: string; viewId: string; slot?: "tab" | "panel" };
+        response: { sessionId: string };
+      };
+      "view.close": {
+        params: { sessionId: string };
+        response: Record<string, never>;
+      };
+      "view.setBounds": {
+        params: { sessionId: string; rect: { x: number; y: number; width: number; height: number } };
+        response: Record<string, never>;
+      };
     };
     messages: Record<string, never>;
   };
@@ -358,6 +449,15 @@ export interface ChatRpcSchema extends ElectrobunRPCSchema {
       // feature 015: full record on every status transition; the
       // renderer keeps a callId-keyed map for inline cards
       "tool.update": { messageId: string; call: ToolCallRecord };
+      // feature 017
+      "extension.changed": { pack: InstalledPackView };
+      "run.event": { runId: string; entry: TraceEntry };
+      "run.status": {
+        runId: string;
+        status: RunRecord["status"];
+        error?: { code: RpcErrorCode; message: string; path?: string };
+      };
+      "view.error": { sessionId: string; message: string };
     };
   };
 }

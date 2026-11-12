@@ -5,9 +5,16 @@ import { createRpc } from "./rpc/handlers";
 const DEV_URL = process.env.VITE_DEV_URL;
 const url = DEV_URL ?? "views://main/index.html";
 
-const { rpc, start } = createRpc();
+// feature 017: the view factory resolves the main window lazily — it only
+// runs when an extension view is opened (after the window exists)
+let mainWindow: BrowserWindow | null = null;
+const { rpc, start } = createRpc(() =>
+  mainWindow
+    ? { windowId: mainWindow.id, webviewId: mainWindow.webviewId }
+    : null,
+);
 
-void new BrowserWindow({
+mainWindow = new BrowserWindow({
   title: "AI Desktop App",
   url,
   rpc,

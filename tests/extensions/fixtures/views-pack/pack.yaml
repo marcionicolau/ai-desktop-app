@@ -1,0 +1,13 @@
+name: views-pack
+version: 1.0.0
+apiLevel: 1
+description: Contributes a static results-explorer view.
+capabilities:
+  - storage
+  - views.theme
+contributions:
+  views:
+    - id: explorer
+      title: Results Explorer
+      slot: tab
+      entry: views/explorer/index.html

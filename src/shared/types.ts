@@ -366,3 +366,133 @@ export interface FusionAdvise {
   combinedBytes: number; // a + b — both weights resident
   verdict: FitVerdict;
 }
+
+// ---- feature 017: extension packs + fabric runs ----
+
+import type {
+  PackManifest,
+  ParamDecl,
+  PortDecl,
+  ViewDecl,
+  CommandDecl,
+} from "./pack-schema";
+
+export type PackSource =
+  | { kind: "folder"; path: string }
+  | { kind: "archive"; path: string }
+  | { kind: "url"; url: string }
+  | { kind: "registry"; url: string; entry: string };
+
+export type PackState = "installed" | "enabled" | "disabled" | "failed";
+
+export interface InstalledPackView {
+  id: string;
+  dir: string;
+  state: PackState;
+  error?: { code: string; message: string; file?: string; path?: string };
+  source: { kind: PackSource["kind"]; ref: string };
+  manifest: PackManifest;
+  installedAt: number;
+}
+
+export interface SkillView {
+  id: string; // <packId>:<name>
+  packId: string;
+  name: string;
+  domain?: string;
+  version: string;
+  runtime: string; // "prompt" | "component:<id>"
+  description: string;
+  inputs: Record<string, PortDecl>;
+  outputs: Record<string, PortDecl>;
+  params: Record<string, ParamDecl>;
+  guidance: { whenToUse?: string; interpreting?: string; mistakes?: string };
+}
+
+export interface PipelineView {
+  id: string;
+  packId: string;
+  name: string;
+  description: string;
+  steps: { id: string; uses: string; params?: Record<string, unknown>; inputs?: Record<string, string> }[];
+}
+
+export interface AgentView {
+  id: string;
+  packId: string;
+  name: string;
+  kind: "router" | "sequential" | "planner" | "llm" | "pipeline";
+  model?: string;
+  children: AgentView[];
+  fallback?: string;
+  pipeline?: string;
+}
+
+export interface PackContributionsView {
+  skills: SkillView[];
+  pipelines: PipelineView[];
+  agents: AgentView[];
+  views: ViewDecl[];
+  commands: CommandDecl[];
+}
+
+export type RunStatus = "queued" | "running" | "completed" | "failed" | "cancelled";
+
+export interface Budget {
+  maxSteps?: number;
+  maxDelegations?: number;
+  maxModelCalls?: number;
+  maxDepth?: number;
+}
+
+export interface TraceEntry {
+  seq: number;
+  stepId: string;
+  kind: "step" | "delegation" | "artifact" | "note";
+  path: string; // e.g. "lead/team/worker"
+  status: string;
+  input?: unknown;
+  output?: unknown;
+  startedAt?: number;
+  endedAt?: number;
+}
+
+export interface Artifact {
+  name: string;
+  type: PortDecl["type"];
+  value: unknown;
+  stepId: string;
+}
+
+export interface RunRecord {
+  id: string;
+  packId: string;
+  target: { kind: "pipeline" | "agent"; id: string };
+  objective: string;
+  params: Record<string, unknown>;
+  status: RunStatus;
+  trace: TraceEntry[];
+  artifacts: Artifact[];
+  budget: Budget;
+  usage: {
+    steps: number;
+    delegations: number;
+    modelCalls: number;
+    promptTokens: number;
+    outputTokens: number;
+    elapsedMs: number;
+  };
+  error?: { code: string; message: string; path?: string };
+  startedAt: number;
+  endedAt?: number;
+}
+
+export interface RunSummary {
+  id: string;
+  packId: string;
+  target: RunRecord["target"];
+  objective: string;
+  status: RunStatus;
+  startedAt: number;
+  endedAt?: number;
+}

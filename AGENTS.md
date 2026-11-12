@@ -323,3 +323,52 @@ draft-side; `MessageList` renders `Message.attachments` chips (`·trunc` /
   records zip tool_call blocks by index; pending → Approve / Allow reads
   this session / Deny via `tool.respond`. `tool.update` reducer action
   upserts by call.id. `settings/ToolSettings.tsx` — root picker + mode.
+
+## Feature 017 — multi-agent workspace & extension packs
+
+- Declarative packs only (`pack.yaml` + `SKILL.md`/`AGENT.md` frontmatter =
+  contract, body = guidance); no pack code runs in the host. Runtimes:
+  `prompt` (LLM-derived declared outputs) or `component:<builtin>` from the
+  fixed `BUILTIN_COMPONENTS` set (`const`, `text.concat`, `text.template`,
+  `json.extract`, `list.map`, `list.filter`).
+- `src/shared/pack-schema.ts` — `PackManifest`, `Capability` closed enum,
+  `ViewDecl`/`CommandDecl`/`PortDecl`/`ParamDecl`, `API_LEVEL = 1`.
+- `bun/fabric/` — `errors.ts` (located `PackError`/`FabricError`),
+  `frontmatter.ts` (`Bun.YAML` parse + located validation; steps must be
+  topologically ordered — forward refs rejected), `registry.ts`
+  (`ContributionRegistry`, all-or-nothing `registerPack`, `<packId>:<name>`
+  namespacing, agent-tree cycle check), `components.ts` (builtins +
+  `runSkill`/`runPromptComponent` over `ComponentEngine` = EngineLike
+  subset + `stop?`), `pipeline.ts` (DAG executor, `$objective`/`$params.*`/
+  `<stepId>.<port>` binding), `agent.ts` (router JSON plan + `@<id>` refs,
+  sequential, llm/planner leaves, budget caps), `runtime.ts` (`RunManager`:
+  abort→`engine.stop()`, live-map `get()`, 50-run persisted history).
+- `bun/extensions/` — `store.ts` (`ExtensionsStore`: scan/install/enable
+  (consent-gated)/disable/remove; `scan()` re-registers enabled packs —
+  cold-start, FR-004), `fetch.ts` (folder/archive/.tgz via
+  `DecompressionStream` + hand-rolled tar, url/registry fetch;
+  traversal-safe, 64 MiB/2000-file caps), `bridge.ts`
+  (`createViewBridge` → capability-gated `ext.*` handlers, pack-scoped
+  kv.json storage, own-pack runs), `views.ts` (`ViewManager` + injectable
+  `ViewFactory`; `emitToPack`, `pushTheme` gated on `views.theme`),
+  `preload.ts` (`EXT_PRELOAD_JS` → `window.ext` over the host bridge),
+  `electrobun-view.ts` (production factory; Electrobun imports are
+  `require()`-deferred so handlers stay testable headless).
+- RPC: `extension.scan/install/preview/enable/disable/remove`,
+  `pack.contributions/readSpec`, `run.start/cancel/list/get/clear`,
+  `view.open/close/setBounds`; events `extension.changed`, `run.event`,
+  `run.status`, `view.error`. Consent lives on `enable`, not `install`.
+- `turnBusy()` = `engine.isGenerating() || activeMessageId || fabric.isRunning()`
+  — `ENGINE_BUSY` is bidirectional: chat rejects during runs, `run.start`
+  rejects during chat (I2).
+- Renderer: `features/extensions/` — `ExtensionsPanel` (lifecycle +
+  consent UI), `WorkspaceBrowser` (contributions + commands as runnable
+  shortcuts), `RunView` (history + live trace + cancel), `ExtViewHost`
+  (native-view slot; ResizeObserver → `view.setBounds`; crash placeholder
+  + reload). Toggled via the Puzzle header button.
+- Gotchas: view `setBounds` needs `ffi.request.resizeWebview` (not in
+  public entries — devkit-relative import, isolated in
+  `electrobun-view.ts`); `install` on an existing pack = replace +
+  revalidate + consent re-prompt when capabilities change; extension
+  BrowserViews are non-sandboxed but their rpc is a dedicated
+  `ExtViewRpcSchema` — `ext.*` is the only reachable surface.

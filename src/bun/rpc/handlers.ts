@@ -16,6 +16,7 @@ import type {
   ResolvedRole,
   Snippet,
   RoleRef,
+  PackSource,
 } from "../../shared/types";
 import { DEFAULT_GENERATION } from "../../shared/types";
 import { EngineError } from "../llama/engine";
@@ -63,6 +64,12 @@ import {
   SnapshotStore,
 } from "../kv/store";
 import { MetricsStore } from "../metrics/store";
+import { ContributionRegistry } from "../fabric/registry";
+import { ExtensionsStore } from "../extensions/store";
+import { RunManager } from "../fabric/runtime";
+import { ViewManager, type ViewFactory } from "../extensions/views";
+import { createViewBridge } from "../extensions/bridge";
+import { electrobunViewFactory, type HostTarget } from "../extensions/electrobun-view";
 import {
   deepestLeaf,
   leafOf,
@@ -157,6 +164,11 @@ export interface HandlerDeps {
     // feature 009: multi-select; default = wrap pickFile
     pickFiles?(allowedTypes?: string): Promise<string[] | null>;
   };
+  // feature 017: extension pack store; absent → feature off (tests)
+  extensions?: ExtensionsStore;
+  fabric?: RunManager;
+  views?: ViewManager;
+  viewFactory?: ViewFactory;
 }
 
 function fail(code: RpcErrorCode, message: string): never {
@@ -199,7 +211,10 @@ export function createRequestHandlers(deps: HandlerDeps) {
       deps.tools ?? new ToolService({ getSettings: () => deps.store.getSettings() }));
   // feature 015: turn-level busy — covers the approval pause where the
   // engine itself is not generating
-  const turnBusy = () => deps.engine.isGenerating() || activeMessageId !== null;
+  // feature 017 (I2): an active fabric run holds the engine too —
+  // serialization is bidirectional
+  const turnBusy = () =>
+    deps.engine.isGenerating() || activeMessageId !== null || fabric.isRunning();
   // feature 016: gated on settings.outputPanel — off ⇒ zero entries
   const recordCall = (e: Omit<MetricEntry, "id" | "ts">) => {
     if (!deps.metrics || !deps.store.getSettings().outputPanel) return;
@@ -247,6 +262,57 @@ export function createRequestHandlers(deps: HandlerDeps) {
       getConversation: (id) => deps.store.getConversation(id),
       saveConversation: (c) => deps.store.saveConversation(c),
     });
+
+  // feature 017: fabric run manager + view sessions (lazy so tests without
+  // deps get isolated instances; prod injects via createRpc)
+  const contribReg = new ContributionRegistry();
+  const fabric =
+    deps.fabric ??
+    new RunManager({
+      registry: contribReg,
+      engine: () => deps.engine,
+      onTrace: (runId, entry) => deps.emit("run.event", { runId, entry }),
+      onStatus: (runId, status, error) => {
+        deps.emit("run.status", {
+          runId,
+          status,
+          error: error
+            ? { ...error, code: error.code as RpcErrorCode }
+            : undefined,
+        });
+        // FR-015: live run updates reach the owning pack's open views
+        const rec = fabric.get(runId);
+        if (rec) {
+          viewMgr().emitToPack(rec.packId, "ext.runUpdated", { runId, status });
+        }
+      },
+    });
+  let viewMgrInst: ViewManager | null = null;
+  const viewMgr = () =>
+    (viewMgrInst ??=
+      deps.views ??
+      new ViewManager({
+        factory: deps.viewFactory,
+        onError: (sessionId, message) => deps.emit("view.error", { sessionId, message }),
+      }));
+  // feature 017: lazily built; tests without the dep get an isolated
+  // store+registry (feature still functional, state under APP_DATA_DIR)
+  let extStoreInst: ExtensionsStore | null = null;
+  const extStore = () =>
+    (extStoreInst ??=
+      deps.extensions ??
+      new ExtensionsStore({
+        registry: contribReg,
+        onDisable: (packId) => {
+          fabric.abortPackRuns(packId);
+          viewMgr().closeFor(packId);
+        },
+        onRemove: (packId, purgeData) => {
+          fabric.abortPackRuns(packId);
+          viewMgr().closeFor(packId);
+          if (purgeData) fabric.clear(packId);
+        },
+      }));
 
   const findMessage = (messageId: string) => {
     for (const summary of deps.store.listConversations()) {
@@ -1279,6 +1345,161 @@ export function createRequestHandlers(deps: HandlerDeps) {
     // feature 016
     "metrics.list": () => ({ entries: deps.metrics?.list() ?? [] }),
     "metrics.clear": () => deps.metrics?.clear() ?? { removed: 0 },
+    // feature 017: extension packs. dialogs.pickFolder/pickFile resolve
+    // empty paths on folder/archive sources; null = cancelled.
+    "extension.scan": () => ({ packs: deps.extensions?.scan() ?? [] }),
+    "extension.install": async ({ source }: { source: PackSource }) => {
+      const exts = extStore();
+      const src = { ...source } as typeof source;
+      if ((src.kind === "folder" && !src.path) || (src.kind === "archive" && !src.path)) {
+        const picked =
+          src.kind === "folder"
+            ? await deps.dialogs?.pickFolder()
+            : await deps.dialogs?.pickFile("tgz,tar,gz");
+        if (!picked) return { pack: null };
+        (src as { path: string }).path = picked;
+      }
+      const pack = await exts.install(src);
+      deps.emit("extension.changed", { pack });
+      return { pack };
+    },
+    "extension.preview": async ({ source }: { source: PackSource }) => {
+      const exts = extStore();
+      const src = { ...source } as typeof source;
+      if ((src.kind === "folder" && !src.path) || (src.kind === "archive" && !src.path)) {
+        const picked =
+          src.kind === "folder"
+            ? await deps.dialogs?.pickFolder()
+            : await deps.dialogs?.pickFile("tgz,tar,gz");
+        if (!picked) fail("INVALID_PARAMS", "no source selected");
+        (src as { path: string }).path = picked;
+      }
+      return exts.preview(src);
+    },
+    "extension.enable": ({ packId, consent }: { packId: string; consent?: boolean }) => {
+      const pack = extStore().enable(packId, consent === true);
+      deps.emit("extension.changed", { pack });
+      return { pack };
+    },
+    "extension.disable": ({ packId }: { packId: string }) => {
+      const pack = extStore().disable(packId);
+      deps.emit("extension.changed", { pack });
+      return { pack };
+    },
+    "extension.remove": ({ packId, purgeData }: { packId: string; purgeData?: boolean }) => {
+      extStore().remove(packId, purgeData === true);
+      deps.emit("extension.changed", {
+        pack: {
+          id: packId,
+          dir: "",
+          state: "disabled",
+          source: { kind: "folder", ref: "" },
+          manifest: { name: packId, version: "", apiLevel: 0, capabilities: [], contributions: {} },
+          installedAt: 0,
+        },
+      });
+      return { removed: true as const };
+    },
+    "pack.contributions": ({ packId }: { packId: string }) => {
+      const pack = extStore().get(packId); // PACK_NOT_FOUND when absent
+      const c = contribReg.contributions(packId) ?? {
+        skills: [], pipelines: [], agents: [], views: [], commands: [],
+      };
+      // manifest-declared views + commands merge with registry content
+      return {
+        ...c,
+        views: pack.manifest.contributions.views ?? [],
+        commands: pack.manifest.contributions.commands ?? [],
+      };
+    },
+    "pack.readSpec": ({ contributionId }: { contributionId: string }) => {
+      const spec = contribReg.readSpec(contributionId);
+      if (!spec) {
+        fail("CONTRIBUTION_NOT_FOUND", `no contribution "${contributionId}"`);
+      }
+      return spec;
+    },
+    // feature 017: fabric runs — ENGINE_BUSY in both directions (I2)
+    "run.start": ({
+      packId, target, objective, params, budget,
+    }: {
+      packId: string;
+      target: { kind: "pipeline" | "agent"; id: string };
+      objective: string;
+      params?: Record<string, unknown>;
+      budget?: {
+        maxSteps?: number;
+        maxDelegations?: number;
+        maxModelCalls?: number;
+        maxDepth?: number;
+      };
+    }) => {
+      if (!objective || !objective.trim()) {
+        fail("INVALID_PARAMS", "objective must be non-empty");
+      }
+      const pack = extStore().get(packId);
+      if (pack.state !== "enabled") {
+        fail("PACK_INVALID", `pack "${packId}" is not enabled`);
+      }
+      if (turnBusy()) {
+        fail("ENGINE_BUSY", "model engine is busy (chat turn or run active)");
+      }
+      const ref = target.id.includes(":") ? target.id : `${packId}:${target.id}`;
+      const found =
+        target.kind === "pipeline"
+          ? contribReg.lookupSkill(ref)?.steps
+          : contribReg.lookupAgentContrib(ref);
+      if (!found) {
+        fail("CONTRIBUTION_NOT_FOUND", `no ${target.kind} "${target.id}" in pack "${packId}"`);
+      }
+      return {
+        runId: fabric.start({ packId, target: { ...target, id: ref }, objective, params, budget }),
+      };
+    },
+    "run.cancel": ({ runId }: { runId: string }) => {
+      if (!fabric.cancel(runId)) fail("RUN_NOT_FOUND", `no active run "${runId}"`);
+      return { cancelled: true as const };
+    },
+    "run.list": ({ packId, status }: { packId?: string; status?: string }) => ({
+      runs: fabric
+        .list(packId)
+        .filter((r) => (status ? r.status === status : true)),
+    }),
+    "run.get": ({ runId }: { runId: string }) => {
+      const run = fabric.get(runId);
+      if (!run) fail("RUN_NOT_FOUND", `no run "${runId}"`);
+      return { run };
+    },
+    "run.clear": ({ packId }: { packId: string }) => ({
+      removed: fabric.clear(packId),
+    }),
+    // feature 017: extension view sessions (contracts/view-bridge.md)
+    "view.open": ({ packId, viewId, slot }: { packId: string; viewId: string; slot?: string }) => {
+      const pack = extStore().get(packId);
+      if (pack.state !== "enabled") {
+        fail("PACK_INVALID", `pack "${packId}" is not enabled`);
+      }
+      const bridge = createViewBridge(pack, viewId, {
+        engine: () => deps.engine,
+        runs: () => fabric,
+        theme: () => ({ mode: "dark", vars: {} }),
+        startRun: (pid, target, params) =>
+          fabric.start({ packId: pid, target: { ...target, id: target.id.includes(":") ? target.id : `${pid}:${target.id}` }, objective: `command:${viewId}`, params }),
+      });
+      const s = viewMgr().open(pack, viewId, bridge);
+      // initial theme sync; change pushes go through the same path (FR-015)
+      viewMgr().pushTheme({ mode: "dark", vars: {} });
+      void slot;
+      return { sessionId: s.sessionId };
+    },
+    "view.close": ({ sessionId }: { sessionId: string }) => {
+      viewMgr().close(sessionId);
+      return {};
+    },
+    "view.setBounds": ({ sessionId, rect }: { sessionId: string; rect: { x: number; y: number; width: number; height: number } }) => {
+      viewMgr().setBounds(sessionId, rect);
+      return {};
+    },
     "model.setOverride": ({
       fileName,
       params,
@@ -1624,7 +1845,7 @@ async function bootstrapModel(emit: Emit): Promise<void> {
   }
 }
 
-export function createRpc() {
+export function createRpc(getHost?: () => HostTarget | null) {
   // oxlint-disable-next-line consistent-function-scoping -- placeholder reassigned below
   let emit: Emit = () => {};
   const handlers = createRequestHandlers({
@@ -1636,6 +1857,7 @@ export function createRpc() {
     metrics: metricsStore(),
     emit: (m, p) => emit(m, p),
     store,
+    viewFactory: electrobunViewFactory(getHost ?? (() => null)),
     dialogs: {
       pickFolder: async () => {
         const { Utils } = await import("electrobun/main");

@@ -1,0 +1,13 @@
+name: notes-pack
+version: 1.0.0
+apiLevel: 1
+description: Meeting notes domain pack (test fixture).
+capabilities:
+  - models.generate
+  - storage
+  - runs.read
+contributions:
+  commands:
+    - id: digest
+      title: Digest a transcript
+      run: { pipeline: document_summary }
