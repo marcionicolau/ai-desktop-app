@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "hutch dev",
+    "dev": "bash -c 'trap \"bun run kill-dev >/dev/null 2>&1\" EXIT; bun run dev:devtools & hutch dev & dev_pid=$!; until pgrep -f \"[A]IDesktopApp\" >/dev/null || ! kill -0 \"$dev_pid\" 2>/dev/null; do sleep 1; done; while pgrep -f \"[A]IDesktopApp\" >/dev/null; do sleep 1; done'",
     "dev:devtools": "react-devtools",
     "dev:renderer": "vite --config src/renderer/vite.config.ts",
     "build:renderer": "vite build --config src/renderer/vite.config.ts",
@@ -13,7 +13,14 @@
     "lint": "oxlint src/bun src/renderer src/shared",
     "test": "bun test ./tests",
     "build": "hutch run build",
-    "build:stable": "RELEASE_CHANNEL=stable hutch run build:stable"
+    "build:stable": "RELEASE_CHANNEL=stable hutch run build:stable",
+    "kill": "pkill -f \"[A]IDesktopApp\" || true; pkill -f \"[r]eact-devtools\" || true",
+    "kill-dev": "bun run kill; pkill -f \"$PWD/[n]ode_modules/\" || true; pkill -f \"[h]utch-engine (dev|electrobun dev|pm exec)\" || true",
+    "package": "scripts/build-native.sh && bun run build:renderer && bun run build && for d in build/canary-*; do scripts/verify-artifact.sh \"$d\"; done",
+    "package:stable": "scripts/build-native.sh && bun run build:renderer && bun run build:stable && for d in build/stable-*; do scripts/verify-artifact.sh \"$d\"; done",
+    "release:status": "bun scripts/release.ts status",
+    "release:stag": "bun scripts/release.ts stag",
+    "release:prod": "bun scripts/release.ts prod"
   },
   "dependencies": {
     "@fontsource-variable/geist": "^5.3.0",

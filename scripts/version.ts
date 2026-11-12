@@ -19,13 +19,14 @@ export function computeVersion(): string {
 
   const desc = git(["describe", "--tags", "--long"]);
   if (desc) {
-    const m = desc.match(/^v?(\d+\.\d+\.\d+)-(\d+)-g[0-9a-f]+$/);
+    // base may carry a prerelease suffix (v1.2.3-rc.1 → "1.2.3-rc.1")
+    const m = desc.match(/^v?(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)-(\d+)-g[0-9a-f]+$/);
     if (m?.[1] && m[2]) {
       const [, base, n] = m;
       if (n === "0") return base;
       return channel === "stable" ? `${base}+${n}` : `${base}-canary.${n}`;
     }
-    const exact = desc.match(/^v?(\d+\.\d+\.\d+)$/);
+    const exact = desc.match(/^v?(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)$/);
     if (exact?.[1]) return exact[1];
   }
 

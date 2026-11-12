@@ -8,8 +8,9 @@ Electrobun 2.x + Bun desktop AI chat app (local llama.cpp via `bun:ffi`).
 |------|---------|
 | Dev (window + HMR) | `bun run dev` — `hutch dev` → vite :5173 + `electrobun dev --watch` |
 | Canary package | `bun run build` — `hutch run build` → `electrobun build --env=canary` → `build/canary-<platform>/` |
-| Full package | `just package` — native + renderer + canary build + `verify-artifact.sh` |
-| Stable package | `bun run build:stable` (`just package-stable`) |
+| Full package | `bun run package` — native + renderer + canary build + `verify-artifact.sh` |
+| Stable package | `bun run package:stable` (same pipeline, `--env=stable`) |
+| Release | `bun run release:status|stag|prod` → `scripts/release.ts` (tag push triggers the packaging workflow) |
 | Native libs | `bun run build:native` → `native/out/<platform>/` (cmake tree lives in `native/build/<platform>/`, never packaged) |
 | Typecheck | `bun run typecheck` (tsc strict) |
 | Lint | `bun run lint` (oxlint) |

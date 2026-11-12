@@ -1,10 +1,11 @@
 name: packaging
 
+# Tag-triggered only: v<major>.<minor>.<patch> with optional semver suffix
+# (e.g. v1.2.3, v1.2.3-rc.1). Push a tag to cut a release build.
 on:
   push:
-    branches: [main]
-  pull_request:
-  workflow_dispatch:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+*'
 
 permissions:
   contents: read
@@ -47,17 +48,29 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - name: install deps
         run: bun install
+      - name: project electrobun devkit
+        run: bun x electrobun prepare
       - name: build native shim
         run: ${{ matrix.native-script }}
       - name: build renderer
         run: bun run build:renderer
-      - name: electrobun build (canary)
-        run: bun run build
+      # prerelease tags (v1.2.3-rc.1) → canary channel; stable tags → stable
+      - name: select channel
+        id: channel
+        run: |
+          if [[ "${GITHUB_REF_NAME}" == *-* ]]; then channel=canary; else channel=stable; fi
+          echo "channel=$channel" >> "$GITHUB_OUTPUT"
+      # `bun x electrobun`, not `bun run build` — hutch is a local dev tool,
+      # not installed on runners
+      - name: electrobun build
+        env:
+          RELEASE_CHANNEL: ${{ steps.channel.outputs.channel }}
+        run: bun x electrobun build --env=${{ steps.channel.outputs.channel }}
       - name: verify artifact
         shell: bash
-        run: scripts/verify-artifact.sh "build/canary-${{ matrix.platform }}"
+        run: scripts/verify-artifact.sh "build/${{ steps.channel.outputs.channel }}-${{ matrix.platform }}"
       - uses: actions/upload-artifact@v4
         with:
-          name: ai-desktop-app-canary-${{ matrix.platform }}
-          path: build/canary-${{ matrix.platform }}/
+          name: ai-desktop-app-${{ steps.channel.outputs.channel }}-${{ matrix.platform }}
+          path: build/${{ steps.channel.outputs.channel }}-${{ matrix.platform }}/
           retention-days: 14
