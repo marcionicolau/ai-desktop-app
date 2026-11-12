@@ -168,13 +168,26 @@ export function ChatPage() {
       <AppSidebar
         conversations={state.conversations}
         activeId={state.conversationId}
-        onSelect={(id) => void selectConversation(id)}
-        onNew={newConversation}
+        onSelect={(id) => {
+          select("chat");
+          void selectConversation(id);
+        }}
+        onNew={() => {
+          select("chat");
+          newConversation();
+        }}
         onRename={(id, t) => void renameConversation(id, t)}
         onDelete={(id) => void deleteConversation(id)}
         onExport={(id, f) => exportConversation(id, f)}
-        onImport={importConversation}
-        onSelectHit={(cid, mid) => void selectConversation(cid, mid)}
+        onImport={async () => {
+          const r = await importConversation();
+          if (r) select("chat");
+          return r;
+        }}
+        onSelectHit={(cid, mid) => {
+          select("chat");
+          void selectConversation(cid, mid);
+        }}
         workspaceTabs={tabs}
         selectedTabId={selectedId}
         onSelectTab={select}
