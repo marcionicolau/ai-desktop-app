@@ -177,3 +177,9 @@ Task: "UpdatesSection.tsx — toggle + check-now + status"
 - `Updater.getLocalInfo()` caches `version.json` — read once at service construction
 - Loopback `http://localhost` feeds are legal per `prepareNativeUpdate`'s HTTPS-or-loopback rule — that's the dev/test path; production must serve HTTPS
 - `channel == installed` is enforced inside `validateUpdateManifest`/`validatePreparedUpdate` — do NOT attempt in-place cross-channel apply (research.md D4)
+
+---
+
+## Phase 6: Convergence
+
+- [ ] T026 [HIGH] Fix `settings.set` updates merge in `src/bun/rpc/handlers.ts` — persisted `channel` must default to the installed channel (`deps.updater?.preferredChannel()`), not `"canary"`, so toggling `enabled` on a stable install doesn't lock the feed to canary per FR-006 (partial)
