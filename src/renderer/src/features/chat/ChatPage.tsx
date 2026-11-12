@@ -200,8 +200,8 @@ export function ChatPage() {
         onManageExtensions={() => select("surface:extensions")}
       />
       <SidebarInset>
-        <header className="flex items-center justify-between border-b border-border px-4 py-2">
-          <div className="flex items-center gap-2">
+        <header className="flex flex-wrap items-center justify-between gap-x-4 border-b border-border px-4 py-2">
+          <div className="flex min-w-0 items-center gap-2">
             <SidebarTrigger />
             <h1 className="text-sm font-semibold">
               {tabs.find((t) => t.id === selectedId)?.title ?? "Chat"}
@@ -222,7 +222,7 @@ export function ChatPage() {
               ))}
             </select>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex min-w-0 items-center gap-1">
             {state.mode === "fusion" ? (
               <>
                 <ModelSelector

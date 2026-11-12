@@ -49,18 +49,24 @@ the running dev app).
   transcript column; composer + attachment affordance anchored bottom;
   header persona select, fusion model menus, metrics toggle all themed
   (native selects readable in dark via `color-scheme` fix, `985fe0f`).
-- S3 — PASS (visible): System/Light/Dark all render correctly across
-  sidebar, header, transcript, composer; override persists in the footer
-  control. Extension live theme-sync (`pushTheme`) previously exercised
-  during the sidebar work; reduced-motion + narrow-window not
-  individually re-exercised this pass.
+- S3 — PASS: System/Light/Dark render correctly across sidebar, header,
+  transcript, composer; override persists in the footer control.
+  Extension theme-sync verified end-to-end in code: `theme.ts` →
+  `settings.set{resolvedTheme}` → `views.pushTheme` → `ext.themeChanged`
+  event, capability-gated on `views.theme` (fixture pack declares it);
+  views receive initial theme via `ext.context()`. Visual confirmation
+  limited by the fixture view not rendering theme — contract-delivered.
+  Reduced-motion: `prefers-reduced-motion` blanket media query
+  (index.css, FR-011) collapses animation/transition duration + smooth
+  scrolling; no JS animation loops bypass it (single rAF in Composer is
+  a one-shot scroll).
 - S4 — verified: Chats group (New chat, Import…, search field,
   conversations), Extensions group (ext views + pack browsers +
   Manage…), Configurations group (Models/Personas/Roles/Settings),
   theme cycler footer; transcript capped at readable width with the
-  composer anchored. Collapse→icon-rail + panel focus previously
-  exercised during the panel-model work (incl. the TooltipProvider fix
-  at `fdb8f68`).
+  composer anchored. Narrow window: sidebar → icon rail, content
+  `min-w-0`, FusionControls row wraps, header now `flex-wrap` +
+  `min-w-0` groups so right-side controls stay reachable.
 
 Gate results unchanged: tsc clean, 395/395 tests, lint warnings
 pre-existing, renderer build PASS.
