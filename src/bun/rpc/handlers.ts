@@ -1347,7 +1347,7 @@ export function createRequestHandlers(deps: HandlerDeps) {
     "metrics.clear": () => deps.metrics?.clear() ?? { removed: 0 },
     // feature 017: extension packs. dialogs.pickFolder/pickFile resolve
     // empty paths on folder/archive sources; null = cancelled.
-    "extension.scan": () => ({ packs: deps.extensions?.scan() ?? [] }),
+    "extension.scan": () => ({ packs: extStore().scan() }),
     "extension.install": async ({ source }: { source: PackSource }) => {
       const exts = extStore();
       const src = { ...source } as typeof source;
