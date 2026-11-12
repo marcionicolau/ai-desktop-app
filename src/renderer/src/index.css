@@ -114,6 +114,12 @@
 @layer base {
   html {
     font-family: var(--font-sans);
+    color-scheme: light;
+  }
+
+  /* native widgets (selects, inputs, scrollbars) follow the resolved theme */
+  html.dark {
+    color-scheme: dark;
   }
 
   /* FR-011: honor OS reduced-motion — collapse all non-essential motion
