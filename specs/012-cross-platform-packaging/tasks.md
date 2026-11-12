@@ -63,3 +63,8 @@ macOS/Windows lanes ship configured but inactive (user directive).
 ## Implementation Strategy
 
 MVP = Phase 1 + T004 + T005 (a verified Linux artifact). Everything else layers on: docs (US1/US3), CI (US2), recipes (polish).
+
+## Phase 7: Convergence
+
+- [ ] T015 Drive a full smoke-checklist pass inside the packaged canary artifact — launch → model load → send message → token streaming → clean exit — per US1/AC3 / SC-002 (partial)
+- [ ] T016 Verify clean-checkout reproducibility: `git clean`-style fresh tree (or `git worktree add`) → `just package` produces a verified artifact per FR-009 (partial)
