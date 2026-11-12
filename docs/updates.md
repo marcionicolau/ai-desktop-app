@@ -52,7 +52,7 @@ When disabled the app performs **zero** update requests.
   channel's previous tag and HEAD.
 
 Default production baseUrl:
-`https://github.com/marcionicolau/ai-desktop-app/releases/download/feed`
+`https://github.com/marcionicolau/causerie/releases/download/feed`
 — requires the repo (or the feed host) to serve assets unauthenticated.
 While the repo is private, point `UPDATE_FEED_BASE_URL` at any static
 HTTPS host; `http://localhost` is allowed for local testing

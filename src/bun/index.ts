@@ -15,7 +15,7 @@ const { rpc, start } = createRpc(() =>
 );
 
 mainWindow = new BrowserWindow({
-  title: "AI Desktop App",
+  title: "Causerie",
   url,
   rpc,
   frame: { width: 1024, height: 720, x: 200, y: 200 },

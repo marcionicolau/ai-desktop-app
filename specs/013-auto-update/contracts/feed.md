@@ -71,7 +71,7 @@ D4) instead uses the packaged app archives the release job already
 attaches to each versioned tag:
 
 ```
-{repo}/releases/download/v{manifest.version}/ai-desktop-app-{channel}-{os}-{arch}.zip
+{repo}/releases/download/v{manifest.version}/causerie-{channel}-{os}-{arch}.zip
 ```
 
 where `v{manifest.version}` is the git tag (`1.2.3` → `v1.2.3`,

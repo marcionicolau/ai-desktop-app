@@ -3,7 +3,7 @@ import { computeVersion } from "./scripts/version";
 
 export default {
   app: {
-    name: "AI Desktop App",
+    name: "Causerie",
     identifier: "dev.local.ai-desktop-app",
     // semver derived from git (scripts/version.ts) — no manual bumps
     version: computeVersion(),
@@ -46,6 +46,6 @@ export default {
   release: {
     baseUrl:
       process.env.UPDATE_FEED_BASE_URL ??
-      "https://github.com/marcionicolau/ai-desktop-app/releases/download/feed",
+      "https://github.com/marcionicolau/causerie/releases/download/feed",
   },
 } satisfies ElectrobunConfig;

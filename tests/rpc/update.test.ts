@@ -86,7 +86,7 @@ describe("update.* contract", () => {
 
   test("update.download returns installerPath on channelSwitch", async () => {
     const svc = makeService({
-      download: async () => ({ installerPath: "/dl/ai-desktop-app-stable-linux-x64.zip" }),
+      download: async () => ({ installerPath: "/dl/causerie-stable-linux-x64.zip" }),
     });
     const h = createRequestHandlers(makeDeps(svc).deps);
     const r = await h["update.download"]({});

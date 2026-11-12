@@ -206,7 +206,7 @@ export class UpdateService {
       // packaged zip from the versioned tag release (contracts/feed.md)
       const rel = this.view.release;
       const p = this.deps.platform ?? PLATFORM;
-      const installerName = `ai-desktop-app-${rel.channel}-${p.os}-${p.arch}.zip`;
+      const installerName = `causerie-${rel.channel}-${p.os}-${p.arch}.zip`;
       const ghFeed = info.baseUrl.match(/^(.*)\/releases\/download\/[^/]+$/);
       const url = ghFeed
         ? `${ghFeed[1]}/releases/download/v${rel.version}/${installerName}`
