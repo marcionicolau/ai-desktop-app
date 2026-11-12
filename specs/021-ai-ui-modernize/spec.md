@@ -14,6 +14,7 @@
 
 - Resolved interpretation: the referenced ai-elements documentation shows these components are **recipes composed from the standard component library** (e.g., chain-of-thought = Trace + collapsible + Badge + Code Block), where the primitive layer stays underneath the wrappers. "Replace Radix with shadcn" therefore means **feature code never imports low-level primitive libraries directly — everything goes through the project's standardized component wrappers** — not that primitives are removed.
 - Q: Does the visual refresh include a light theme or stay dark-only? → A: **System-following light + dark** — two full token sets driven by the OS preference (prefers-color-scheme), with a persisted manual override; extension view theme sync pushes the active palette.
+- Added scope: main UI organization adopts the standardized sidebar-block pattern (provider + collapsible sidebar + inset + trigger) with icon-rail collapse, keyboard shortcut, grouped navigation, and chat-app layout conventions (readable content width, anchored composer).
 - Reference: the full ai-elements catalog (21 patterns) was enumerated; the adopted subset maps to existing surfaces as follows — Chat/Message Scroller (transcript), Message (turns), Prompt Input (composer), Plan/Chain of Thought (fusion planner phases), Tool + Stack Trace (tool calls + failures), Confirmation (tool ask-mode approvals), Suggestion (snippets/personas one-click prompts), Model Selector (model + fusion planner/executor tag picking), Checkpoint (conversation variant return points), Context (token budget usage), Task/Queue (pack pipeline run steps), Subagent (a pack run as a unit), File Tree (pack workspace files), Reasoning (streaming thinking), Code Block (standardized code). Deferred — no backing surface today: Sources, Inline Citation, Terminal, Test Results.
 
 ## User Scenarios & Testing *(mandatory)*
@@ -68,6 +69,23 @@ As a user, the whole interface gets a coherent visual refresh — a refined colo
 
 ---
 
+### User Story 4 - Standard navigation shell (Priority: P2)
+
+As a user, the app is organized around a proper navigation sidebar — collapsible, grouped, keyboard-accessible — holding conversations and the extensions entry point, with a slim context header, while the workspace (chat and extension surfaces) fills the main area following standard chat-app conventions: readable content width, anchored composer, scroll-anchored transcript.
+
+**Why this priority**: The current sidebar is a fixed hand-rolled panel with an ungrouped list; adopting the standard sidebar-block organization gives collapse-to-icons, keyboard toggle, grouped navigation, and a consistent shell for both chat and extension surfaces.
+
+**Independent Test**: collapse the sidebar → icon rail, workspace expands; keyboard shortcut toggles it; conversations grouped under navigation; extensions reachable from the sidebar; chat content stays readable at wide window sizes.
+
+**Acceptance Scenarios**:
+
+1. **Given** the app is open, **When** the user toggles the sidebar (button or keyboard shortcut), **Then** it collapses to an icon rail and the workspace expands to fill the freed space — and toggles back without losing state.
+2. **Given** the sidebar, **When** the user navigates, **Then** conversations are listed in a grouped, searchable nav with clear active-state indication, and the extensions section/entry is a first-class nav item.
+3. **Given** a wide window, **When** the chat surface is visible, **Then** message content stays within a readable line length (centered column) while the composer remains anchored at the bottom.
+4. **Given** a narrow window, **When** the sidebar is open, **Then** it overlays or compresses rather than breaking the workspace layout (per the sidebar component's responsive behavior).
+
+---
+
 ### Edge Cases
 
 - **Extension-hosted views**: pack-authored content inside extension views must not be restyled beyond shared theme tokens — pack authors own their internals.
@@ -89,6 +107,10 @@ As a user, the whole interface gets a coherent visual refresh — a refined colo
 - **FR-008**: The active theme tokens MUST propagate to extension view surfaces through the existing theme-sync mechanism, following live theme changes without restart.
 - **FR-009**: Theme selection MUST follow the OS color-scheme preference by default; a manual light/dark/system override MUST be available and persisted across restarts.
 - **FR-011**: Media-query behavior MUST be respected app-wide: non-essential animation disabled under reduced-motion, and the layout must remain usable in narrow window sizes.
+- **FR-012**: The app shell MUST use the standardized sidebar component system: provider + collapsible sidebar + inset content area + trigger; collapse MUST support an icon-rail mode and a keyboard shortcut.
+- **FR-013**: Sidebar navigation MUST group content logically (conversations with search and active-state styling, an extensions entry, settings/tools entries) and retain existing capabilities — conversation select/new/rename/delete, search filtering, import/export.
+- **FR-014**: The workspace MUST follow chat-app layout conventions: readable maximum content width for the transcript at wide windows, composer anchored to the bottom of its surface, and a slim context header consistent across the app.
+- **FR-015**: Collapsing/expanding the sidebar MUST NOT disturb the workspace accordion state or running extension sessions.
 - **FR-010**: All existing behaviors MUST be preserved — workspace accordion, extension lifecycle, drawer/panel views, run views, settings/model/persona panels — with no functional regression.
 
 ### Key Entities
