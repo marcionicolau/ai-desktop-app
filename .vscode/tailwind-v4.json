@@ -1,0 +1,37 @@
+{
+  "version": 1.1,
+  "atDirectives": [
+    {
+      "name": "@theme",
+      "description": "Tailwind CSS v4: define design tokens that generate utilities."
+    },
+    {
+      "name": "@custom-variant",
+      "description": "Tailwind CSS v4: register a custom variant (e.g. dark mode selector)."
+    },
+    {
+      "name": "@source",
+      "description": "Tailwind CSS v4: register an extra source path for class scanning."
+    },
+    {
+      "name": "@utility",
+      "description": "Tailwind CSS v4: define a custom utility."
+    },
+    {
+      "name": "@variant",
+      "description": "Tailwind CSS v4: apply a variant inside a stylesheet."
+    },
+    {
+      "name": "@plugin",
+      "description": "Tailwind CSS v4: load a JS plugin."
+    },
+    {
+      "name": "@config",
+      "description": "Tailwind CSS v4: load a legacy JS config file."
+    },
+    {
+      "name": "@reference",
+      "description": "Tailwind CSS v4: reference theme/utilities in an isolated stylesheet."
+    }
+  ]
+}
