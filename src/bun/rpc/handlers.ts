@@ -1424,7 +1424,9 @@ export function createRequestHandlers(deps: HandlerDeps) {
         }
         next.updates = {
           enabled: s.updates?.enabled ?? true,
-          channel: s.updates?.channel ?? "canary",
+          // default = installed channel, not a hardcoded one (FR-006)
+          channel:
+            s.updates?.channel ?? deps.updater?.preferredChannel() ?? "canary",
           ...(updatesPatch.enabled !== undefined
             ? { enabled: updatesPatch.enabled }
             : {}),

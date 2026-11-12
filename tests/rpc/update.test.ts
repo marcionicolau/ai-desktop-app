@@ -144,6 +144,15 @@ describe("updates settings", () => {
     expect(r.updates.channel).toBe("stable");
   });
 
+  test("settings.set enabled-only keeps the installed channel (T026)", async () => {
+    // a stable install toggling `enabled` must not lock onto canary
+    const svc = makeService({ preferredChannel: () => "stable" });
+    const { deps, getSettings } = makeDeps(svc);
+    const h = createRequestHandlers(deps);
+    await h["settings.set"]({ updates: { enabled: false } });
+    expect(getSettings().updates).toEqual({ enabled: false, channel: "stable" });
+  });
+
   test("settings.set rejects unknown channel", () => {
     const h = createRequestHandlers(makeDeps(makeService()).deps);
     expect(() =>
