@@ -1,5 +1,12 @@
 import { useEffect, useState } from "react";
-import { GitBranch, Library, Puzzle, Settings2, Tags, Users } from "lucide-react";
+import {
+  GitBranch,
+  Library,
+  Puzzle,
+  Settings2,
+  Tags,
+  Users,
+} from "lucide-react";
 import { useChat } from "./use-chat";
 import { MessageList } from "./MessageList";
 import { BranchOverview } from "./BranchOverview";
@@ -61,11 +68,13 @@ export function ChatPage() {
   const [extOpen, setExtOpen] = useState(false);
   const [browsePack, setBrowsePack] = useState<string | null>(null);
   const [focusRun, setFocusRun] = useState<string | null>(null);
-  const [openView, setOpenView] = useState<{ packId: string; viewId: string; slot: "tab" | "panel" } | null>(null);
+  const [openView, setOpenView] = useState<{
+    packId: string;
+    viewId: string;
+    slot: "tab" | "panel";
+  } | null>(null);
   useEffect(() => {
-    void invoke("settings.get", {}).then((s) =>
-      setMetricsOpen(s.outputPanel),
-    );
+    void invoke("settings.get", {}).then((s) => setMetricsOpen(s.outputPanel));
   }, []);
   const toggleMetrics = async (v: boolean) => {
     setMetricsOpen(v);
@@ -144,6 +153,7 @@ export function ChatPage() {
               variant="ghost"
               size="icon"
               aria-label="Personas"
+              title="Personas"
               onClick={() => setPersonasOpen((v) => !v)}
             >
               <Users className="h-4 w-4" />
@@ -152,6 +162,7 @@ export function ChatPage() {
               variant="ghost"
               size="icon"
               aria-label="Branches"
+              title="Branches"
               disabled={branches.length === 0}
               onClick={() => setBranchesOpen((v) => !v)}
             >
@@ -161,6 +172,7 @@ export function ChatPage() {
               variant="ghost"
               size="icon"
               aria-label="Model library"
+              title="Model library"
               onClick={() => setLibraryOpen((v) => !v)}
             >
               <Library className="h-4 w-4" />
@@ -169,6 +181,7 @@ export function ChatPage() {
               variant="ghost"
               size="icon"
               aria-label="Model roles"
+              title="Model roles"
               onClick={() => setRolesOpen((v) => !v)}
             >
               <Tags className="h-4 w-4" />
@@ -177,6 +190,7 @@ export function ChatPage() {
               variant="ghost"
               size="icon"
               aria-label="Generation settings"
+              title="Generation settings"
               onClick={() => setSettingsOpen((v) => !v)}
             >
               <Settings2 className="h-4 w-4" />
@@ -185,6 +199,7 @@ export function ChatPage() {
               variant="ghost"
               size="icon"
               aria-label="Extensions"
+              title="Extensions"
               onClick={() => setExtOpen((v) => !v)}
             >
               <Puzzle className="h-4 w-4" />
@@ -202,11 +217,11 @@ export function ChatPage() {
               Metrics
             </label>
             <ModelPicker
-            status={state.modelStatus}
-            name={state.modelName}
-            error={state.modelError}
-            onPick={() => void pickModel()}
-          />
+              status={state.modelStatus}
+              name={state.modelName}
+              error={state.modelError}
+              onPick={() => void pickModel()}
+            />
           </div>
         </header>
         {settingsOpen && (
@@ -230,11 +245,7 @@ export function ChatPage() {
             <Button size="sm" onClick={() => void applyTagOffer()}>
               Apply
             </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => setTagOffer(null)}
-            >
+            <Button size="sm" variant="ghost" onClick={() => setTagOffer(null)}>
               Dismiss
             </Button>
           </div>
@@ -252,7 +263,8 @@ export function ChatPage() {
         )}
         {state.modelStatus === "error" && (
           <div className="border-b border-border bg-red-950 px-4 py-2 text-center text-sm text-red-300">
-            Model failed to load{state.modelError ? `: ${state.modelError}` : ""}
+            Model failed to load
+            {state.modelError ? `: ${state.modelError}` : ""}
           </div>
         )}
         <FusionControls
@@ -290,15 +302,15 @@ export function ChatPage() {
           onSelectVariant={selectVariant}
         />
         {extOpen && (
-          <ExtensionsPanel
-            onBrowse={(packId) => setBrowsePack(packId)}
-          />
+          <ExtensionsPanel onBrowse={(packId) => setBrowsePack(packId)} />
         )}
         {extOpen && browsePack && (
           <WorkspaceBrowser
             packId={browsePack}
             onRunStarted={(runId) => setFocusRun(runId)}
-            onOpenView={(packId, viewId, slot) => setOpenView({ packId, viewId, slot })}
+            onOpenView={(packId, viewId, slot) =>
+              setOpenView({ packId, viewId, slot })
+            }
           />
         )}
         {extOpen && <RunView focusRunId={focusRun} />}
