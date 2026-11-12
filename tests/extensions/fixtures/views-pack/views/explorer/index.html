@@ -1,0 +1,8 @@
+<!doctype html>
+<html><body><h1>Explorer</h1><script>
+(async () => {
+  const ctx = await window.ext.context();
+  document.body.dataset.pack = ctx.packId;
+  await window.ext.storage.set("seen", "1");
+})();
+</script></body></html>

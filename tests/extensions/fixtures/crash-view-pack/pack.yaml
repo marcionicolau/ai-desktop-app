@@ -1,0 +1,9 @@
+name: crash-view-pack
+version: 1.0.0
+apiLevel: 1
+contributions:
+  views:
+    - id: boom
+      title: Crash View
+      slot: panel
+      entry: views/boom/index.html

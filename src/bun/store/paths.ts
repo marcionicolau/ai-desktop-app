@@ -31,3 +31,21 @@ export function settingsFile(): string {
 export function kvDir(): string {
   return join(dataDir(), "kv");
 }
+
+// feature 017: extension packs live under dataDir()/extensions; runs and
+// per-pack scoped storage beside them
+export function extensionsDir(): string {
+  return join(dataDir(), "extensions");
+}
+
+export function extensionsStateFile(): string {
+  return join(dataDir(), "extensions.json");
+}
+
+export function runsDir(packId: string): string {
+  return join(dataDir(), "runs", packId);
+}
+
+export function packDataDir(packId: string): string {
+  return join(dataDir(), "pack-data", packId);
+}
