@@ -414,6 +414,7 @@ export interface PipelineView {
   packId: string;
   name: string;
   description: string;
+  inputs: Record<string, PortDecl>;
   steps: { id: string; uses: string; params?: Record<string, unknown>; inputs?: Record<string, string> }[];
 }
 

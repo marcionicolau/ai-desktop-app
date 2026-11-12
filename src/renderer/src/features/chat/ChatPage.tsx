@@ -328,7 +328,12 @@ export function ChatPage() {
           onSelectVariant={selectVariant}
         />
         {extOpen && (
-          <ExtensionsPanel onBrowse={(packId) => setBrowsePack(packId)} />
+          <ExtensionsPanel
+            onBrowse={(packId) => setBrowsePack(packId)}
+            onOpenView={(packId, viewId, slot) =>
+              setOpenView({ packId, viewId, slot })
+            }
+          />
         )}
         {extOpen && browsePack && (
           <WorkspaceBrowser

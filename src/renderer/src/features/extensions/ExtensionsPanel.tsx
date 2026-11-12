@@ -8,9 +8,10 @@ import { Button } from "@/components/ui/button";
 
 interface Props {
   onBrowse: (packId: string) => void;
+  onOpenView: (packId: string, viewId: string, slot: "tab" | "panel") => void;
 }
 
-export function ExtensionsPanel({ onBrowse }: Props) {
+export function ExtensionsPanel({ onBrowse, onOpenView }: Props) {
   const [packs, setPacks] = useState<InstalledPackView[]>([]);
   const [url, setUrl] = useState("");
   const [consentFor, setConsentFor] = useState<string | null>(null);
@@ -36,13 +37,21 @@ export function ExtensionsPanel({ onBrowse }: Props) {
     if (kind === "url") setUrl("");
   };
 
+  // After enable: surface the pack — open its contributions browser and,
+  // if it declares a tab view, that view directly.
+  const afterEnable = (p: InstalledPackView) => {
+    onBrowse(p.id);
+    const tab = p.manifest.contributions.views?.find((v) => v.slot === "tab");
+    if (tab) onOpenView(p.id, tab.id, "tab");
+  };
+
   const enable = (p: InstalledPackView) => {
     // FR-005: capability-declaring packs need explicit consent
     if (p.manifest.capabilities.length > 0) {
       setConsentFor(p.id);
       return;
     }
-    void guard(invoke("extension.enable", { packId: p.id }));
+    void guard(invoke("extension.enable", { packId: p.id }).then(() => afterEnable(p)));
   };
 
   return (
@@ -139,7 +148,9 @@ export function ExtensionsPanel({ onBrowse }: Props) {
                   onClick={() => {
                     setConsentFor(null);
                     void guard(
-                      invoke("extension.enable", { packId: p.id, consent: true }),
+                      invoke("extension.enable", { packId: p.id, consent: true }).then(() =>
+                        afterEnable(p),
+                      ),
                     );
                   }}
                 >

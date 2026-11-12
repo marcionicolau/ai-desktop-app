@@ -181,7 +181,7 @@ export class ContributionRegistry {
       skills: [...pack.skills.values()].map((c) => c.view),
       pipelines: [...pack.pipelines.values()].map((c) => ({
         id: c.view.id, packId, name: c.view.name,
-        description: c.view.description, steps: c.steps ?? [],
+        description: c.view.description, inputs: c.view.inputs, steps: c.steps ?? [],
       })),
       agents: [...pack.agents.values()].map((c) => c.view),
       views: [],

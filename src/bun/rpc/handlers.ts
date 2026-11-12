@@ -1850,6 +1850,71 @@ async function bootstrapModel(emit: Emit): Promise<void> {
   }
 }
 
+// Linux/GTK: Utils.openFileDialog is a synchronous FFI call that can hang
+// the entire main proc (observed under Wayland: launcher spins at 100% CPU
+// and every RPC then times out). zenity runs out-of-process so a stuck or
+// cancelled dialog can never block the event loop. Returns undefined when
+// zenity can't spawn at all (→ native fallback), null on cancel.
+async function zenityPick(
+  mode: "dir" | "file" | "files",
+  types: string,
+): Promise<string[] | null | undefined> {
+  try {
+    const args = [
+      "zenity",
+      "--file-selection",
+      `--title=Select ${mode === "dir" ? "folder" : "file"}`,
+    ];
+    if (mode === "dir") args.push("--directory");
+    if (mode === "files") args.push("--multiple", "--separator=\n");
+    if (types !== "*") {
+      const exts = types.split(",").map((t) => `*.${t.trim()}`).join(" ");
+      args.push("--file-filter", `Supported | ${exts}`, "--file-filter", "All files | *");
+    }
+    const proc = Bun.spawn(args, { stdout: "pipe", stderr: "ignore" });
+    const out = (await new Response(proc.stdout).text()).trim();
+    if ((await proc.exited) !== 0 || !out) return null;
+    return out.split("\n").filter(Boolean);
+  } catch {
+    return undefined;
+  }
+}
+
+const useZenity =
+  process.platform === "linux" && process.env.AI_DESKTOP_NATIVE_DIALOGS !== "1";
+
+async function nativeDialog(dir: boolean, types: string, multi: boolean) {
+  const { Utils } = await import("electrobun/main");
+  return Utils.openFileDialog({
+    startingFolder: "~/",
+    allowedFileTypes: types,
+    canChooseFiles: !dir,
+    canChooseDirectory: dir,
+    allowsMultipleSelection: multi,
+  });
+}
+
+function makeDialogs() {
+  return {
+    pickFolder: async () => {
+      const z = useZenity ? await zenityPick("dir", "*") : undefined;
+      if (z !== undefined) return z?.[0] ?? null;
+      return (await nativeDialog(true, "*", false))[0] ?? null;
+    },
+    pickFile: async (types = "*") => {
+      const z = useZenity ? await zenityPick("file", types) : undefined;
+      if (z !== undefined) return z?.[0] ?? null;
+      return (await nativeDialog(false, types, false))[0] ?? null;
+    },
+    pickFiles: async (types = "*") => {
+      const z = useZenity ? await zenityPick("files", types) : undefined;
+      if (z !== undefined) return z;
+      const r = await nativeDialog(false, types, true);
+      return r.length ? r : null;
+    },
+  };
+}
+
 export function createRpc(getHost?: () => HostTarget | null) {
   // oxlint-disable-next-line consistent-function-scoping -- placeholder reassigned below
   let emit: Emit = () => {};
@@ -1863,40 +1928,7 @@ export function createRpc(getHost?: () => HostTarget | null) {
     emit: (m, p) => emit(m, p),
     store,
     viewFactory: electrobunViewFactory(getHost ?? (() => null)),
-    dialogs: {
-      pickFolder: async () => {
-        const { Utils } = await import("electrobun/main");
-        const r = await Utils.openFileDialog({
-          startingFolder: "~/",
-          canChooseFiles: false,
-          canChooseDirectory: true,
-          allowsMultipleSelection: false,
-        });
-        return r[0] ?? null;
-      },
-      pickFile: async (types = "*") => {
-        const { Utils } = await import("electrobun/main");
-        const r = await Utils.openFileDialog({
-          startingFolder: "~/",
-          allowedFileTypes: types,
-          canChooseFiles: true,
-          canChooseDirectory: false,
-          allowsMultipleSelection: false,
-        });
-        return r[0] ?? null;
-      },
-      pickFiles: async (types = "*") => {
-        const { Utils } = await import("electrobun/main");
-        const r = await Utils.openFileDialog({
-          startingFolder: "~/",
-          allowedFileTypes: types,
-          canChooseFiles: true,
-          canChooseDirectory: false,
-          allowsMultipleSelection: true,
-        });
-        return r.length ? r : null;
-      },
-    },
+    dialogs: makeDialogs(),
   });
   const rpc = defineElectrobunRPC<ChatRpcSchema, "bun">("bun", {
     handlers: { requests: handlers, messages: {} },

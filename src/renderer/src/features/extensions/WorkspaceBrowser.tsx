@@ -168,6 +168,7 @@ export function WorkspaceBrowser({ packId, onRunStarted, onOpenView }: Props) {
   const [c, setC] = useState<PackContributionsView | null>(null);
   const [sel, setSel] = useState<Selection | null>(null);
   const [objective, setObjective] = useState("");
+  const [paramVals, setParamVals] = useState<Record<string, Record<string, string>>>({});
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -227,20 +228,48 @@ export function WorkspaceBrowser({ packId, onRunStarted, onOpenView }: Props) {
       {c.pipelines.length > 0 && (
         <section>
           <h3 className="text-xs font-medium">Pipelines</h3>
-          {c.pipelines.map((p) => (
-            <div key={p.id} className="flex items-center justify-between py-0.5">
-              <button
-                className="text-xs underline-offset-2 hover:underline"
-                title={p.description}
-                onClick={() => setSel({ kind: "pipeline", item: p })}
-              >
-                {p.name} <span className="text-muted-foreground">({p.steps.length} steps)</span>
-              </button>
-              <Button size="sm" variant="secondary" onClick={() => start("pipeline", p.name)}>
-                Run
-              </Button>
-            </div>
-          ))}
+          {c.pipelines.map((p) => {
+            const declared = Object.keys(p.inputs ?? {});
+            const vals = paramVals[p.id] ?? {};
+            const runParams = declared.length
+              ? Object.fromEntries(declared.map((k) => [k, vals[k] ?? ""]))
+              : undefined;
+            return (
+              <div key={p.id} className="py-0.5">
+                <div className="flex items-center justify-between">
+                  <button
+                    className="text-xs underline-offset-2 hover:underline"
+                    title={p.description}
+                    onClick={() => setSel({ kind: "pipeline", item: p })}
+                  >
+                    {p.name} <span className="text-muted-foreground">({p.steps.length} steps)</span>
+                  </button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => start("pipeline", p.name, runParams)}
+                  >
+                    Run
+                  </Button>
+                </div>
+                {declared.map((name) => (
+                  <input
+                    key={name}
+                    value={vals[name] ?? ""}
+                    onChange={(e) =>
+                      setParamVals((m) => ({
+                        ...m,
+                        [p.id]: { ...m[p.id], [name]: e.target.value },
+                      }))
+                    }
+                    placeholder={`${name} (${p.inputs[name]?.type ?? "text"})`}
+                    className="mt-1 h-7 w-full rounded border border-border bg-background px-2 text-xs"
+                    aria-label={`${p.name} input ${name}`}
+                  />
+                ))}
+              </div>
+            );
+          })}
         </section>
       )}
       {c.agents.length > 0 && (
