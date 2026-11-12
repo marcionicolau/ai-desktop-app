@@ -143,37 +143,57 @@ export function AppSidebar({
             </SidebarMenuItem>
           </SidebarMenu>
         </NavGroup>
+        <NavGroup label="Configurations" defaultOpen>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                isActive={selectedTabId === "surface:models"}
+                tooltip="Model library"
+                onClick={onOpenLibrary}
+                className="h-8"
+              >
+                <Library className="size-4" />
+                <span>Models</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                isActive={selectedTabId === "surface:personas"}
+                tooltip="Personas"
+                onClick={onOpenPersonas}
+                className="h-8"
+              >
+                <Users className="size-4" />
+                <span>Personas</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                isActive={selectedTabId === "surface:roles"}
+                tooltip="Model roles"
+                onClick={onOpenRoles}
+                className="h-8"
+              >
+                <Tags className="size-4" />
+                <span>Roles</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                isActive={selectedTabId === "surface:settings"}
+                tooltip="Settings"
+                onClick={onOpenSettings}
+                className="h-8"
+              >
+                <Settings2 className="size-4" />
+                <span>Settings</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </NavGroup>
       </SidebarContent>
       <SidebarFooter>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton tooltip="Model library" onClick={onOpenLibrary} className="h-8">
-              <Library className="size-4" />
-              <span>Models</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton tooltip="Personas" onClick={onOpenPersonas} className="h-8">
-              <Users className="size-4" />
-              <span>Personas</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton tooltip="Model roles" onClick={onOpenRoles} className="h-8">
-              <Tags className="size-4" />
-              <span>Roles</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton tooltip="Settings" onClick={onOpenSettings} className="h-8">
-              <Settings2 className="size-4" />
-              <span>Settings</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <ThemeSettings compact={false} />
-          </SidebarMenuItem>
-        </SidebarMenu>
+        <ThemeSettings compact={false} />
       </SidebarFooter>
     </Sidebar>
   );

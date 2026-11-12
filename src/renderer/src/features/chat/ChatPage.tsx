@@ -91,6 +91,11 @@ export function ChatPage() {
   // item hosts ALL chat UI (fusion controls, notices, messages, composer);
   // ext `tab` views are peer items
   const { tabs, selectedId, select, focusView } = useWorkspaceItems();
+  // surfaces live outside the accordion — remember the last workspace
+  // item so returning doesn't land on an all-collapsed accordion
+  const lastWorkspace = useRef("chat");
+  if (!selectedId.startsWith("surface:")) lastWorkspace.current = selectedId;
+  const workspaceId = lastWorkspace.current;
   // feature 018 (T003/T004): first-launch auto-open of the model library.
   // Evaluates once, after model.status hydration, on the first terminal
   // status — never during "loading", never again this session (FR-001/4/6)
@@ -260,9 +265,13 @@ export function ChatPage() {
             </label>
           </div>
         </header>
+        <div
+          className="flex min-h-0 flex-1 flex-col"
+          hidden={selectedId.startsWith("surface:")}
+        >
         <WorkspaceAccordion
           tabs={tabs}
-          selectedId={selectedId}
+          selectedId={workspaceId}
           select={select}
           focusView={focusView}
           focusRunId={focusRun}
@@ -272,59 +281,6 @@ export function ChatPage() {
             select("surface:extensions");
           }}
           onCloseTab={(packId) => void invoke("extension.disable", { packId })}
-          renderSurface={(surfaceId) => {
-            switch (surfaceId) {
-              case "models":
-                return (
-                  <ModelLibrary
-                    activeName={state.modelName}
-                    onLoad={(p) => void loadModel(p)}
-                    autoLoadOnDownload={startupPrompted}
-                  />
-                );
-              case "personas":
-                return <PersonasPanel />;
-              case "roles":
-                return <RolesPanel />;
-              case "settings":
-                return (
-                  <>
-                    <ToolSettings />
-                    <DataPanel />
-                  </>
-                );
-              case "extensions":
-                return (
-                  <>
-                    <ExtensionsPanel
-                      onBrowse={(packId) => setBrowsePack(packId)}
-                    />
-                    {browsePack && (
-                      <WorkspaceBrowser
-                        packId={browsePack}
-                        onRunStarted={(runId) => setFocusRun(runId)}
-                        onOpenView={(packId, viewId, slot) =>
-                          slot === "tab"
-                            ? focusView(packId, viewId)
-                            : setOpenView({ packId, viewId, slot })
-                        }
-                      />
-                    )}
-                    <RunView focusRunId={focusRun} />
-                    {openView && (
-                      <ExtViewHost
-                        packId={openView.packId}
-                        viewId={openView.viewId}
-                        slot={openView.slot}
-                        onClose={() => setOpenView(null)}
-                      />
-                    )}
-                  </>
-                );
-              default:
-                return null;
-            }
-          }}
           chat={
             <>
               {tagOffer && (
@@ -408,6 +364,64 @@ export function ChatPage() {
             </>
           }
         />
+        </div>
+        {/* feature 021: app surfaces are full-screen pages — mounted for
+            state preservation, shown only when selected (FR-015) */}
+        <div
+          className="flex min-h-0 flex-1 flex-col overflow-y-auto"
+          hidden={selectedId !== "surface:models"}
+        >
+          <ModelLibrary
+            activeName={state.modelName}
+            onLoad={(p) => void loadModel(p)}
+            autoLoadOnDownload={startupPrompted}
+          />
+        </div>
+        <div
+          className="flex min-h-0 flex-1 flex-col overflow-y-auto"
+          hidden={selectedId !== "surface:personas"}
+        >
+          <PersonasPanel />
+        </div>
+        <div
+          className="flex min-h-0 flex-1 flex-col overflow-y-auto"
+          hidden={selectedId !== "surface:roles"}
+        >
+          <RolesPanel />
+        </div>
+        <div
+          className="flex min-h-0 flex-1 flex-col overflow-y-auto"
+          hidden={selectedId !== "surface:settings"}
+        >
+          <ToolSettings />
+          <DataPanel />
+        </div>
+        <div
+          className="flex min-h-0 flex-1 flex-col overflow-y-auto"
+          hidden={selectedId !== "surface:extensions"}
+        >
+          <ExtensionsPanel onBrowse={(packId) => setBrowsePack(packId)} />
+          {browsePack && (
+            <WorkspaceBrowser
+              packId={browsePack}
+              onRunStarted={(runId) => setFocusRun(runId)}
+              onOpenView={(packId, viewId, slot) =>
+                slot === "tab"
+                  ? focusView(packId, viewId)
+                  : setOpenView({ packId, viewId, slot })
+              }
+            />
+          )}
+          <RunView focusRunId={focusRun} />
+          {openView && (
+            <ExtViewHost
+              packId={openView.packId}
+              viewId={openView.viewId}
+              slot={openView.slot}
+              onClose={() => setOpenView(null)}
+            />
+          )}
+        </div>
       </SidebarInset>
     </SidebarProvider>
   );
