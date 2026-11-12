@@ -1,17 +1,25 @@
-// feature 019: workspace tab host — lives inside ChatPage's column (the tab
-// system is owned by the chat workspace, not the app root). `chat` is the
-// chat tab's content (MessageList..Composer); each enabled pack's declared
-// `tab` view is a peer tab hosting a sandboxed BrowserView via ExtViewHost
-// (bare, visible-gated, lazy-open per spec A8), and every enabled pack
-// without `tab` views gets a `pack` tab hosting its WorkspaceBrowser +
-// RunView. Non-selected contents stay mounted (FR-007). × on a tab
-// disables the owning pack (extension.changed reconciles).
+// feature 020: workspace accordion — the workspace root inside ChatPage's
+// column. Chat is the first item (never closable) hosting ALL chat UI
+// (fusion controls, notices, MessageList..Composer); each enabled pack's
+// declared
+// `tab` view is a peer item hosting a sandboxed BrowserView via ExtViewHost
+// (bare, visible-gated, lazy-open per 019 A8), and every enabled pack
+// without `tab` views gets a `pack` item hosting its WorkspaceBrowser +
+// RunView. AccordionContent forceMount keeps collapsed surfaces alive
+// (FR-007); the × on a header disables the owning pack
+// (extension.changed reconciles).
 import { useEffect, useState, type ReactNode } from "react";
 import type { WorkspaceTab } from "@shared/types";
-import { TabBar } from "./TabBar";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { ExtViewHost } from "../extensions/ExtViewHost";
 import { WorkspaceBrowser } from "../extensions/WorkspaceBrowser";
 import { RunView } from "../extensions/RunView";
+import { cn } from "@/lib/utils";
 
 interface Props {
   tabs: WorkspaceTab[];
@@ -25,7 +33,14 @@ interface Props {
   onCloseTab: (packId: string) => void;
 }
 
-export function WorkspaceTabs({
+// The open item grows to fill free space — flex-grow animates smoothly
+// (0→1 opens, 1→0 closes), pushing sibling headers along with it.
+const itemCls =
+  "relative flex min-h-0 flex-col transition-[flex-grow] duration-200 ease-out motion-reduce:transition-none data-[state=open]:grow";
+const contentCls =
+  "flex min-h-0 flex-col overflow-hidden bg-background data-[state=closed]:h-0 data-[state=open]:flex-1";
+
+export function WorkspaceAccordion({
   tabs,
   selectedId,
   select,
@@ -49,7 +64,7 @@ export function WorkspaceTabs({
       return n;
     });
 
-  // drop badges for tabs that vanished — a re-enabled pack starts clean
+  // drop badges for items that vanished — a re-enabled pack starts clean
   useEffect(() => {
     setCrashed((s) => {
       const live = new Set(tabs.map((t) => t.id));
@@ -58,55 +73,99 @@ export function WorkspaceTabs({
     });
   }, [tabs]);
 
+  const closeBtn = (t: WorkspaceTab & { packId: string }) => (
+    <button
+      aria-label={`Close ${t.title}`}
+      title="Disable pack"
+      className="absolute right-8 top-2 z-10 rounded px-0.5 leading-none text-muted-foreground hover:bg-accent hover:text-foreground"
+      onClick={(e) => {
+        e.stopPropagation();
+        onCloseTab(t.packId);
+      }}
+    >
+      ×
+    </button>
+  );
+
   return (
-    <>
-      <TabBar
-        tabs={tabs}
-        selectedId={selectedId}
-        crashed={crashed}
-        onSelect={select}
-        onCloseTab={onCloseTab}
-      />
-      <div className="relative min-h-0 flex-1">
-        <div hidden={selectedId !== "chat"} className="absolute inset-0 flex flex-col">
+    <Accordion
+      type="single"
+      collapsible={false}
+      value={selectedId}
+      onValueChange={select}
+      className="flex min-h-0 flex-1 flex-col overflow-y-auto"
+      data-testid="workspace-accordion"
+    >
+      <AccordionItem value="chat" className={itemCls} data-testid="workspace-item-chat">
+        <AccordionTrigger title="Chat" className="data-[state=open]:bg-muted/50 data-[state=open]:text-foreground">
+          <span className="truncate">Chat</span>
+        </AccordionTrigger>
+        <AccordionContent forceMount className={contentCls}>
           {chat}
-        </div>
-        {tabs.map((t) => {
-          if (t.kind === "ext") {
-            return (
-              <div key={t.id} hidden={selectedId !== t.id} className="absolute inset-0 flex flex-col bg-background">
-                <ExtViewHost
-                  packId={t.packId}
-                  viewId={t.viewId}
-                  slot="tab"
-                  bare
-                  visible={selectedId === t.id}
-                  onCrash={() => markCrashed(t.id)}
-                  onRecovered={() => clearCrashed(t.id)}
-                  onClose={() => select("chat")}
-                />
-              </div>
-            );
-          }
-          if (t.kind === "pack") {
-            return (
-              <div key={t.id} hidden={selectedId !== t.id} className="absolute inset-0 overflow-y-auto bg-background">
-                <WorkspaceBrowser
-                  packId={t.packId}
-                  onRunStarted={onRunStarted}
-                  onOpenView={(packId, viewId, slot) =>
-                    slot === "tab"
-                      ? focusView(packId, viewId)
-                      : onOpenPanelView(packId, viewId)
-                  }
-                />
-                <RunView focusRunId={focusRunId} />
-              </div>
-            );
-          }
-          return null;
-        })}
-      </div>
-    </>
+        </AccordionContent>
+      </AccordionItem>
+      {tabs.map((t) => {
+        if (t.kind === "ext") {
+          const isCrashed = crashed.has(t.id);
+          return (
+            <AccordionItem key={t.id} value={t.id} className={itemCls} data-testid={`workspace-item-${t.id}`}>
+              <AccordionTrigger
+                title={`${t.title} — ${t.packName}`}
+                className={cn(
+                  "data-[state=open]:bg-muted/50 data-[state=open]:text-foreground",
+                  isCrashed && "text-amber-400",
+                )}
+              >
+                {isCrashed && <span className="shrink-0 text-amber-400">●</span>}
+                <span className="truncate">{t.title}</span>
+              </AccordionTrigger>
+              {closeBtn(t)}
+              <AccordionContent forceMount className={contentCls}>
+                <div className="flex min-h-0 flex-1 flex-col">
+                  <ExtViewHost
+                    packId={t.packId}
+                    viewId={t.viewId}
+                    slot="tab"
+                    bare
+                    visible={selectedId === t.id}
+                    onCrash={() => markCrashed(t.id)}
+                    onRecovered={() => clearCrashed(t.id)}
+                    onClose={() => select("chat")}
+                  />
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          );
+        }
+        if (t.kind === "pack") {
+          return (
+            <AccordionItem key={t.id} value={t.id} className={itemCls} data-testid={`workspace-item-${t.id}`}>
+              <AccordionTrigger
+                title={t.title}
+                className="data-[state=open]:bg-muted/50 data-[state=open]:text-foreground"
+              >
+                <span className="truncate">{t.title}</span>
+              </AccordionTrigger>
+              {closeBtn(t)}
+              <AccordionContent forceMount className={contentCls}>
+                <div className="min-h-0 flex-1 overflow-y-auto">
+                  <WorkspaceBrowser
+                    packId={t.packId}
+                    onRunStarted={onRunStarted}
+                    onOpenView={(packId, viewId, slot) =>
+                      slot === "tab"
+                        ? focusView(packId, viewId)
+                        : onOpenPanelView(packId, viewId)
+                    }
+                  />
+                  <RunView focusRunId={focusRunId} />
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          );
+        }
+        return null;
+      })}
+    </Accordion>
   );
 }

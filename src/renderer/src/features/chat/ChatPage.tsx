@@ -72,8 +72,9 @@ export function ChatPage() {
     viewId: string;
     slot: "tab" | "panel";
   } | null>(null);
-  // feature 019: the workspace tab system is owned by ChatPage — the chat
-  // tab hosts MessageList..Composer; ext `tab` views are peer tabs
+  // feature 020: the workspace accordion is owned by ChatPage — the chat
+  // item hosts ALL chat UI (fusion controls, notices, messages, composer);
+  // ext `tab` views are peer items
   const { tabs, selectedId, select, focusView } = useWorkspaceItems();
   // feature 018 (T003/T004): first-launch auto-open of the model library.
   // Evaluates once, after model.status hydration, on the first terminal
@@ -262,65 +263,11 @@ export function ChatPage() {
         )}
         {rolesOpen && <RolesPanel />}
         {personasOpen && <PersonasPanel />}
-        {tagOffer && (
-          <div className="flex items-center justify-center gap-2 border-b border-border bg-muted px-4 py-2 text-xs">
-            <span>
-              This persona prefers the "{tagOffer}" role — apply it to this
-              conversation?
-            </span>
-            <Button size="sm" onClick={() => void applyTagOffer()}>
-              Apply
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => setTagOffer(null)}>
-              Dismiss
-            </Button>
-          </div>
-        )}
         {libraryOpen && (
           <ModelLibrary
             activeName={state.modelName}
             onLoad={(p) => void loadModel(p)}
             autoLoadOnDownload={startupPrompted}
-          />
-        )}
-        {state.modelStatus === "unloaded" && (
-          <button
-            className="w-full border-b border-border bg-muted px-4 py-2 text-center text-sm text-muted-foreground hover:bg-accent hover:text-foreground"
-            onClick={() => setLibraryOpen(true)}
-          >
-            No model is loaded — click to pick a .gguf file to start chatting.
-          </button>
-        )}
-        {state.modelStatus === "error" && (
-          <div className="border-b border-border bg-red-950 px-4 py-2 text-center text-sm text-red-300">
-            Model failed to load
-            {state.modelError ? `: ${state.modelError}` : ""}
-          </div>
-        )}
-        <FusionControls
-          mode={state.mode}
-          plannerTag={state.plannerTag}
-          executorTag={state.executorTag}
-          generating={state.generatingId !== null}
-          onSetMode={setMode}
-          onUnbound={() => setRolesOpen(true)}
-        />
-        {state.notice && (
-          <div className="border-b border-border bg-amber-950 px-4 py-2 text-center text-sm text-amber-300">
-            {state.notice}
-          </div>
-        )}
-        {state.lastError && (
-          <div className="border-b border-border bg-red-950 px-4 py-2 text-center text-sm text-red-300">
-            {state.lastError.code}: {state.lastError.message}
-          </div>
-        )}
-        {branchesOpen && (
-          <BranchOverview
-            branches={branches}
-            pathIds={new Set(path.map((m) => m.id))}
-            onSelect={selectVariant}
-            onClose={() => setBranchesOpen(false)}
           />
         )}
         <WorkspaceAccordion
@@ -337,6 +284,65 @@ export function ChatPage() {
           onCloseTab={(packId) => void invoke("extension.disable", { packId })}
           chat={
             <>
+              {tagOffer && (
+                <div className="flex items-center justify-center gap-2 border-b border-border bg-muted px-4 py-2 text-xs">
+                  <span>
+                    This persona prefers the "{tagOffer}" role — apply it to
+                    this conversation?
+                  </span>
+                  <Button size="sm" onClick={() => void applyTagOffer()}>
+                    Apply
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setTagOffer(null)}
+                  >
+                    Dismiss
+                  </Button>
+                </div>
+              )}
+              {state.modelStatus === "unloaded" && (
+                <button
+                  className="w-full border-b border-border bg-muted px-4 py-2 text-center text-sm text-muted-foreground hover:bg-accent hover:text-foreground"
+                  onClick={() => setLibraryOpen(true)}
+                >
+                  No model is loaded — click to pick a .gguf file to start
+                  chatting.
+                </button>
+              )}
+              {state.modelStatus === "error" && (
+                <div className="border-b border-border bg-red-950 px-4 py-2 text-center text-sm text-red-300">
+                  Model failed to load
+                  {state.modelError ? `: ${state.modelError}` : ""}
+                </div>
+              )}
+              <FusionControls
+                mode={state.mode}
+                plannerTag={state.plannerTag}
+                executorTag={state.executorTag}
+                generating={state.generatingId !== null}
+                onSetMode={setMode}
+                onUnbound={() => setRolesOpen(true)}
+              />
+              {state.notice && (
+                <div className="border-b border-border bg-amber-950 px-4 py-2 text-center text-sm text-amber-300">
+                  {state.notice}
+                </div>
+              )}
+              {state.lastError && (
+                <div className="border-b border-border bg-red-950 px-4 py-2 text-center text-sm text-red-300">
+                  {state.lastError.code}: {state.lastError.message}
+                </div>
+              )}
+              {branchesOpen && (
+                <BranchOverview
+                  branches={branches}
+                  pathIds={new Set(path.map((m) => m.id))}
+                  onSelect={selectVariant}
+                  onClose={() => setBranchesOpen(false)}
+                />
+              )}
               <MessageList
                 messages={path}
                 variants={variants}
