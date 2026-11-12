@@ -1,5 +1,13 @@
 # AI Desktop App
 
+[![ci](https://github.com/marcionicolau/ai-desktop-app/actions/workflows/ci.yml/badge.svg)](https://github.com/marcionicolau/ai-desktop-app/actions/workflows/ci.yml)
+[![packaging](https://github.com/marcionicolau/ai-desktop-app/actions/workflows/packaging.yml/badge.svg)](https://github.com/marcionicolau/ai-desktop-app/actions/workflows/packaging.yml)
+[![Bun](https://img.shields.io/badge/runtime-Bun-black?logo=bun&logoColor=white)](https://bun.sh)
+[![Electrobun](https://img.shields.io/badge/shell-Electrobun%202.x-8A2BE2)](https://electrobun.dev)
+[![TypeScript](https://img.shields.io/badge/lang-TypeScript-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![llama.cpp](https://img.shields.io/badge/inference-llama.cpp%20in--process-success)](https://github.com/ggml-org/llama.cpp)
+[![spec-driven](https://img.shields.io/badge/process-spec--driven%20(Spec%20Kit)-blue)](https://github.com/github/spec-kit)
+
 Local-first AI chat desktop app — an [Electrobun](https://electrobun.dev) 2.x +
 [Bun](https://bun.sh) shell with llama.cpp inference running in-process via
 `bun:ffi`. No cloud calls: models are local GGUF files, conversations and
@@ -90,11 +98,34 @@ specs/          Spec Kit feature specs and implementation artifacts
 tests/          bun:test suites (FFI suites self-skip without a model)
 ```
 
+## Spec-driven development
+
+Features are built with [GitHub Spec Kit](https://github.com/github/spec-kit):
+every change starts as a reviewed spec, not as code. Artifacts live in
+`specs/<NNN>-<short-name>/` on a matching `<NNN>-<short-name>` branch:
+
+| Artifact | Contents |
+|----------|----------|
+| `spec.md` | stakeholder-facing requirements (user stories, FRs, edge cases) |
+| `plan.md` | architecture decisions against the project constitution |
+| `tasks.md` | dependency-ordered, testable task breakdown |
+| `data-model.md`, `research.md`, `contracts/`, `checklists/` | supporting design docs |
+
+The flow per feature: `speckit-specify` → `speckit-clarify` → `speckit-plan`
+→ `speckit-tasks` → `speckit-analyze` → `speckit-implement` →
+`speckit-converge`. The project constitution
+(`.specify/memory/constitution.md`) gates every plan; conventional commits
+land per task via the git auto-commit extension
+(`.specify/extensions/git/`).
+
+See `specs/` for shipped features (roles & fusion, conversation branching,
+attachments, personas, KV snapshots, sandboxed tools, packaging, …) and
+`AGENTS.md` for the module map they produced.
+
 ## Contributing
 
 Issues and PRs welcome. Keep `bun run typecheck`, `bun run lint` and
-`bun test ./tests` green; feature work follows the Spec Kit flow under
-`specs/` (see `AGENTS.md`).
+`bun test ./tests` green; feature work follows the Spec Kit flow above.
 
 ## License
 
