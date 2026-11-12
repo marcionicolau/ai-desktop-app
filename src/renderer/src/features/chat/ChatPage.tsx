@@ -1,17 +1,17 @@
 import { useEffect, useRef, useState } from "react";
-import {
-  GitBranch,
-  Library,
-  Puzzle,
-  Settings2,
-  Tags,
-  Users,
-} from "lucide-react";
+import { GitBranch } from "lucide-react";
 import { useChat } from "./use-chat";
 import { MessageList } from "./MessageList";
 import { BranchOverview } from "./BranchOverview";
 import { Composer } from "./Composer";
-import { Sidebar } from "./Sidebar";
+import { AppSidebar } from "./AppSidebar";
+import {
+  SidebarInset,
+  SidebarProvider,
+  SidebarTrigger,
+} from "@/components/ui/sidebar";
+import { ModelSelector } from "@/components/ai/model-selector";
+import { useRoles } from "../roles/use-roles";
 import { ModelLibrary } from "../models/ModelLibrary";
 import { decideStartupPrompt } from "./startup-prompt";
 import { ToolSettings } from "../settings/ToolSettings";
@@ -25,8 +25,8 @@ import { ExtensionsPanel } from "../extensions/ExtensionsPanel";
 import { WorkspaceBrowser } from "../extensions/WorkspaceBrowser";
 import { RunView } from "../extensions/RunView";
 import { ExtViewHost } from "../extensions/ExtViewHost";
-import { WorkspaceTabs } from "../workspace/WorkspaceTabs";
-import { useWorkspaceTabs } from "../workspace/use-workspace-tabs";
+import { WorkspacePanels } from "../workspace/WorkspacePanels";
+import { useWorkspaceItems } from "../workspace/use-workspace-items";
 import { invoke } from "@/lib/rpc";
 import { Button } from "@/components/ui/button";
 
@@ -52,19 +52,34 @@ export function ChatPage() {
     selectVariant,
   } = useChat();
   const modelReady = state.modelStatus === "ready";
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [libraryOpen, setLibraryOpen] = useState(false);
-  const [rolesOpen, setRolesOpen] = useState(false);
+  // feature 021: header model selectors list bound role tags; single mode
+  // applies via role.resolve → loadModel, fusion re-picks via setMode
+  const { tags: roleTags } = useRoles();
+  const boundTags = roleTags
+    .filter((t) => t.state === "bound")
+    .map((t) => ({
+      id: t.name,
+      label: t.label || t.name,
+      hint: t.resolvedFile?.fileName,
+    }));
+  const modelTagName =
+    roleTags.find(
+      (t) =>
+        t.state === "bound" && t.resolvedFile?.fileName === state.modelName,
+    )?.name ?? null;
+  const applyTag = async (tag: string) => {
+    const r = await invoke("role.resolve", { name: tag });
+    await loadModel(r.resolved.path);
+  };
   const [branchesOpen, setBranchesOpen] = useState(false);
-  const [personasOpen, setPersonasOpen] = useState(false);
   // feature 006: preferred-tag offer from conversation.setPersona —
   // suggestion only; the user applies or dismisses
   const [tagOffer, setTagOffer] = useState<string | null>(null);
   // feature 016 (T012): header switch → persisted settings.outputPanel;
   // the same flag gates collection on the bun side
   const [metricsOpen, setMetricsOpen] = useState(false);
-  // feature 017: extensions drawer + focused workspace/run/view sessions
-  const [extOpen, setExtOpen] = useState(false);
+  // feature 017/021: extension browse/run/view sessions — rendered inside
+  // the "extensions" workspace surface
   const [browsePack, setBrowsePack] = useState<string | null>(null);
   const [focusRun, setFocusRun] = useState<string | null>(null);
   const [openView, setOpenView] = useState<{
@@ -72,9 +87,11 @@ export function ChatPage() {
     viewId: string;
     slot: "tab" | "panel";
   } | null>(null);
-  // feature 019: the workspace tab system is owned by ChatPage — the chat
-  // tab hosts MessageList..Composer; ext `tab` views are peer tabs
-  const { tabs, selectedId, select, focusView } = useWorkspaceTabs();
+  // feature 020/021: workspace panels are owned by ChatPage — every item
+  // (chat, ext `tab` views, pack browsers, surfaces) is a mounted-hidden
+  // full-screen panel; the sidebar selects which one is visible
+  const { tabs, selectedId, select, focusView, crashed, markCrashed, clearCrashed } =
+    useWorkspaceItems();
   // feature 018 (T003/T004): first-launch auto-open of the model library.
   // Evaluates once, after model.status hydration, on the first terminal
   // status — never during "loading", never again this session (FR-001/4/6)
@@ -89,18 +106,21 @@ export function ChatPage() {
     if (d === "wait") return;
     startupEval.current = true;
     if (d === "open") {
-      setLibraryOpen(true);
+      select("surface:models");
       setStartupPrompted(true);
     }
     // "settle" (ready) — evaluated latch alone suppresses future prompts
   }, [state.modelStatusHydrated, state.modelStatus]);
-  // dismissal = closing the auto-opened library before a model is ready
-  // (FR-004); a ready transition just ends the prompted state (T004)
+  // dismissal = leaving the auto-opened models surface before a model is
+  // ready (FR-004); a ready transition just ends the prompted state (T004)
   useEffect(() => {
-    if (startupPrompted && (!libraryOpen || state.modelStatus === "ready")) {
+    if (
+      startupPrompted &&
+      (selectedId !== "surface:models" || state.modelStatus === "ready")
+    ) {
       setStartupPrompted(false);
     }
-  }, [libraryOpen, startupPrompted, state.modelStatus]);
+  }, [selectedId, startupPrompted, state.modelStatus]);
   useEffect(() => {
     void invoke("settings.get", {}).then((s) => setMetricsOpen(s.outputPanel));
   }, []);
@@ -144,22 +164,48 @@ export function ChatPage() {
   };
 
   return (
-    <main className="flex h-screen bg-background text-foreground">
-      <Sidebar
+    <SidebarProvider className="h-screen bg-background text-foreground">
+      <AppSidebar
         conversations={state.conversations}
         activeId={state.conversationId}
-        onSelect={(id) => void selectConversation(id)}
-        onNew={newConversation}
+        onSelect={(id) => {
+          select("chat");
+          void selectConversation(id);
+        }}
+        onNew={() => {
+          select("chat");
+          newConversation();
+        }}
         onRename={(id, t) => void renameConversation(id, t)}
         onDelete={(id) => void deleteConversation(id)}
         onExport={(id, f) => exportConversation(id, f)}
-        onImport={importConversation}
-        onSelectHit={(cid, mid) => void selectConversation(cid, mid)}
+        onImport={async () => {
+          const r = await importConversation();
+          if (r) select("chat");
+          return r;
+        }}
+        onSelectHit={(cid, mid) => {
+          select("chat");
+          void selectConversation(cid, mid);
+        }}
+        workspaceTabs={tabs}
+        selectedTabId={selectedId}
+        onSelectTab={select}
+        crashedTabIds={crashed}
+        onCloseTab={(packId) => void invoke("extension.disable", { packId })}
+        onOpenLibrary={() => select("surface:models")}
+        onOpenPersonas={() => select("surface:personas")}
+        onOpenRoles={() => select("surface:roles")}
+        onOpenSettings={() => select("surface:settings")}
+        onManageExtensions={() => select("surface:extensions")}
       />
-      <div className="flex min-w-0 flex-1 flex-col">
+      <SidebarInset>
         <header className="flex items-center justify-between border-b border-border px-4 py-2">
           <div className="flex items-center gap-2">
-            <h1 className="text-sm font-semibold">AI Desktop App</h1>
+            <SidebarTrigger />
+            <h1 className="text-sm font-semibold">
+              {tabs.find((t) => t.id === selectedId)?.title ?? "Chat"}
+            </h1>
             {/* feature 006 (FR-006): per-conversation persona badge/select */}
             <select
               value={state.personaName ?? ""}
@@ -177,15 +223,35 @@ export function ChatPage() {
             </select>
           </div>
           <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Personas"
-              title="Personas"
-              onClick={() => setPersonasOpen((v) => !v)}
-            >
-              <Users className="h-4 w-4" />
-            </Button>
+            {state.mode === "fusion" ? (
+              <>
+                <ModelSelector
+                  label="Planner"
+                  value={state.plannerTag}
+                  options={boundTags}
+                  onSelect={(t) => void setMode("fusion", t, state.executorTag)}
+                  onManage={() => select("surface:roles")}
+                  disabled={state.generatingId !== null}
+                />
+                <ModelSelector
+                  label="Executor"
+                  value={state.executorTag}
+                  options={boundTags}
+                  onSelect={(t) => void setMode("fusion", state.plannerTag, t)}
+                  onManage={() => select("surface:roles")}
+                  disabled={state.generatingId !== null}
+                />
+              </>
+            ) : (
+              <ModelSelector
+                label="Model"
+                value={modelTagName}
+                options={boundTags}
+                onSelect={(t) => void applyTag(t)}
+                onManage={() => select("surface:models")}
+                disabled={state.generatingId !== null}
+              />
+            )}
             <Button
               variant="ghost"
               size="icon"
@@ -195,42 +261,6 @@ export function ChatPage() {
               onClick={() => setBranchesOpen((v) => !v)}
             >
               <GitBranch className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Model library"
-              title="Model library"
-              onClick={() => setLibraryOpen((v) => !v)}
-            >
-              <Library className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Model roles"
-              title="Model roles"
-              onClick={() => setRolesOpen((v) => !v)}
-            >
-              <Tags className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Generation settings"
-              title="Generation settings"
-              onClick={() => setSettingsOpen((v) => !v)}
-            >
-              <Settings2 className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Extensions"
-              title="Extensions"
-              onClick={() => setExtOpen((v) => !v)}
-            >
-              <Puzzle className="h-4 w-4" />
             </Button>
             <label
               className="flex cursor-pointer items-center gap-1 px-1 text-xs"
@@ -244,86 +274,10 @@ export function ChatPage() {
               />
               Metrics
             </label>
-            {state.modelName && (
-              <span
-                className="max-w-40 truncate text-xs text-muted-foreground"
-                title={state.modelName}
-              >
-                {state.modelName}
-              </span>
-            )}
           </div>
         </header>
-        {settingsOpen && (
-          <>
-            <ToolSettings />
-            <DataPanel />
-          </>
-        )}
-        {rolesOpen && <RolesPanel />}
-        {personasOpen && <PersonasPanel />}
-        {tagOffer && (
-          <div className="flex items-center justify-center gap-2 border-b border-border bg-muted px-4 py-2 text-xs">
-            <span>
-              This persona prefers the "{tagOffer}" role — apply it to this
-              conversation?
-            </span>
-            <Button size="sm" onClick={() => void applyTagOffer()}>
-              Apply
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => setTagOffer(null)}>
-              Dismiss
-            </Button>
-          </div>
-        )}
-        {libraryOpen && (
-          <ModelLibrary
-            activeName={state.modelName}
-            onLoad={(p) => void loadModel(p)}
-            autoLoadOnDownload={startupPrompted}
-          />
-        )}
-        {state.modelStatus === "unloaded" && (
-          <button
-            className="w-full border-b border-border bg-muted px-4 py-2 text-center text-sm text-muted-foreground hover:bg-accent hover:text-foreground"
-            onClick={() => setLibraryOpen(true)}
-          >
-            No model is loaded — click to pick a .gguf file to start chatting.
-          </button>
-        )}
-        {state.modelStatus === "error" && (
-          <div className="border-b border-border bg-red-950 px-4 py-2 text-center text-sm text-red-300">
-            Model failed to load
-            {state.modelError ? `: ${state.modelError}` : ""}
-          </div>
-        )}
-        <FusionControls
-          mode={state.mode}
-          plannerTag={state.plannerTag}
-          executorTag={state.executorTag}
-          generating={state.generatingId !== null}
-          onSetMode={setMode}
-          onUnbound={() => setRolesOpen(true)}
-        />
-        {state.notice && (
-          <div className="border-b border-border bg-amber-950 px-4 py-2 text-center text-sm text-amber-300">
-            {state.notice}
-          </div>
-        )}
-        {state.lastError && (
-          <div className="border-b border-border bg-red-950 px-4 py-2 text-center text-sm text-red-300">
-            {state.lastError.code}: {state.lastError.message}
-          </div>
-        )}
-        {branchesOpen && (
-          <BranchOverview
-            branches={branches}
-            pathIds={new Set(path.map((m) => m.id))}
-            onSelect={selectVariant}
-            onClose={() => setBranchesOpen(false)}
-          />
-        )}
-        <WorkspaceTabs
+        <div className="flex min-h-0 flex-1 flex-col">
+        <WorkspacePanels
           tabs={tabs}
           selectedId={selectedId}
           select={select}
@@ -332,11 +286,71 @@ export function ChatPage() {
           onRunStarted={setFocusRun}
           onOpenPanelView={(packId, viewId) => {
             setOpenView({ packId, viewId, slot: "panel" });
-            select("chat");
+            select("surface:extensions");
           }}
-          onCloseTab={(packId) => void invoke("extension.disable", { packId })}
+          onCrash={markCrashed}
+          onRecovered={clearCrashed}
           chat={
             <>
+              {tagOffer && (
+                <div className="flex items-center justify-center gap-2 border-b border-border bg-muted px-4 py-2 text-xs">
+                  <span>
+                    This persona prefers the "{tagOffer}" role — apply it to
+                    this conversation?
+                  </span>
+                  <Button size="sm" onClick={() => void applyTagOffer()}>
+                    Apply
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setTagOffer(null)}
+                  >
+                    Dismiss
+                  </Button>
+                </div>
+              )}
+              {state.modelStatus === "unloaded" && (
+                <button
+                  className="w-full border-b border-border bg-muted px-4 py-2 text-center text-sm text-muted-foreground hover:bg-accent hover:text-foreground"
+                  onClick={() => select("surface:models")}
+                >
+                  No model is loaded — click to pick a .gguf file to start
+                  chatting.
+                </button>
+              )}
+              {state.modelStatus === "error" && (
+                <div className="border-b border-border bg-destructive px-4 py-2 text-center text-sm text-destructive">
+                  Model failed to load
+                  {state.modelError ? `: ${state.modelError}` : ""}
+                </div>
+              )}
+              <FusionControls
+                mode={state.mode}
+                plannerTag={state.plannerTag}
+                executorTag={state.executorTag}
+                generating={state.generatingId !== null}
+                onSetMode={setMode}
+                onUnbound={() => select("surface:roles")}
+              />
+              {state.notice && (
+                <div className="border-b border-border bg-warning/15 px-4 py-2 text-center text-sm text-warning">
+                  {state.notice}
+                </div>
+              )}
+              {state.lastError && (
+                <div className="border-b border-border bg-destructive px-4 py-2 text-center text-sm text-destructive">
+                  {state.lastError.code}: {state.lastError.message}
+                </div>
+              )}
+              {branchesOpen && (
+                <BranchOverview
+                  branches={branches}
+                  pathIds={new Set(path.map((m) => m.id))}
+                  onSelect={selectVariant}
+                  onClose={() => setBranchesOpen(false)}
+                />
+              )}
               <MessageList
                 messages={path}
                 variants={variants}
@@ -346,43 +360,78 @@ export function ChatPage() {
                 onEdit={(id, c) => void editMessage(id, c)}
                 onSelectVariant={selectVariant}
               />
-              {extOpen && (
-                <ExtensionsPanel onBrowse={(packId) => setBrowsePack(packId)} />
-              )}
-              {extOpen && browsePack && (
-                <WorkspaceBrowser
-                  packId={browsePack}
-                  onRunStarted={(runId) => setFocusRun(runId)}
-                  onOpenView={(packId, viewId, slot) =>
-                    slot === "tab"
-                      ? focusView(packId, viewId)
-                      : setOpenView({ packId, viewId, slot })
-                  }
-                />
-              )}
-              {extOpen && <RunView focusRunId={focusRun} />}
-              {extOpen && openView && (
-                <ExtViewHost
-                  packId={openView.packId}
-                  viewId={openView.viewId}
-                  slot={openView.slot}
-                  onClose={() => setOpenView(null)}
-                />
-              )}
               <Composer
                 generating={state.generatingId !== null}
                 modelReady={modelReady}
                 snippets={snippets}
                 onSend={(c, ids, chips) => void send(c, ids, chips)}
                 onStop={stop}
-                onPickModel={() => setLibraryOpen(true)}
+                onPickModel={() => select("surface:models")}
               />
               {/* feature 016: bottom dock — sibling shrinks the message area */}
               <OutputPanel open={metricsOpen} />
             </>
           }
         />
-      </div>
-    </main>
+        </div>
+        {/* feature 021: app surfaces are full-screen pages — mounted for
+            state preservation, shown only when selected (FR-015) */}
+        <div
+          className="flex min-h-0 flex-1 flex-col overflow-y-auto"
+          hidden={selectedId !== "surface:models"}
+        >
+          <ModelLibrary
+            activeName={state.modelName}
+            onLoad={(p) => void loadModel(p)}
+            autoLoadOnDownload={startupPrompted}
+          />
+        </div>
+        <div
+          className="flex min-h-0 flex-1 flex-col overflow-y-auto"
+          hidden={selectedId !== "surface:personas"}
+        >
+          <PersonasPanel />
+        </div>
+        <div
+          className="flex min-h-0 flex-1 flex-col overflow-y-auto"
+          hidden={selectedId !== "surface:roles"}
+        >
+          <RolesPanel />
+        </div>
+        <div
+          className="flex min-h-0 flex-1 flex-col overflow-y-auto"
+          hidden={selectedId !== "surface:settings"}
+        >
+          <ToolSettings />
+          <DataPanel />
+        </div>
+        <div
+          className="flex min-h-0 flex-1 flex-col overflow-y-auto"
+          hidden={selectedId !== "surface:extensions"}
+        >
+          <ExtensionsPanel onBrowse={(packId) => setBrowsePack(packId)} />
+          {browsePack && (
+            <WorkspaceBrowser
+              packId={browsePack}
+              onRunStarted={(runId) => setFocusRun(runId)}
+              onOpenView={(packId, viewId, slot) =>
+                slot === "tab"
+                  ? focusView(packId, viewId)
+                  : setOpenView({ packId, viewId, slot })
+              }
+            />
+          )}
+          <RunView focusRunId={focusRun} />
+          {openView && (
+            <ExtViewHost
+              packId={openView.packId}
+              viewId={openView.viewId}
+              slot={openView.slot}
+              onClose={() => setOpenView(null)}
+            />
+          )}
+        </div>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }

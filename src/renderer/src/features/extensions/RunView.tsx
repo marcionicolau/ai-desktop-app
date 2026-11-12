@@ -1,10 +1,30 @@
 // feature 017 (US3): run monitor — history list + selected-run trace with
 // live run.event/run.status updates and cancellation (FR-010/FR-011).
 // T050: per-step input/output rendering and artifact values.
+// feature 021: steps rendered via ai-elements Task/Queue/Subagent recipes.
 import { useEffect, useState } from "react";
 import type { RunRecord, RunSummary } from "@shared/types";
 import { invoke, on } from "@/lib/rpc";
 import { Button } from "@/components/ui/button";
+import { Queue, Subagent, Task, type TaskStatus } from "@/components/ai/task";
+import { ToolCallSection } from "@/components/ai/tool-call";
+import { cn } from "@/lib/utils";
+
+const STEP_STATUS: Record<string, TaskStatus> = {
+  queued: "queued",
+  running: "running",
+  completed: "completed",
+  failed: "failed",
+  skipped: "skipped",
+  pending: "queued",
+};
+
+const RUN_DOT: Record<string, string> = {
+  failed: "text-destructive",
+  completed: "text-success",
+  running: "text-warning",
+  queued: "text-muted-foreground",
+};
 
 export function RunView({ focusRunId }: { focusRunId: string | null }) {
   const [runs, setRuns] = useState<RunSummary[]>([]);
@@ -53,27 +73,20 @@ export function RunView({ focusRunId }: { focusRunId: string | null }) {
         </Button>
       </div>
       <div className="flex gap-3">
-        <ul className="max-h-40 w-64 shrink-0 space-y-0.5 overflow-auto">
+        <ul className="max-h-56 w-64 shrink-0 space-y-0.5 overflow-auto">
           {runs.length === 0 && (
             <li className="text-xs text-muted-foreground">No runs yet.</li>
           )}
           {runs.toReversed().map((r) => (
             <li key={r.id}>
               <button
-                className={`w-full truncate text-left text-xs ${
-                  selected?.id === r.id ? "font-medium" : ""
-                }`}
+                className={cn(
+                  "w-full truncate rounded px-1 text-left text-xs hover:bg-accent",
+                  selected?.id === r.id && "bg-accent font-medium",
+                )}
                 onClick={() => open(r.id)}
               >
-                <span
-                  className={
-                    r.status === "failed"
-                      ? "text-red-400"
-                      : r.status === "completed"
-                        ? "text-green-400"
-                        : "text-amber-400"
-                  }
-                >
+                <span className={RUN_DOT[r.status] ?? "text-muted-foreground"}>
                   ●
                 </span>{" "}
                 {r.target.id} — {r.objective.slice(0, 40)}
@@ -96,47 +109,70 @@ export function RunView({ focusRunId }: { focusRunId: string | null }) {
                 </Button>
               )}
               {selected.error && (
-                <span className="text-red-400">
+                <span className="text-destructive">
                   {selected.error.code}: {selected.error.message}
                   {selected.error.path ? ` (${selected.error.path})` : ""}
                 </span>
               )}
             </div>
-            <ul
-              className="max-h-40 space-y-0.5 overflow-auto rounded bg-muted p-2 font-mono text-[11px]"
+            <Queue
+              className="max-h-56 overflow-auto rounded border border-border bg-card p-2 text-[11px]"
               data-testid="trace-view"
             >
-              {selected.trace.map((t) => (
-                <li key={t.seq}>
-                  <div>
-                    <span className="text-muted-foreground">#{t.seq}</span> {t.kind}{" "}
-                    {t.path} <span className="text-muted-foreground">{t.status}</span>
-                  </div>
-                  {t.input !== undefined && (
-                    <div className="pl-4 text-muted-foreground">
-                      in: {JSON.stringify(t.input).slice(0, 200)}
-                    </div>
-                  )}
-                  {t.output !== undefined && (
-                    <div className="pl-4">
-                      out: {JSON.stringify(t.output).slice(0, 200)}
-                    </div>
-                  )}
-                </li>
-              ))}
-            </ul>
-            {selected.artifacts.length > 0 && (
-              <div className="mt-1 space-y-0.5 text-xs" data-testid="artifact-values">
-                {selected.artifacts.map((a) => (
-                  <div key={`${a.stepId}:${a.name}`}>
-                    <span className="font-medium">{a.name}</span>
-                    <span className="text-muted-foreground"> ({a.type})</span>:{" "}
-                    {typeof a.value === "string"
-                      ? a.value.slice(0, 300)
-                      : JSON.stringify(a.value).slice(0, 300)}
-                  </div>
+              <Subagent
+                name={`${selected.target.id} — ${selected.objective.slice(0, 48)}`}
+                status={
+                  selected.status === "completed"
+                    ? "completed"
+                    : selected.status === "failed"
+                      ? "failed"
+                      : "running"
+                }
+                defaultOpen
+                last
+              >
+                {selected.trace.map((t, i) => (
+                  <Task
+                    key={t.seq}
+                    last={i === selected.trace.length - 1}
+                    title={
+                      <>
+                        <span className="text-muted-foreground">#{t.seq}</span>{" "}
+                        {t.kind} {t.path}
+                      </>
+                    }
+                    status={STEP_STATUS[t.status] ?? "queued"}
+                  >
+                    {(t.input !== undefined || t.output !== undefined) && (
+                      <div className="mt-0.5 space-y-0.5 font-mono text-[10px]">
+                        {t.input !== undefined && (
+                          <div className="text-muted-foreground">
+                            in: {JSON.stringify(t.input).slice(0, 200)}
+                          </div>
+                        )}
+                        {t.output !== undefined && (
+                          <div>out: {JSON.stringify(t.output).slice(0, 200)}</div>
+                        )}
+                      </div>
+                    )}
+                  </Task>
                 ))}
-              </div>
+              </Subagent>
+            </Queue>
+            {selected.artifacts.length > 0 && (
+              <ToolCallSection title="artifacts" defaultOpen className="mt-1 text-xs">
+                <div className="space-y-0.5" data-testid="artifact-values">
+                  {selected.artifacts.map((a) => (
+                    <div key={`${a.stepId}:${a.name}`}>
+                      <span className="font-medium">{a.name}</span>
+                      <span className="text-muted-foreground"> ({a.type})</span>:{" "}
+                      {typeof a.value === "string"
+                        ? a.value.slice(0, 300)
+                        : JSON.stringify(a.value).slice(0, 300)}
+                    </div>
+                  ))}
+                </div>
+              </ToolCallSection>
             )}
           </div>
         )}

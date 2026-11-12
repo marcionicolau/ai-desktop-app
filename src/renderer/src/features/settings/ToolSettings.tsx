@@ -94,7 +94,7 @@ export function ToolSettings() {
             </label>
           ))}
         </div>
-        {error && <span className="text-xs text-red-400">{error}</span>}
+        {error && <span className="text-xs text-destructive">{error}</span>}
       </div>
     </div>
   );

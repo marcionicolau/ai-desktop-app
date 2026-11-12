@@ -36,7 +36,7 @@ interface Props {
   onSelectHit: (conversationId: string, messageId: string) => void;
 }
 
-export function Sidebar({
+export function ConversationNav({
   conversations,
   activeId,
   onSelect,
@@ -103,7 +103,7 @@ export function Sidebar({
   };
 
   return (
-    <aside className="flex w-56 shrink-0 flex-col border-r border-border">
+    <div className="flex min-h-0 flex-1 flex-col">
       <div className="border-b border-border space-y-2 p-2">
         <Button
           variant="secondary"
@@ -191,7 +191,7 @@ export function Sidebar({
                   >
                     <span className="min-w-0 flex-1 truncate">
                       {h.snippet.slice(0, h.matchStart)}
-                      <mark className="rounded-sm bg-amber-500/40 text-inherit">
+                      <mark className="rounded-sm bg-warning/40 text-inherit">
                         {h.snippet.slice(h.matchStart, h.matchEnd)}
                       </mark>
                       {h.snippet.slice(h.matchEnd)}
@@ -298,7 +298,7 @@ export function Sidebar({
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <button
-                  className="invisible shrink-0 rounded p-1 text-muted-foreground hover:text-red-400 group-hover:visible"
+                  className="invisible shrink-0 rounded p-1 text-muted-foreground hover:text-destructive group-hover:visible"
                   title="Delete conversation"
                 >
                   <Trash2 className="size-3.5" />
@@ -315,7 +315,7 @@ export function Sidebar({
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancel</AlertDialogCancel>
                   <AlertDialogAction
-                    className="bg-red-700 hover:bg-red-600"
+                    className="bg-destructive hover:bg-destructive"
                     onClick={() => onDelete(c.id)}
                   >
                     Delete
@@ -326,6 +326,6 @@ export function Sidebar({
           </div>
         ))}
       </div>
-    </aside>
+    </div>
   );
 }

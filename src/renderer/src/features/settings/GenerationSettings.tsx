@@ -89,7 +89,7 @@ export function GenerationSettings({ value, onSave }: Props) {
         >
           Reset to defaults
         </Button>
-        {error && <span className="text-xs text-red-400">{error}</span>}
+        {error && <span className="text-xs text-destructive">{error}</span>}
       </div>
     </div>
   );

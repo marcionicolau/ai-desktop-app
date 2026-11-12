@@ -4,6 +4,7 @@ import type { MessageAttachment, Snippet } from "@shared/types";
 import { invoke } from "@/lib/rpc";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { PromptInput, PromptInputBody, SuggestionChips } from "@/components/ai/prompt-input";
 
 // feature 009: draft attachment chip — content stays main-side; the
 // renderer holds id/name/size only (FR-010)
@@ -121,7 +122,13 @@ export function Composer({
   };
 
   return (
-    <div className="border-t border-border p-4">
+    <PromptInput>
+      {value.trim().length === 0 && !generating && (
+        <SuggestionChips
+          suggestions={snippets.slice(0, 6)}
+          onPick={(s) => setValue((v) => (v ? `${v} ${s.text}` : s.text))}
+        />
+      )}
       {(drafts.length > 0 || notice) && (
         <div className="mx-auto mb-2 flex max-w-2xl flex-wrap items-center gap-1">
           {drafts.map((d) => (
@@ -134,7 +141,7 @@ export function Composer({
               <span className="max-w-32 truncate">{d.fileName}</span>
               <span className="text-muted-foreground">{fmtSize(d.sizeBytes)}</span>
               <button
-                className="ml-0.5 rounded hover:text-red-400"
+                className="ml-0.5 rounded hover:text-destructive"
                 onClick={() =>
                   setDrafts((x) => x.filter((y) => y.id !== d.id))
                 }
@@ -145,7 +152,7 @@ export function Composer({
             </span>
           ))}
           {notice && (
-            <span className="text-xs text-amber-300">{notice}</span>
+            <span className="text-xs text-warning">{notice}</span>
           )}
         </div>
       )}
@@ -155,7 +162,7 @@ export function Composer({
             <button
               key={s.name}
               className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs ${
-                i === pick.idx ? "bg-muted" : "hover:bg-muted/50"
+                i === pick.idx ? "bg-accent" : "hover:bg-accent/50"
               }`}
               // onMouseDown so the pick lands before textarea blur dismisses it
               onMouseDown={(e) => {
@@ -169,7 +176,7 @@ export function Composer({
           ))}
         </div>
       )}
-      <div className="mx-auto flex max-w-2xl items-end gap-2">
+      <PromptInputBody>
         <Button
           variant="ghost"
           size="icon"
@@ -247,7 +254,7 @@ export function Composer({
             <Send />
           </Button>
         )}
-      </div>
+      </PromptInputBody>
       {!modelReady && (
         <p className="mx-auto mt-2 max-w-2xl text-xs text-muted-foreground">
           No model loaded —{" "}
@@ -265,6 +272,6 @@ export function Composer({
           Generating — sending is disabled until this response finishes.
         </p>
       )}
-    </div>
+    </PromptInput>
   );
 }

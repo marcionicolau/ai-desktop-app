@@ -3,9 +3,14 @@
 import { describe, expect, test } from "bun:test";
 import {
   CHAT_TAB,
+  SURFACE_TABS,
   deriveTabs,
   reconcile,
 } from "../src/renderer/src/features/workspace/tab-model";
+
+// feature 021: surface items sit between chat and pack-derived tabs
+const SURF = SURFACE_TABS.map((t) => t.id);
+const BASE = [CHAT_TAB, ...SURFACE_TABS];
 import type { InstalledPackView } from "../src/shared/types";
 import type { PackManifest } from "../src/shared/pack-schema";
 
@@ -35,8 +40,8 @@ const panel = { id: "stats", title: "Stats", slot: "panel" as const, entry: "v/s
 
 describe("deriveTabs", () => {
   test("chat is always first; no packs → chat only", () => {
-    expect(deriveTabs([])).toEqual([CHAT_TAB]);
-    expect(deriveTabs([pack("a", "installed")])).toEqual([CHAT_TAB]);
+    expect(deriveTabs([])).toEqual(BASE);
+    expect(deriveTabs([pack("a", "installed")])).toEqual(BASE);
   });
 
   test("enabled pack's tab views → ext tabs; panel/disabled excluded", () => {
@@ -45,8 +50,8 @@ describe("deriveTabs", () => {
       pack("b", "disabled", [explorer]),
       pack("c", "enabled", [explorer]),
     ]);
-    expect(tabs.map((t) => t.id)).toEqual(["chat", "a:explorer", "c:explorer"]);
-    const ext = tabs[1]!;
+    expect(tabs.map((t) => t.id)).toEqual(["chat", ...SURF, "a:explorer", "c:explorer"]);
+    const ext = tabs.find((t) => t.id === "a:explorer")!;
     expect(ext).toMatchObject({ kind: "ext", title: "Explorer", packName: "a" });
   });
 
@@ -55,20 +60,20 @@ describe("deriveTabs", () => {
       pack("a", "enabled"), // no views at all
       pack("b", "enabled", [panel]), // panel-only
     ]);
-    expect(tabs.map((t) => t.id)).toEqual(["chat", "a", "b"]);
-    expect(tabs[1]).toMatchObject({ kind: "pack", packId: "a" });
-    expect(tabs[2]).toMatchObject({ kind: "pack", packId: "b" });
+    expect(tabs.map((t) => t.id)).toEqual(["chat", ...SURF, "a", "b"]);
+    expect(tabs.find((t) => t.id === "a")).toMatchObject({ kind: "pack", packId: "a" });
+    expect(tabs.find((t) => t.id === "b")).toMatchObject({ kind: "pack", packId: "b" });
   });
 
   test("multiple tab views per pack → multiple tabs in declaration order", () => {
     const second = { ...explorer, id: "logs", title: "Logs" };
     const tabs = deriveTabs([pack("a", "enabled", [explorer, second])]);
-    expect(tabs.map((t) => t.id)).toEqual(["chat", "a:explorer", "a:logs"]);
+    expect(tabs.map((t) => t.id)).toEqual(["chat", ...SURF, "a:explorer", "a:logs"]);
   });
 
   test("title fallback: empty title → viewId", () => {
     const v = { ...explorer, title: "" };
-    const t = deriveTabs([pack("a", "enabled", [v])])[1]!;
+    const t = deriveTabs([pack("a", "enabled", [v])]).find((x) => x.kind === "ext")!;
     expect(t.kind === "ext" && t.title).toBe("explorer");
   });
 });
@@ -94,7 +99,7 @@ describe("reconcile", () => {
   test("selected tab vanished → fallback to chat (FR-010)", () => {
     const prev = { tabs: base, selectedId: "a:explorer" };
     const next = reconcile(prev, [pack("a", "disabled", [explorer])]);
-    expect(next.tabs).toEqual([CHAT_TAB]);
+    expect(next.tabs).toEqual(BASE);
     expect(next.selectedId).toBe("chat");
   });
 

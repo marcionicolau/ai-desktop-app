@@ -375,10 +375,11 @@ draft-side; `MessageList` renders `Message.attachments` chips (`·trunc` /
 
 ## Feature 019 — workspace tabs
 
-- `features/workspace/` (renderer): `WorkspaceTabs` root (mounted by
-  `main.tsx` — ChatPage is tab-1 content), `TabBar` (scrollable strip,
-  Chat unclosable, pack-name tooltips, crash dot), `use-workspace-tabs`
-  hook + `tab-model.ts` pure `deriveTabs`/`reconcile` (headless-tested;
+- `features/workspace/` (renderer): `WorkspacePanels` root (owned by
+  `ChatPage` — renders each workspace item as a mounted-hidden
+  full-screen panel; see 020 note — the accordion was dropped),
+  `use-workspace-items` hook (also owns the per-item crash badge set) +
+  `tab-model.ts` pure `deriveTabs`/`reconcile` (headless-tested;
   reconcile auto-selects fresh ext tabs, falls back to `"chat"` when the
   selected tab vanishes; the hook seeds baseline from the first scan so
   restored tabs never steal focus).
@@ -395,3 +396,51 @@ draft-side; `MessageList` renders `Message.attachments` chips (`·trunc` /
   `AI_DESKTOP_NATIVE_DIALOGS=1` forces the native path. Renderer RPC
   default timeout is 30 s (`maxRequestTime`) with `Infinity` for
   dialog/download calls.
+
+## Feature 020 — workspace item UX (was: accordion)
+
+- Original design used a vertical Radix accordion (chat + ext/pack items,
+  forceMount). Reworked during 021: the accordion chrome was removed per
+  UX feedback — `WorkspacePanels.tsx` now renders every workspace item as
+  a mounted-hidden full-screen panel (`hidden` ↔ `flex min-h-0 flex-1`),
+  identical to how the 021 config surfaces render. Tab chrome (title,
+  crash `●`, ×→disable) moved to the `AppSidebar` Extensions group
+  (hover-reveal × absolutely positioned inside `SidebarMenuItem`,
+  crash badge from `use-workspace-items.crashed`).
+- Hidden panels stay mounted (React state + BrowserView sessions alive);
+  `visible` prop → `view.setVisible` still parks the native view when its
+  panel is hidden.
+
+## Feature 021 — AI UI modernization (sidebar shell + ai-elements)
+
+- `components/ui/`: **only** place `@radix-ui/*` may be imported. Vendored
+  primitives: alert-dialog, breadcrumb, badge, button, card,
+  collapsible, dropdown-menu, input, kbd, progress, scroll-area,
+  separator, skeleton, textarea, tooltip, trace, sidebar (icon-rail only,
+  localStorage + Ctrl/Cmd+B, no Sheet). `trace.tsx` = step-chain primitive
+  (Trace/TraceStep/TraceCollapsible/TraceDot/TraceBadge) shared by plan
+  phases, tool calls, and run views.
+- `components/ai/`: ai-elements recipes — message, prompt-input
+  (SuggestionChips), tool-call (Confirmation + Stack Trace), context
+  (token chip), task/queue/subagent, file-tree, model-selector,
+  code-block, message-actions, ai-message (typeset markdown).
+- `tests/ui-audit.test.ts`: enforces the boundary — zero radix imports
+  outside `ui/`, zero palette literals outside `ui/`, `ai/` deps only on
+  `ui/`+`lib/`+`shared/`.
+- Theme: `lib/theme.ts` resolves `Settings.themeMode`
+  (light/dark/system, persisted via `settings.set`, absent→system),
+  toggles `.dark` on `<html>`, and reports `resolvedTheme` (transient
+  `settings.set` param — validated, not persisted) so main can
+  `pushTheme` to extension views. Tokens live in `index.css` `:root`/
+  `.dark` + `@theme inline`; semantic `--success/--warning/--info`.
+  Fontsource variable fonts (Public Sans/Geist/JetBrains Mono) +
+  `typeset.css` (shadcn typeset, `.typeset` scope, `.not-typeset` opt-out).
+- Shell: `SidebarProvider` > `AppSidebar` (Chats/Extensions/
+  Configurations NavGroups + footer ThemeSettings) + `SidebarInset`
+  (header w/ `SidebarTrigger` + panel title + `ModelSelector` pair in
+  fusion). `Sidebar.tsx` was replaced by `ConversationNav.tsx` (list
+  content unchanged). The main area renders one full-screen panel per
+  workspace item — chat, ext `tab` views, pack browsers
+  (`WorkspacePanels`) and config surfaces (Models/Personas/Roles/
+  Settings/Extensions) are all mounted-hidden siblings selected by
+  sidebar nav; there is no tab strip or accordion chrome.

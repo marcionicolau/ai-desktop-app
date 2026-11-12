@@ -47,7 +47,7 @@ Frontmatter (YAML via `Bun.YAML`):
 
 ```yaml
 ---
-name: summarize_notes        # becomes <pack>:summarize_notes
+name: summarize-notes        # becomes <pack>:summarize-notes
 version: 1.0.0
 domain: notes                # optional grouping
 description: One-line catalogue entry.
@@ -86,7 +86,7 @@ model: default               # host model role/tag — resolved via roles servic
 children: [stats_team, notes_digest]
 fallback: rules              # optional named fallback agent
 budget: {maxDepth: 3, maxDelegations: 12}
-pipeline: document_summary   # kind: pipeline only
+pipeline: document-summary   # kind: pipeline only
 ---
 System prompt body (guidance, loaded into planner/LLM prompts).
 ```

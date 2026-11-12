@@ -15,14 +15,14 @@ bun run typecheck && bun run lint && bun test ./tests
 1. Extensions panel → Install → pick `fixtures/notes-pack` folder.
 2. Expect pack listed with version, apiLevel, capabilities; consent dialog
    shows `models.generate` + `storage` on enable (FR-005).
-3. Enable → Workspace shows `notes-pack:note_taker` agent, `summarize_notes`
-   skill, `document_summary` pipeline — namespaced, no collisions (FR-006).
-4. Inspect `summarize_notes`: typed inputs/outputs, guidance sections
+3. Enable → Workspace shows `notes-pack:note-taker` agent, `summarize-notes`
+   skill, `document-summary` pipeline — namespaced, no collisions (FR-006).
+4. Inspect `summarize-notes`: typed inputs/outputs, guidance sections
    render read-only.
 
 ## Scenario 2 — Run a pipeline end-to-end (US3)
 
-1. Workspace → `notes-pack:document_summary` → enter objective + sample
+1. Workspace → `notes-pack:document-summary` → enter objective + sample
    transcript → Start (≤3 interactions, SC-003).
 2. Watch `run.event` steps flip running→done; artifacts appear on finish.
 3. Run history: reopen run → full trace path visible (`lead/worker` etc.).

@@ -8,3 +8,4 @@ native/out/
 *.log
 /models/
 .cottontail-tmp/
+outputs/

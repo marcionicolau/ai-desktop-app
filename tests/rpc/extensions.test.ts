@@ -125,17 +125,17 @@ describe("pack.* rpc", () => {
     const { call } = make();
     const packId = await enableNotes(call);
     const c = await call("pack.contributions", { packId });
-    expect(c.skills.map((s: { id: string }) => s.id)).toContain("notes-pack:summarize_notes");
-    expect(c.pipelines.map((p: { id: string }) => p.id)).toContain("notes-pack:document_summary");
-    expect(c.agents.map((a: { id: string }) => a.id)).toContain("notes-pack:note_taker");
+    expect(c.skills.map((s: { id: string }) => s.id)).toContain("notes-pack:summarize-notes");
+    expect(c.pipelines.map((p: { id: string }) => p.id)).toContain("notes-pack:document-summary");
+    expect(c.agents.map((a: { id: string }) => a.id)).toContain("notes-pack:note-taker");
     expect(c.commands[0].id).toBe("digest");
   });
 
   test("readSpec returns frontmatter + body; missing → CONTRIBUTION_NOT_FOUND", async () => {
     const { call } = make();
     await enableNotes(call);
-    const spec = await call("pack.readSpec", { contributionId: "notes-pack:summarize_notes" });
-    expect(spec.frontmatter.name).toBe("summarize_notes");
+    const spec = await call("pack.readSpec", { contributionId: "notes-pack:summarize-notes" });
+    expect(spec.frontmatter.name).toBe("summarize-notes");
     expect(spec.body).toContain("Summarize notes");
     await expect(
       call("pack.readSpec", { contributionId: "notes-pack:ghost" }),

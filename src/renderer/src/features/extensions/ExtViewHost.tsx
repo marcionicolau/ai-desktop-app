@@ -126,9 +126,9 @@ export function ExtViewHost({ packId, viewId, slot = "panel", visible = true, ba
         </div>
       )}
       {error ? (
-        <div className="px-4 py-2 text-xs text-red-400">{error}</div>
+        <div className="px-4 py-2 text-xs text-destructive">{error}</div>
       ) : crashed ? (
-        <div className="px-4 py-2 text-xs text-amber-400">
+        <div className="px-4 py-2 text-xs text-warning">
           Extension view crashed (contained): {crashed}
           <Button size="sm" variant="secondary" className="ml-2" onClick={open}>
             Reload view

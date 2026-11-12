@@ -1,5 +1,5 @@
 ---
-name: document_summary
+name: document-summary
 version: 1.0.0
 domain: notes
 description: Summarize then extract action items from a transcript.
@@ -11,10 +11,10 @@ outputs:
   actions: {type: text}
 steps:
   - id: sum
-    uses: summarize_notes
+    uses: summarize-notes
     inputs: {transcript: "$params.transcript"}
   - id: act
-    uses: action_items
+    uses: action-items
     inputs: {transcript: "$params.transcript", summary: "sum.summary"}
 ---
 # Document summary

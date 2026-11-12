@@ -1,5 +1,5 @@
 ---
-name: summarize_notes
+name: summarize-notes
 version: 1.0.0
 domain: notes
 description: Condense a meeting transcript into a short faithful summary.

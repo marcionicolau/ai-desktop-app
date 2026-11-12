@@ -166,7 +166,11 @@ export interface Settings {
   // feature 015: undefined → {sandboxRoot: null, mode: "deny"} —
   // tools inactive until a root is configured
   tools?: ToolPolicy;
+  // feature 021: theme preference; undefined/absent → "system"
+  themeMode?: ThemeMode;
 }
+
+export type ThemeMode = "light" | "dark" | "system";
 
 // ---- feature 015: sandboxed local tool use ----
 
@@ -516,4 +520,10 @@ export type WorkspaceTab =
       packId: string;
       title: string;
       packName: string;
+    }
+  | {
+      kind: "surface"; // feature 021: app surface — each alone on screen
+      id: string; // `surface:${surfaceId}`
+      surfaceId: "models" | "personas" | "roles" | "settings" | "extensions";
+      title: string;
     };

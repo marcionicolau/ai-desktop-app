@@ -1,5 +1,5 @@
 ---
-name: action_items
+name: action-items
 version: 1.0.0
 domain: notes
 description: Extract action items from a transcript and its summary.

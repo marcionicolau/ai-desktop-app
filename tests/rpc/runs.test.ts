@@ -94,7 +94,7 @@ describe("run.* rpc", () => {
     await enableNotes(call);
     const { runId } = await call("run.start", {
       packId: "notes-pack",
-      target: { kind: "pipeline", id: "document_summary" },
+      target: { kind: "pipeline", id: "document-summary" },
       objective: "digest",
       params: { transcript: "a long meeting transcript with many words spoken" },
     });
@@ -140,7 +140,7 @@ describe("run.* rpc", () => {
     });
     await call("run.start", {
       packId: "notes-pack",
-      target: { kind: "pipeline", id: "document_summary" },
+      target: { kind: "pipeline", id: "document-summary" },
       objective: "o",
       params: { transcript: "a long meeting transcript with many words spoken" },
     });

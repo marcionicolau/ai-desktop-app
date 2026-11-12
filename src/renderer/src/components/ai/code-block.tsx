@@ -18,13 +18,13 @@ export function CodeBlock({ language, code, className }: Props) {
   };
 
   return (
-    <div className="group relative my-2 overflow-hidden rounded-md border border-border">
-      <div className="flex items-center justify-between bg-zinc-800 px-3 py-1.5">
-        <span className="text-xs text-zinc-400">{language ?? "code"}</span>
+    <div className="not-typeset group relative my-2 overflow-hidden rounded-md border border-border">
+      <div className="flex items-center justify-between bg-muted px-3 py-1.5">
+        <span className="text-xs text-muted-foreground">{language ?? "code"}</span>
         <button
           type="button"
           onClick={() => void copy()}
-          className="text-zinc-400 hover:text-zinc-100"
+          className="text-muted-foreground hover:text-foreground"
           aria-label="Copy code"
         >
           {copied ? (
@@ -36,7 +36,7 @@ export function CodeBlock({ language, code, className }: Props) {
       </div>
       <pre
         className={cn(
-          "overflow-x-auto bg-zinc-900 p-3 text-xs text-zinc-100",
+          "overflow-x-auto bg-secondary p-3 font-mono text-xs text-foreground",
           className,
         )}
       >

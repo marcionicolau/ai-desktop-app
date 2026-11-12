@@ -16,11 +16,11 @@ describe("ContributionRegistry", () => {
     reg.registerPack("notes-pack", join(FX, "notes-pack"), manifest("notes-pack"));
     const c = reg.contributions("notes-pack")!;
     expect(c.skills.map((s) => s.id).sort()).toEqual([
-      "notes-pack:action_items",
-      "notes-pack:summarize_notes",
+      "notes-pack:action-items",
+      "notes-pack:summarize-notes",
     ]);
-    expect(c.pipelines[0]?.id).toBe("notes-pack:document_summary");
-    expect(c.agents[0]?.id).toBe("notes-pack:note_taker");
+    expect(c.pipelines[0]?.id).toBe("notes-pack:document-summary");
+    expect(c.agents[0]?.id).toBe("notes-pack:note-taker");
     expect(c.agents[0]?.kind).toBe("pipeline");
   });
 
@@ -37,8 +37,8 @@ describe("ContributionRegistry", () => {
     const reg = new ContributionRegistry();
     reg.registerPack("a-pack", join(FX, "notes-pack"), manifest("notes-pack"));
     reg.registerPack("b-pack", join(FX, "notes-pack"), manifest("notes-pack"));
-    expect(reg.lookupSkill("a-pack:summarize_notes")?.view.packId).toBe("a-pack");
-    expect(reg.lookupSkill("b-pack:summarize_notes")?.view.packId).toBe("b-pack");
+    expect(reg.lookupSkill("a-pack:summarize-notes")?.view.packId).toBe("a-pack");
+    expect(reg.lookupSkill("b-pack:summarize-notes")?.view.packId).toBe("b-pack");
   });
 
   test("unregisterPack removes contributions", () => {
@@ -46,14 +46,14 @@ describe("ContributionRegistry", () => {
     reg.registerPack("notes-pack", join(FX, "notes-pack"), manifest("notes-pack"));
     reg.unregisterPack("notes-pack");
     expect(reg.contributions("notes-pack")).toBeNull();
-    expect(reg.lookupSkill("notes-pack:summarize_notes")).toBeNull();
+    expect(reg.lookupSkill("notes-pack:summarize-notes")).toBeNull();
   });
 
   test("readSpec returns frontmatter + body", () => {
     const reg = new ContributionRegistry();
     reg.registerPack("notes-pack", join(FX, "notes-pack"), manifest("notes-pack"));
-    const spec = reg.readSpec("notes-pack:summarize_notes")!;
-    expect(spec.frontmatter.name).toBe("summarize_notes");
+    const spec = reg.readSpec("notes-pack:summarize-notes")!;
+    expect(spec.frontmatter.name).toBe("summarize-notes");
     expect(spec.body).toContain("## Instructions");
     expect(reg.readSpec("notes-pack:nope")).toBeNull();
   });
