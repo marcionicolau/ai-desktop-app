@@ -9,9 +9,11 @@ root="${1:?usage: verify-artifact.sh <artifact-dir e.g. build/canary-linux-x64>}
 
 fail() { echo "verify-artifact: FAIL — $1" >&2; exit 1; }
 
-# locate the inner app dir (AIDesktopApp-<env>/)
-app_dir=$(find "$root" -mindepth 1 -maxdepth 1 -type d -name "AIDesktopApp-*" | head -1)
-[ -n "$app_dir" ] || fail "no AIDesktopApp-* dir under $root"
+# locate the inner app dir (<AppName>-<env>/); env comes from the artifact
+# root name (build/<env>-<platform>) so renames of app.name can't break this
+env_name=$(basename "$root" | cut -d- -f1)
+app_dir=$(find "$root" -mindepth 1 -maxdepth 1 -type d -name "*-${env_name}" | head -1)
+[ -n "$app_dir" ] || fail "no *-${env_name} app dir under $root"
 
 # binary present + executable (win: *.exe; unix: bin/ launcher)
 if ls "$app_dir"/bin/*.exe >/dev/null 2>&1; then
