@@ -1,10 +1,12 @@
 import type { ElectrobunConfig } from "electrobun";
+import { computeVersion } from "./scripts/version";
 
 export default {
   app: {
     name: "AI Desktop App",
     identifier: "dev.local.ai-desktop-app",
-    version: "0.1.0",
+    // semver derived from git (scripts/version.ts) — no manual bumps
+    version: computeVersion(),
   },
   build: {
     mainProcess: "bun",

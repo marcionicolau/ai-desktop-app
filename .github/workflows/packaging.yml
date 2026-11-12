@@ -1,0 +1,56 @@
+name: packaging
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  package:
+    name: package ${{ matrix.platform }}
+    # per-lane switch — flip `enabled` when a runner (and signing certs,
+    # for release lanes) are arranged. Linux is the verified lane.
+    if: matrix.enabled
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux-x64
+            enabled: true
+            native-script: scripts/build-native.sh
+            shell-kind: bash
+          - os: macos-latest
+            platform: darwin-arm64
+            enabled: false
+            native-script: scripts/build-native.sh
+            shell-kind: bash
+          - os: windows-latest
+            platform: win-x64
+            enabled: false
+            native-script: scripts/build-native.ps1
+            shell-kind: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: oven-sh/setup-bun@v2
+      - name: install deps
+        run: bun install
+      - name: build native shim
+        shell: ${{ matrix.shell-kind }}
+        run: ${{ matrix.native-script }}
+      - name: build renderer
+        run: bun run build:renderer
+      - name: electrobun build (canary)
+        run: bun run build
+      - name: verify artifact
+        shell: bash
+        run: scripts/verify-artifact.sh "build/canary-${{ matrix.platform }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ai-desktop-app-canary-${{ matrix.platform }}
+          path: build/canary-${{ matrix.platform }}/
+          retention-days: 14
