@@ -74,9 +74,9 @@
 
 **Independent Test**: quickstart.md S3 — OS switch repaints app + extension views; override persists across restart; reduced-motion/narrow-window pass.
 
-- [ ] T023 [US3] Wire theme resolution in the renderer (`src/renderer/src/lib/theme.ts`): read `themeMode` via `settings.get`, resolve `"system"` via `matchMedia("(prefers-color-scheme: dark)")` + change listener, toggle `.dark` on the root element (contracts/theme.md)
+- [x] T023 [US3] Wire theme resolution in the renderer (`src/renderer/src/lib/theme.ts`): read `themeMode` via `settings.get`, resolve `"system"` via `matchMedia("(prefers-color-scheme: dark)")` + change listener, toggle `.dark` on the root element (contracts/theme.md)
 - [ ] T024 [US3] Add a theme control (light/dark/system) in `src/renderer/src/features/settings/` surfaces persisting via `settings.set` (FR-009)
-- [ ] T025 [US3] Broadcast resolved theme to extension views: `src/bun/rpc/handlers.ts` `settings.set` path pushes `{mode, vars}` via `ViewManager.pushTheme` to all open sessions when `themeMode` changes; `view.open` seeding already calls pushTheme — update it to send the resolved mode + real token vars (contracts/theme.md, FR-008)
+- [x] T025 [US3] Broadcast resolved theme to extension views: `src/bun/rpc/handlers.ts` `settings.set` path pushes `{mode, vars}` via `ViewManager.pushTheme` to all open sessions when `themeMode` changes; `view.open` seeding already calls pushTheme — update it to send the resolved mode + real token vars (contracts/theme.md, FR-008)
 - [x] T026 [US3] Migrate hardcoded styling to tokens across `src/renderer/src/features/**` — replace raw literals + non-semantic palette classes (`text-amber-400`, `bg-amber-950`, `text-red-300`…) with semantic tokens/warning-destructive variants per the T009 inventory (FR-007)
 - [ ] T027 [US3] Media-query pass: `motion-reduce:` guards on all animations app-wide + narrow-window resilience check for panels/dialogs (FR-011)
 
