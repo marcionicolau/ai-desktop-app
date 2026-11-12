@@ -53,3 +53,10 @@ lane steps mirror the verified local flow + `upload-artifact`.
 - `bun test ./tests`: PASS (395)
 - `bun run lint`: 0 errors
 - `bun run build:renderer` + `bun run build`: PASS
+
+## Convergence validation
+
+| Check | Result | Notes |
+|-------|--------|-------|
+| T016 fresh-worktree `just package` | ✅ PASS | `git worktree` at HEAD: submodule init → `bun install` → `electrobun prepare` → `just package` → `verify-artifact: PASS` in 2m28s |
+| T015 packaged smoke incl. chat turn | ⏳ open | Needs a manual GUI pass — launch + bundled lib resolution verified |
