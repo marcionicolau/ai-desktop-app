@@ -19,6 +19,9 @@ interface Props {
     plannerTag: string,
     executorTag: string,
   ) => Promise<void>;
+  // fired after switching to fusion while a role is unbound — host opens
+  // the bindings UI so model selection actually happens (not just a hint)
+  onUnbound?: () => void;
 }
 
 export function FusionControls({
@@ -27,6 +30,7 @@ export function FusionControls({
   executorTag,
   generating,
   onSetMode,
+  onUnbound,
 }: Props) {
   const { tags } = useRoles();
   const bound = useMemo(() => tags.filter((t) => t.state === "bound"), [tags]);
@@ -68,6 +72,11 @@ export function FusionControls({
     setError(null);
     try {
       await onSetMode(nextMode, p, e);
+      if (nextMode === "fusion") {
+        const pBound = bound.some((t) => t.name === p);
+        const eBound = bound.some((t) => t.name === e);
+        if (!pBound || !eBound) onUnbound?.();
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {

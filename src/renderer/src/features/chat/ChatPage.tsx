@@ -285,9 +285,12 @@ export function ChatPage() {
           />
         )}
         {state.modelStatus === "unloaded" && (
-          <div className="border-b border-border bg-muted px-4 py-2 text-center text-sm text-muted-foreground">
-            No model is loaded — pick a .gguf file to start chatting.
-          </div>
+          <button
+            className="w-full border-b border-border bg-muted px-4 py-2 text-center text-sm text-muted-foreground hover:bg-accent hover:text-foreground"
+            onClick={() => setLibraryOpen(true)}
+          >
+            No model is loaded — click to pick a .gguf file to start chatting.
+          </button>
         )}
         {state.modelStatus === "error" && (
           <div className="border-b border-border bg-red-950 px-4 py-2 text-center text-sm text-red-300">
@@ -301,6 +304,7 @@ export function ChatPage() {
           executorTag={state.executorTag}
           generating={state.generatingId !== null}
           onSetMode={setMode}
+          onUnbound={() => setRolesOpen(true)}
         />
         {state.notice && (
           <div className="border-b border-border bg-amber-950 px-4 py-2 text-center text-sm text-amber-300">
