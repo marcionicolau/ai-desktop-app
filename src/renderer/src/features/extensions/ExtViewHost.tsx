@@ -29,7 +29,13 @@ export function ExtViewHost({ packId, viewId, slot = "panel", visible = true, ba
 
   const open = () => {
     opened.current = true;
-    void invoke("view.open", { packId, viewId, slot })
+    // spawn at the slot's measured rect so the native view never flashes at
+    // BrowserView's default 800x600@0,0 frame (covers the tab bar)
+    const r = ref.current?.getBoundingClientRect();
+    const rect = r && r.width > 0 && r.height > 0
+      ? { x: r.x, y: r.y, width: r.width, height: r.height }
+      : undefined;
+    void invoke("view.open", { packId, viewId, slot, rect })
       .then((r) => {
         const hadCrash = crashed !== null;
         setSessionId(r.sessionId);

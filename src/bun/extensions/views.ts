@@ -23,6 +23,9 @@ export interface ViewFactoryOpts {
   viewsRoot: string; // view dir root — locked to pack dir
   partition: string;
   bridge: ViewBridge;
+  // initial native frame — callers pass the host slot's measured rect so the
+  // view spawns in place; absent → factory should park offscreen
+  frame?: { x: number; y: number; width: number; height: number };
 }
 
 export type ViewFactory = (opts: ViewFactoryOpts) => BrowserViewLike;
@@ -51,7 +54,12 @@ export class ViewManager {
 
   constructor(private deps: ViewManagerDeps) {}
 
-  open(pack: InstalledPackView, viewId: string, bridge: ViewBridge): ViewSession {
+  open(
+    pack: InstalledPackView,
+    viewId: string,
+    bridge: ViewBridge,
+    frame?: { x: number; y: number; width: number; height: number },
+  ): ViewSession {
     const decl = pack.manifest.contributions.views?.find((v) => v.id === viewId);
     if (!decl) {
       throw new PackError("CONTRIBUTION_NOT_FOUND", `pack "${pack.id}" has no view "${viewId}"`);
@@ -69,6 +77,7 @@ export class ViewManager {
       viewsRoot: pack.dir,
       partition: `persist:ext-${pack.id}`,
       bridge,
+      frame,
     });
     const session: ViewSession = {
       sessionId: `vs_${++counter}`,

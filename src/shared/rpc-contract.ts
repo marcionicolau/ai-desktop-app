@@ -402,7 +402,12 @@ export interface ChatRpcSchema extends ElectrobunRPCSchema {
         response: { removed: number };
       };
       "view.open": {
-        params: { packId: string; viewId: string; slot?: "tab" | "panel" };
+        params: {
+          packId: string;
+          viewId: string;
+          slot?: "tab" | "panel";
+          rect?: { x: number; y: number; width: number; height: number };
+        };
         response: { sessionId: string };
       };
       "view.close": {

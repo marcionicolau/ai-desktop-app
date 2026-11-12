@@ -1474,7 +1474,7 @@ export function createRequestHandlers(deps: HandlerDeps) {
       removed: fabric.clear(packId),
     }),
     // feature 017: extension view sessions (contracts/view-bridge.md)
-    "view.open": ({ packId, viewId, slot }: { packId: string; viewId: string; slot?: string }) => {
+    "view.open": ({ packId, viewId, slot, rect }: { packId: string; viewId: string; slot?: string; rect?: { x: number; y: number; width: number; height: number } }) => {
       const pack = extStore().get(packId);
       if (pack.state !== "enabled") {
         fail("PACK_INVALID", `pack "${packId}" is not enabled`);
@@ -1490,7 +1490,7 @@ export function createRequestHandlers(deps: HandlerDeps) {
           if (sessionId) viewMgr().markCrashed(sessionId, message);
         },
       });
-      const s = viewMgr().open(pack, viewId, bridge);
+      const s = viewMgr().open(pack, viewId, bridge, rect);
       sessionId = s.sessionId;
       // initial theme sync; change pushes go through the same path (FR-015)
       viewMgr().pushTheme({ mode: "dark", vars: {} });
