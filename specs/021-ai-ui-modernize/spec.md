@@ -108,10 +108,10 @@ As a user, the app is organized around a proper navigation sidebar — collapsib
 - **FR-009**: Theme selection MUST follow the OS color-scheme preference by default; a manual light/dark/system override MUST be available and persisted across restarts.
 - **FR-011**: Media-query behavior MUST be respected app-wide: non-essential animation disabled under reduced-motion, and the layout must remain usable in narrow window sizes.
 - **FR-012**: The app shell MUST use the standardized sidebar component system: provider + collapsible sidebar + inset content area + trigger; collapse MUST support an icon-rail mode and a keyboard shortcut.
-- **FR-013**: Sidebar navigation MUST follow the collapsible-submenu-group pattern (sidebar-05): a top-level search field, collapsible nav groups (conversations, extensions, settings/tools) with active-state styling, and all existing capabilities retained — conversation select/new/rename/delete, search filtering, import/export.
+- **FR-013**: Sidebar navigation MUST follow the collapsible-submenu-group pattern (sidebar-05): a conversation search field, collapsible nav groups (conversations, extensions, configurations) with active-state styling, and all existing capabilities retained — conversation select/new/rename/delete, search filtering, import/export.
 - **FR-014**: The workspace MUST follow chat-app layout conventions: readable maximum content width for the transcript at wide windows, composer anchored to the bottom of its surface, and a slim context header consistent across the app.
-- **FR-015**: Collapsing/expanding the sidebar MUST NOT disturb the workspace accordion state or running extension sessions.
-- **FR-010**: All existing behaviors MUST be preserved — workspace accordion, extension lifecycle, drawer/panel views, run views, settings/model/persona panels — with no functional regression.
+- **FR-015**: Collapsing/expanding the sidebar MUST NOT disturb the workspace panel state or running extension sessions.
+- **FR-010**: All existing behaviors MUST be preserved — workspace panels, extension lifecycle, drawer/panel views, run views, settings/model/persona panels — with no functional regression.
 
 ### Key Entities
 

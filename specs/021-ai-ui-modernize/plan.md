@@ -20,7 +20,7 @@ Four-story modernization of the renderer: (1) enforce the shadcn-wrapper-only ru
 - `@radix-ui/react-popover` — Model Selector / Suggestion pickers
 - `@radix-ui/react-hover-card` — DEFERRED (Inline Citation deferred)
 - `tw-animate-css` — optional; keep hand-rolled animations if recipes need it
-Existing: accordion, alert-dialog, scroll-area, slot, cva, lucide-react.
+Existing: alert-dialog, scroll-area, slot, cva, lucide-react (accordion vendored then removed when the workspace moved to full-screen panels).
 
 **New `components/ui/*` to vendor** (shadcn sources, project conventions): `sidebar` (largest), `collapsible`, `tooltip`, `sheet`, `separator`, `breadcrumb`, `skeleton`, `badge`, `trace`, `progress`, `dropdown-menu`, `popover`, `kbd`, `card`, `item`?, plus upgraded `code-block`.
 

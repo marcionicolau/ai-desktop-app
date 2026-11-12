@@ -1,4 +1,11 @@
 import type { Message } from "@shared/types";
+import { Undo2 } from "lucide-react";
+import {
+  Checkpoint,
+  CheckpointIcon,
+  CheckpointTrigger,
+} from "@/components/ai/checkpoint";
+import { cn } from "@/lib/utils";
 
 interface Branch {
   parentId: string | null;
@@ -42,23 +49,35 @@ export function BranchOverview({ branches, pathIds, onSelect, onClose }: Props) 
               {b.variants.map((v) => {
                 const onPath = pathIds.has(v.id);
                 return (
-                  <button
+                  <Checkpoint
                     key={v.id}
-                    type="button"
-                    onClick={() => onSelect(v.id)}
-                    className={
-                      "truncate rounded px-2 py-1 text-left text-xs " +
-                      (onPath
+                    className={cn(
+                      "rounded px-1.5 py-1",
+                      onPath
                         ? "bg-accent text-accent-foreground"
-                        : "hover:bg-accent/50")
-                    }
+                        : "hover:bg-accent/50",
+                    )}
                   >
-                    <span className="mr-1 text-muted-foreground">
-                      {v.role === "user" ? "you:" : "ai:"}
-                    </span>
-                    {v.content.slice(0, 80) || "(empty)"}
-                    {onPath && " · active"}
-                  </button>
+                    <CheckpointIcon />
+                    <button
+                      type="button"
+                      onClick={() => onSelect(v.id)}
+                      className="min-w-0 flex-1 truncate text-left text-xs"
+                    >
+                      <span className="mr-1 text-muted-foreground">
+                        {v.role === "user" ? "you:" : "ai:"}
+                      </span>
+                      {v.content.slice(0, 80) || "(empty)"}
+                      {onPath && " · active"}
+                    </button>
+                    <CheckpointTrigger
+                      aria-label="Return to this checkpoint"
+                      title="Return to this checkpoint"
+                      onClick={() => onSelect(v.id)}
+                    >
+                      <Undo2 className="h-3.5 w-3.5" />
+                    </CheckpointTrigger>
+                  </Checkpoint>
                 );
               })}
             </div>
