@@ -5,7 +5,7 @@
 Please **do not** open a public issue for security vulnerabilities.
 
 Use
-[private vulnerability reporting](https://github.com/marcionicolau/ai-desktop-app/security/advisories/new)
+[private vulnerability reporting](https://github.com/marcionicolau/causerie/security/advisories/new)
 (GitHub Security Advisories) to report a vulnerability. You will get an
 acknowledgement and a coordinated disclosure timeline.
 

@@ -1,7 +1,7 @@
-# AI Desktop App
+# Causerie
 
-[![ci](https://github.com/marcionicolau/ai-desktop-app/actions/workflows/ci.yml/badge.svg)](https://github.com/marcionicolau/ai-desktop-app/actions/workflows/ci.yml)
-[![packaging](https://github.com/marcionicolau/ai-desktop-app/actions/workflows/packaging.yml/badge.svg)](https://github.com/marcionicolau/ai-desktop-app/actions/workflows/packaging.yml)
+[![ci](https://github.com/marcionicolau/causerie/actions/workflows/ci.yml/badge.svg)](https://github.com/marcionicolau/causerie/actions/workflows/ci.yml)
+[![packaging](https://github.com/marcionicolau/causerie/actions/workflows/packaging.yml/badge.svg)](https://github.com/marcionicolau/causerie/actions/workflows/packaging.yml)
 [![Bun](https://img.shields.io/badge/runtime-Bun-black?logo=bun&logoColor=white)](https://bun.sh)
 [![Electrobun](https://img.shields.io/badge/shell-Electrobun%202.x-8A2BE2)](https://electrobun.dev)
 [![TypeScript](https://img.shields.io/badge/lang-TypeScript-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)

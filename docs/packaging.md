@@ -71,7 +71,7 @@ Credentials are org secrets — never committed.
   `entitlements`; `createDmg` produces a `.dmg`. Unsigned builds pass
   Gatekeeper via right-click → Open on first launch.
 - **Windows**: Electrobun has no built-in sign step — sign the exe
-  post-build: `signtool sign /fd SHA256 /a AIDesktopApp.exe`. Unsigned
+  post-build: `signtool sign /fd SHA256 /a Causerie.exe`. Unsigned
   builds trigger SmartScreen "unknown publisher" (click-through on dev).
 - **Linux**: nothing to sign; the `.desktop` + self-extracting launcher
   install to `~/.local/share/<identifier>/<channel>/app/`.
