@@ -24,8 +24,8 @@ description: "Task list for Electrobun v2 Upgrade implementation"
 
 **Purpose**: Capture a working baseline and bump the shell dependency
 
-- [x] T001 Record baseline in `specs/002-electrobun-v2-upgrade/baseline.md`: output of `bun run typecheck`, `bun run lint`, `bun run build:renderer`, and `bun test` — all must pass before migrating (regression reference for SC-002)
-- [x] T002 Bump shell dependency with `bun add -d electrobun@^2` in `package.json` and confirm installed version is 2.0.x
+- [x] T001 (FR-007) Record baseline in `specs/002-electrobun-v2-upgrade/baseline.md`: output of `bun run typecheck`, `bun run lint`, `bun run build:renderer`, and `bun test` — all must pass before migrating (regression reference for SC-002)
+- [x] T002 (FR-006) Bump shell dependency with `bun add -d electrobun@^2` in `package.json` and confirm installed version is 2.0.x
 
 ---
 
@@ -35,13 +35,13 @@ description: "Task list for Electrobun v2 Upgrade implementation"
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [x] T003 Create `hutch.config.ts` at repo root per `contracts/config.md`: `electrobun.version` pin set to the exact version bun resolved — read `node_modules/electrobun/package.json` `version` field, not a hardcoded value and `scripts` map (`install`, `build:renderer`, `dev`, `build`, `build:stable`)
-- [x] T004 Rewrite `electrobun.config.ts` per `contracts/config.md`: `build.mainProcess: "bun"` explicit, `build.bun.entrypoint = "src/bun/index.ts"`, `build.copy` mapping `dist/renderer` → `views/main` and `native/out` → `native`, `runtime.exitOnLastWindowClosed: true`; remove v1-only fields if the validator names them
-- [x] T005 Update `package.json` scripts: `dev`/`build*` delegate to `hutch` tasks; keep `typecheck`, `lint`, `test`, `build:renderer` as Bun/npm-level commands
-- [x] T006 [P] Update `.gitignore`: add `.hutch/` (generated devkit); ensure `hutch.lock` is NOT ignored (it is committed)
-- [x] T007 Update main-process import in `src/bun/index.ts`: `from "electrobun"` → `from "electrobun/main"` (webview code uses `electrobun/view` when added later)
-- [x] T008 Run first prepare — `bun x electrobun dev` (npm bin forwards through Hutch; guaranteed path): let Hutch download the paired toolchain into `~/.hutch` and project `.hutch/devkit/`; confirm `.hutch/devkit` exists
-- [x] T009 Remove `types/electrobun.d.ts` and the `"electrobun"` `paths` override in `tsconfig.json`, pointing types at `.hutch/devkit` (e.g., `typeRoots` or the documented devkit typing mechanism); run `bun run typecheck` — if devkit types still fail under strict mode, restore the shim extended to the `electrobun/main` surface instead (research.md D5)
+- [x] T003 (FR-004, FR-006) Create `hutch.config.ts` at repo root per `contracts/config.md`: `electrobun.version` pin set to the exact version bun resolved — read `node_modules/electrobun/package.json` `version` field, not a hardcoded value and `scripts` map (`install`, `build:renderer`, `dev`, `build`, `build:stable`)
+- [x] T004 (FR-004, FR-005) Rewrite `electrobun.config.ts` per `contracts/config.md`: `build.mainProcess: "bun"` explicit, `build.bun.entrypoint = "src/bun/index.ts"`, `build.copy` mapping `dist/renderer` → `views/main` and `native/out` → `native`, `runtime.exitOnLastWindowClosed: true`; remove v1-only fields if the validator names them
+- [x] T005 (FR-006) Update `package.json` scripts: `dev`/`build*` delegate to `hutch` tasks; keep `typecheck`, `lint`, `test`, `build:renderer` as Bun/npm-level commands
+- [x] T006 (FR-006) [P] Update `.gitignore`: add `.hutch/` (generated devkit); ensure `hutch.lock` is NOT ignored (it is committed)
+- [x] T007 (FR-006) Update main-process import in `src/bun/index.ts`: `from "electrobun"` → `from "electrobun/main"` (webview code uses `electrobun/view` when added later)
+- [x] T008 (FR-006) Run first prepare — `bun x electrobun dev` (npm bin forwards through Hutch; guaranteed path): let Hutch download the paired toolchain into `~/.hutch` and project `.hutch/devkit/`; confirm `.hutch/devkit` exists
+- [x] T009 (FR-006, FR-007) Remove `types/electrobun.d.ts` and the `"electrobun"` `paths` override in `tsconfig.json`, pointing types at `.hutch/devkit` (e.g., `typeRoots` or the documented devkit typing mechanism); run `bun run typecheck` — if devkit types still fail under strict mode, restore the shim extended to the `electrobun/main` surface instead (research.md D5)
 
 **Checkpoint**: `bun run typecheck` + `bun run lint` + `bun run build:renderer` all green under v2 — story work can begin
 
@@ -55,9 +55,9 @@ description: "Task list for Electrobun v2 Upgrade implementation"
 
 ### Implementation for User Story 1
 
-- [x] T010 [US1] Implement minimal window bootstrap in `src/bun/index.ts`: `new BrowserWindow({ title, url })` loading `views://main/index.html` for packaged runs and the Vite dev-server URL (`http://localhost:5173`) in dev — required for any dev/packaged launch to show the UI (also covers feature-001 T017 bootstrap)
-- [x] T011 [US1] Wire dev flow so `dev` starts the Vite dev-server alongside `electrobun dev` (per `hutch.config.ts` `dev` script composition in contracts/config.md); verify `hutch pm exec` resolves `node_modules/.bin/vite` — fallback to `bunx vite` or `./node_modules/.bin/vite` in the script string if not; verify `vite build` output is not required in dev
-- [x] T012 [US1] Verify `bun run dev` produces a launchable dev bundle in `build/dev-<platform>/` loading `views://main/index.html`; fix `build.copy` semantics if v2 requires per-file entries instead of directory copies (research.md D3)
+- [x] T010 (FR-001, FR-003) [US1] Implement minimal window bootstrap in `src/bun/index.ts`: `new BrowserWindow({ title, url })` loading `views://main/index.html` for packaged runs and the Vite dev-server URL (`http://localhost:5173`) in dev — required for any dev/packaged launch to show the UI (also covers feature-001 T017 bootstrap)
+- [x] T011 (FR-001) [US1] Wire dev flow so `dev` starts the Vite dev-server alongside `electrobun dev` (per `hutch.config.ts` `dev` script composition in contracts/config.md); verify `hutch pm exec` resolves `node_modules/.bin/vite` — fallback to `bunx vite` or `./node_modules/.bin/vite` in the script string if not; verify `vite build` output is not required in dev
+- [x] T012 (FR-001, FR-005) [US1] Verify `bun run dev` produces a launchable dev bundle in `build/dev-<platform>/` loading `views://main/index.html`; fix `build.copy` semantics if v2 requires per-file entries instead of directory copies (research.md D3)
 
 **Checkpoint**: US1 validated — dev window + HMR work under Electrobun 2.x
 
@@ -71,10 +71,10 @@ description: "Task list for Electrobun v2 Upgrade implementation"
 
 ### Implementation for User Story 2
 
-- [x] T013 [US2] Run `bun run build` (`hutch run build` → `electrobun build --env=canary`) to completion; fix any v2 field-name errors the validator reports in `electrobun.config.ts`
-- [x] T014 [US2] Verify bundle layout: `Resources/app/views/main/` contains Vite output; `Resources/app/native/<platform>/` staging rule works — if `native/out/` is empty (feature-001 T011–T013 pending), create a placeholder `.so`/document the pending native build, and confirm the copy rule itself
-- [x] T015 [US2] Verify ASAR/archiving config: confirm `useAsar` (or v2 equivalent) is off for native libs, or add the platform globs to the unpack list so `dlopen` sees real files (spec constraint, research.md D6)
-- [x] T016 [US2] Launch the packaged artifact and confirm identical UI (SC-002, SC-003)
+- [x] T013 (FR-002) [US2] Run `bun run build` (`hutch run build` → `electrobun build --env=canary`) to completion; fix any v2 field-name errors the validator reports in `electrobun.config.ts`
+- [x] T014 (FR-005) [US2] Verify bundle layout: `Resources/app/views/main/` contains Vite output; `Resources/app/native/<platform>/` staging rule works — if `native/out/` is empty (feature-001 T011–T013 pending), create a placeholder `.so`/document the pending native build, and confirm the copy rule itself
+- [x] T015 (FR-005) [US2] Verify ASAR/archiving config: confirm `useAsar` (or v2 equivalent) is off for native libs, or add the platform globs to the unpack list so `dlopen` sees real files (spec constraint, research.md D6)
+- [x] T016 (FR-002, FR-003) [US2] Launch the packaged artifact and confirm identical UI (SC-002, SC-003)
 
 **Checkpoint**: US2 validated — installer artifact produced and launches
 
@@ -88,8 +88,8 @@ description: "Task list for Electrobun v2 Upgrade implementation"
 
 ### Implementation for User Story 3
 
-- [x] T017 [US3] Audit repo for v1 remnants: grep for removed v1 config fields, `electrobun` bin invocations outside `hutch` tasks, and references to deleted `types/electrobun.d.ts`; clean up findings
-- [x] T018 [US3] Verify every documented command end-to-end: `hutch dev`, `bun run build`/`build:stable`, `bun run typecheck`, `bun run lint`, `bun test`, `bun run build:renderer`
+- [x] T017 (FR-004, FR-008) [US3] Audit repo for v1 remnants: grep for removed v1 config fields, `electrobun` bin invocations outside `hutch` tasks, and references to deleted `types/electrobun.d.ts`; clean up findings
+- [x] T018 (FR-007) [US3] Verify every documented command end-to-end: `hutch dev`, `bun run build`/`build:stable`, `bun run typecheck`, `bun run lint`, `bun test`, `bun run build:renderer`
 
 **Checkpoint**: US3 validated — one toolchain, all commands documented and working
 
@@ -99,8 +99,8 @@ description: "Task list for Electrobun v2 Upgrade implementation"
 
 **Purpose**: Full validation sweep
 
-- [x] T019 Run complete `quickstart.md` validation (VS-1 through VS-4) and record results
-- [x] T020 Update `specs/001-desktop-ai-chat/tasks.md` note or `AGENTS.md` with the v2 command set (`hutch` vs `electrobun` bin) so feature-001 tasks reference the right commands
+- [x] T019 (FR-001, FR-002, FR-003) Run complete `quickstart.md` validation (VS-1 through VS-4) and record results
+- [x] T020 (FR-008) Update `specs/001-desktop-ai-chat/tasks.md` note or `AGENTS.md` with the v2 command set (`hutch` vs `electrobun` bin) so feature-001 tasks reference the right commands
 
 ---
 

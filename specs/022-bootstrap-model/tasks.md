@@ -16,3 +16,4 @@
 - [x] T007 (FR-001, FR-003, FR-004, FR-006, FR-007) Tests `tests/bun/setup.test.ts` — fresh→download+bind+load;
       usable→skip; fail→error→retry; busy guard; .part restart
 - [x] T008 Preflight: `bun run typecheck` · `bun run lint` · `bun test ./tests`
+- [ ] T009 Create `specs/022-bootstrap-model/validation.md` mapping SC-001…SC-005 to evidence; SC-002 (download time) and SC-003 (offline first launch) are manual checks

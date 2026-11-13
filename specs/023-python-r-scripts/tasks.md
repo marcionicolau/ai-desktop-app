@@ -129,6 +129,7 @@ description: "Task list for feature 023 — Python & R script calling"
 - [x] T045 Verify deny-mode prompt parity — snapshot test in tests/llama/plan-prompt.test.ts (or a new tests/llama/prompt.test.ts) asserting the injected block is absent/byte-identical when `settings.scripts.mode === "deny"` (mirrors FR-012 precedent)
 - [x] T046 Walk quickstart.md scenarios S1–S7 against the dev app with real python3 (+ Rscript where available); file follow-ups for anything off-spec
 - [x] T047 Update AGENTS.md with the scripts feature entry (surfaces, settings key, audit file, runner location)
+- [ ] T048 Map SC-001…SC-009 to evidence (tests, `benchmark.md` for SC-009, T046 walkthrough) in a `validation.md`; SC-001 (2 min) and SC-004 (timeout UX) are manual checks
 
 ---
 

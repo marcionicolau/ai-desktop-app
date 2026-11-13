@@ -78,6 +78,7 @@
 - [X] T015 [P] Update `AGENTS.md` workspace module map entry: `TabBar`/`WorkspaceTabs` → `WorkspaceAccordion`/`use-workspace-items`/`components/ui/accordion.tsx`
 - [X] T016 Run full gates: `bunx tsc --noEmit`, `bun test ./tests`, `bun run lint`, `bun run build:renderer` — all green (lint may keep pre-existing warnings)
 - [ ] T017 Live-validate `quickstart.md` S1–S9 in `bun run dev`; record results in `specs/020-tabs-accordion-ux/validation.md` (animation smoothness, state preservation, keyboard nav, crash badge, reduced-motion if settable)
+- [ ] T018 Map SC-001…SC-004 to evidence in `validation.md` (T017 output); SC-001 (<300 ms) and SC-004 (reduced-motion) are manual/hardware checks — note how each was observed
 
 ---
 
