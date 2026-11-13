@@ -60,3 +60,15 @@ lane steps mirror the verified local flow + `upload-artifact`.
 |-------|--------|-------|
 | T016 fresh-worktree `just package` | ✅ PASS | `git worktree` at HEAD: submodule init → `bun install` → `electrobun prepare` → `just package` → `verify-artifact: PASS` in 2m28s |
 | T015 packaged smoke incl. chat turn | ⏳ open | Needs a manual GUI pass — launch + bundled lib resolution verified |
+
+## Packaged smoke run — 2026-11-13 (linux-x64, partial)
+
+| Checklist step | Result | Notes |
+|----------------|--------|-------|
+| `bun run package` | ✅ PASS | 83 s; `verify-artifact: PASS` for `build/canary-linux-x64/Causerie-canary` |
+| 1. Launch, no native-load error | ◐ partial | Self-extractor installed; app process (`Resources/main.js`) stayed up for 20 s and wrote `settings.json` + `kv/` to the data dir. Window presence not confirmed (no window-listing tool in the session) |
+| 2. Model select → ready | ⏳ not run | `MODELS_DIR` pointed at `models/`, but no model load was driven |
+| 3. Send message → tokens stream | ⏳ not run | Needs GUI interaction |
+| 4. Clean exit on window close | ⏳ not run | App was stopped by `timeout` (SIGTERM), not a window close |
+
+T015 stays open: steps 2–4 still need a manual GUI pass.
