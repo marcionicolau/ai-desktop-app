@@ -315,7 +315,7 @@ export function SidebarMenuButton({
       data-slot="sidebar-menu-button"
       data-active={isActive}
       className={cn(
-        "flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm outline-none transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+        "flex min-h-(--hit-min) w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm outline-none transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring active:bg-sidebar-accent/80 disabled:pointer-events-none disabled:opacity-50 aria-busy:cursor-progress aria-busy:opacity-70",
         "data-[active=true]:bg-sidebar-accent data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground",
         state === "collapsed" && "justify-center p-2 [&>span:last-child]:hidden",
         "[&_svg]:size-4 [&_svg]:shrink-0",
@@ -366,7 +366,7 @@ export function SidebarMenuSubButton({
       data-slot="sidebar-menu-sub-button"
       data-active={isActive}
       className={cn(
-        "flex w-full items-center gap-2 overflow-hidden rounded-md px-2 py-1 text-left text-sm outline-none transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+        "flex min-h-(--hit-min) w-full items-center gap-2 overflow-hidden rounded-md px-2 py-1 text-left text-sm outline-none transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring active:bg-sidebar-accent/80 disabled:pointer-events-none disabled:opacity-50 aria-busy:cursor-progress aria-busy:opacity-70",
         "data-[active=true]:bg-sidebar-accent data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground",
         className,
       )}

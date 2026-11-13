@@ -46,7 +46,7 @@ export function ScriptsPage() {
       </div>
 
       {/* runtime health row (T036) */}
-      <div className="flex gap-3">
+      <div className="flex flex-wrap gap-3">
         {runtimes.map((r) => (
           <div
             key={r.kind}
@@ -91,7 +91,7 @@ export function ScriptsPage() {
             >
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="font-mono text-sm">{s.id}</span>
+                  <span className="truncate font-mono text-sm" title={s.id}>{s.id}</span>
                   <RuntimeBadge item={s} />
                   {!s.enabled && <Badge variant="outline">disabled</Badge>}
                 </div>

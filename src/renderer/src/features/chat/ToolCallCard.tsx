@@ -132,7 +132,10 @@ function Card({ record, block }: { record?: ToolCallRecord; block: ToolBlock }) 
         </div>
       )}
       {record?.resultPreview && (
-        <p className="mt-1.5 truncate text-muted-foreground">
+        <p
+          className="mt-1.5 truncate text-muted-foreground"
+          title={record.resultPreview}
+        >
           {record.resultPreview}
         </p>
       )}

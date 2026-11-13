@@ -2,6 +2,7 @@
 // Contract: specs/026-ux-interface-overhaul/contracts/feedback.md
 // A thin policy layer over Sonner — success auto-dismisses, errors persist
 // and may carry a recovery action, progress toasts update in place.
+import { createElement } from "react";
 import { toast, type ExternalToast } from "sonner";
 
 export interface NoticeAction {
@@ -26,6 +27,14 @@ export interface ToastSink {
 
 export const SUCCESS_MS = 4000;
 
+// FR-018: a long error/detail must not blow the toast open — clamp it and
+// keep the full text on the element's title so hover reveals it
+export const MAX_DESC = 240;
+function desc(text: string): ExternalToast["description"] {
+  if (text.length <= MAX_DESC) return text;
+  return createElement("span", { title: text, className: "line-clamp-3" }, text);
+}
+
 export interface ProgressHandle {
   update(percent: number): void;
   done(title: string): void;
@@ -34,7 +43,7 @@ export interface ProgressHandle {
 
 function toExternal(opts: NoticeOptions | undefined): ExternalToast {
   const out: ExternalToast = {};
-  if (opts?.description) out.description = opts.description;
+  if (opts?.description) out.description = desc(opts.description);
   if (opts?.action) {
     const { label, run } = opts.action;
     out.action = { label, onClick: () => run() };

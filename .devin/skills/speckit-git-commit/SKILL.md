@@ -27,17 +27,7 @@ This command is invoked as a hook after (or before) core commands. It:
 Controlled by the `commit_style` key in `.specify/extensions/git/git-config.yml`:
 
 - **`fixed`** (default): use the per-command `message` if configured, otherwise a generic `[Spec Kit] Auto-commit <phase> <command>` message.
-- **`conventional`**: inspect the actual changes since the last commit and generate a single-line [Conventional Commit](https://www.conventionalcommits.org/) message that accurately summarizes the change. Write this message to a temporary file and pass the file's path to the script (see Execution below). The configured `message` values are ignored in this mode.
-
-### Pertinent message pattern (`conventional` mode)
-
-Before running the script, gather context with `git status --short` and `git diff HEAD --stat` (plus `git diff` on the key files when the stat output is ambiguous), then compose `type(scope): subject`:
-
-- **type** — from the dominant change: `feat` (new spec/code/behavior), `docs` (spec/plan/tasks/markdown only), `fix`, `refactor`, `chore` (config/tooling), `test`, `build`.
-- **scope** — the most specific stable context available, in priority order: feature directory name without the numeric prefix (e.g. `electrobun-v2-upgrade` for `specs/002-electrobun-v2-upgrade/`), else the dominant top-level directory or package (`renderer`, `bun`, `hutch`), else omit the scope.
-- **subject** — imperative, ≤72 chars, naming the artifact or behavior changed (e.g. "add llama engine RPC handlers", "document hutch dev script contract") — not the event name. If the change is task-scoped, reference the task IDs in the body or trailer, not the subject.
-
-Examples: `docs(electrobun-v2-upgrade): update hutch config contract for sh -c dev script`, `feat(chat): wire streaming responses through RPC`, `chore(hutch): pin electrobun 2.0.6 toolchain`.
+- **`conventional`**: inspect the actual changes (`git diff` / `git status`) since the last commit and generate a single-line [Conventional Commit](https://www.conventionalcommits.org/) message (`type(scope): subject`, e.g. `feat: add OAuth specification` or `docs: update implementation plan`) that accurately summarizes the change. Write this message to a temporary file and pass the file's path to the script (see Execution below). The configured `message` values are ignored in this mode.
 
 ## Execution
 

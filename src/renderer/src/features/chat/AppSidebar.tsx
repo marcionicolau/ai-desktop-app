@@ -1,6 +1,7 @@
 // feature 021 (US4): sidebar-05 app shell — collapsible nav groups for
 // conversations and extensions, plus a footer for app-level surfaces.
 // The conversation list itself lives in ConversationNav (ex-Sidebar).
+import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
 import { isMacPlatform, shortcutLabel } from "@/lib/actions";
@@ -21,6 +22,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { ConversationNav } from "./ConversationNav";
 import { ThemeSettings } from "../settings/ThemeSettings";
@@ -101,6 +103,29 @@ export function AppSidebar({
   const extTabs = workspaceTabs.filter(
     (t) => t.kind === "ext" || t.kind === "pack",
   );
+
+  // FR-015: fold to the icon rail on compact windows. The collapse applies
+  // once per crossing, so a manual re-expand at the same width is kept
+  // until the window is widened and narrowed again.
+  const { setOpen } = useSidebar();
+  const autoRail = useRef(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 896px)");
+    const apply = () => {
+      if (mq.matches) {
+        if (!autoRail.current) {
+          autoRail.current = true;
+          setOpen(false);
+        }
+      } else {
+        autoRail.current = false;
+      }
+    };
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, [setOpen]);
+
   return (
     <Sidebar>
       <SidebarHeader>

@@ -198,6 +198,23 @@
       scroll-behavior: auto !important;
     }
   }
+
+  /* FR-017: forced colors (Windows High Contrast et al.) — the UA replaces
+     the palette with system colors, so borders and the focus ring move to
+     the matching system keywords to stay visible (research.md R6) */
+  @media (forced-colors: active) {
+    :root {
+      --border: ButtonBorder;
+      --input: ButtonBorder;
+      --ring: Highlight;
+      --sidebar-border: ButtonBorder;
+      --sidebar-ring: Highlight;
+    }
+
+    :where(a, button, summary, select, input, textarea, [tabindex]):focus-visible {
+      outline-color: Highlight;
+    }
+  }
 }
 
 .typeset-docs {

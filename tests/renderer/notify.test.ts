@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { createNotify, SUCCESS_MS, type ToastSink } from "../../src/renderer/src/lib/notify";
+import { isValidElement, type ReactElement } from "react";
+import { createNotify, MAX_DESC, SUCCESS_MS, type ToastSink } from "../../src/renderer/src/lib/notify";
 
 // records every sink call so the policy (durations, persistence, in-place
 // progress updates, recovery actions) can be asserted without a DOM
@@ -63,6 +64,18 @@ describe("notify policy", () => {
     expect(calls[1]).toMatchObject({ kind: "error" });
     expect(calls[1]!.opts!.id).toBe("dl-2");
     expect(calls[1]!.opts!.duration).toBe(Infinity);
+  });
+
+  test("a long description is clamped with the full text on the title", () => {
+    const { sink, calls } = fakeSink();
+    const long = "x".repeat(MAX_DESC + 50);
+    createNotify(sink).error("Import failed", { description: long });
+    const d = calls[0]!.opts!.description;
+    expect(isValidElement(d)).toBe(true);
+    const el = d as ReactElement<{ title: string; className: string; children: string }>;
+    expect(el.props.title).toBe(long);
+    expect(el.props.children).toBe(long);
+    expect(el.props.className).toContain("line-clamp");
   });
 
   test("several notices are independent calls (stacking is the host's job)", () => {
