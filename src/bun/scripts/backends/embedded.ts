@@ -30,13 +30,16 @@ export function findLibpython(): string | null {
 // vendored shim built beside the llama shim
 export function findShim(): string | null {
   const plat = `${process.platform === "darwin" ? "macos" : "linux"}-${process.arch === "arm64" ? "arm64" : "x64"}`;
-  const base = join(import.meta.dir, "../../../../native/out", plat);
-  const cands = [
+  const bases = [
+    join(import.meta.dir, "../../../../native/out", plat), // unbundled
+    join(process.cwd(), "native", "out", plat), // dev layout (ffi.ts precedent)
+  ];
+  const cands = bases.flatMap((base) => [
     join(base, "libscript_shim.so"),
     join(base, "libscript_shim.dylib"),
     join(base, "script_shim.so"),
     join(base, "script_shim.dylib"),
-  ];
+  ]);
   return cands.find(existsSync) ?? null;
 }
 

@@ -21,7 +21,8 @@ const RUNNERS: Record<ScriptRuntimeKind, string> = {
 function runnerPath(rt: ScriptRuntimeKind): string {
   const name = RUNNERS[rt];
   const cands = [
-    resolve(import.meta.dir, "..", "runners", name), // dev layout
+    resolve(import.meta.dir, "..", "runners", name), // unbundled (tests, smoke)
+    resolve(process.cwd(), "src", "bun", "scripts", "runners", name), // dev layout
     resolve(
       process.execPath,
       "..",
