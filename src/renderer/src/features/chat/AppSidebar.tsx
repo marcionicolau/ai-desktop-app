@@ -36,7 +36,6 @@ interface Props {
   onDelete: (id: string) => void;
   onExport: (id: string, format: "markdown" | "json") => Promise<string | null>;
   onImport: () => Promise<string | null>;
-  onSelectHit: (conversationId: string, messageId: string) => void;
   // workspace panel items beyond the Chat entry (ext views + packs)
   workspaceTabs: WorkspaceTab[];
   selectedTabId: string;
@@ -87,7 +86,6 @@ export function AppSidebar({
   onDelete,
   onExport,
   onImport,
-  onSelectHit,
   workspaceTabs,
   selectedTabId,
   onSelectTab,
@@ -133,7 +131,6 @@ export function AppSidebar({
             onDelete={onDelete}
             onExport={onExport}
             onImport={onImport}
-            onSelectHit={onSelectHit}
           />
         </NavGroup>
         <NavGroup label="Extensions" defaultOpen>

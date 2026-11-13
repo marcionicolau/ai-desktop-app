@@ -18,6 +18,7 @@
 - Q: What is the pass bar for the before/after walkthrough time? → A: No task is slower than its recorded baseline and every checklist item passes; a percentage improvement target is not required.
 - Q: Can intermediate builds show a mixed old/new look? → A: Staged — the new palette and fonts apply app-wide first, then surfaces are reworked in slices that merge as they finish; only the release that closes this feature must have zero old-look leftovers.
 - Q: Which panels become resizable, and how are the duplicated chat controls resolved? → A: The sidebar, the Metrics panel and the split panes of the workspace are resizable; the chat's mode, model (planner/executor) and persona choices each get exactly one control in the header. The scripts list/editor split is out of scope here because feature 027 replaces that page with a sidebar area.
+- Q: Why were there two search boxes in the sidebar, and which stays? → A: The command palette trigger (`Ctrl/Cmd+K`) stays as the single search entry point; the separate sidebar chat-search input is removed. The palette keeps title filtering, message-content search and highlighted results (feature 007's behavior, now in the palette).
 - Q: How far does screen-reader support go? → A: Markup-level — correct landmarks, headings, labels, roles and live-region announcements for status and errors, verified by automated accessibility tooling and a manual pass on one OS; real screen-reader sessions on every OS are out of scope.
 
 ## User Scenarios & Testing *(mandatory)*

@@ -304,10 +304,6 @@ export function ChatPage() {
             return null;
           }
         }}
-        onSelectHit={(cid, mid) => {
-          select("chat");
-          void selectConversation(cid, mid);
-        }}
         workspaceTabs={tabs}
         selectedTabId={selectedId}
         onSelectTab={select}

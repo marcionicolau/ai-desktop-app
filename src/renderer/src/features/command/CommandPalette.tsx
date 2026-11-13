@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/command";
 import { IconChat } from "@/components/icons";
 import { invoke } from "@/lib/rpc";
+import { splitHighlight } from "./highlight";
 import { isMacPlatform, shortcutLabel, type ActionEntry } from "@/lib/actions";
 
 export interface PaletteModel {
@@ -193,8 +194,22 @@ export function CommandPalette({
                   <IconChat aria-hidden="true" />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm">{g.title || "Untitled chat"}</span>
-                    <span className="block truncate text-xs text-muted-foreground">
-                      {h.snippet}
+                    <span className="flex items-baseline gap-2 text-xs text-muted-foreground">
+                      <span className="min-w-0 flex-1 truncate">
+                        {(() => {
+                          const p = splitHighlight(h.snippet, h.matchStart, h.matchEnd);
+                          return (
+                            <>
+                              {p.before}
+                              <mark className="rounded-sm bg-warning/40 text-inherit">{p.match}</mark>
+                              {p.after}
+                            </>
+                          );
+                        })()}
+                      </span>
+                      <span className="shrink-0 text-2xs opacity-70">
+                        {new Date(h.timestamp).toLocaleDateString()}
+                      </span>
                     </span>
                   </span>
                 </CommandItem>

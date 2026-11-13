@@ -239,10 +239,12 @@ draft-side; `MessageList` renders `Message.attachments` chips (`·trunc` /
   matches surface as `{titleMatched, hits:[]}`.
 - Index freshness depends on `updatedAt` — every mutation (incl.
   `chat.done`/`chat.error` persists) must bump it.
-- Renderer: Sidebar search box (≥3 chars flips to results, 250 ms
-  debounce, seq-guard for stale responses, `<3` = title filter); hit
-  click → `selectConversation(cid, mid)` → `scrollTarget` →
-  `MessageList` `scrollIntoView` + 2 s ring flash.
+- Renderer: search lives in the command palette (feature 026, `Ctrl/Cmd+K`;
+  `features/command/CommandPalette.tsx`): titles filter instantly, ≥3 chars
+  also queries `search.query` (250 ms debounce, seq-guard for stale
+  responses) and shows highlighted snippets; selecting a hit →
+  `selectConversation(cid, mid)` → `scrollTarget` → `MessageList`
+  `scrollIntoView` + 2 s ring flash. The old sidebar search box was removed.
 
 ## Feature 010 — KV-state persistence
 

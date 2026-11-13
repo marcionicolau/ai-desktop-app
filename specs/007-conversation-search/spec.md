@@ -4,6 +4,8 @@
 
 **Created**: 2025-11-24
 
+**Amended (feature 026)**: the sidebar search box described below was replaced by the command palette (`Ctrl/Cmd+K`), which keeps title filtering, message-content search (≥ 3 characters, debounced), highlighted snippets and jump-to-message. Requirements about the search *behavior* still hold; those that name the sidebar box now refer to the palette.
+
 **Status**: Draft
 
 **Input**: User description: "Full-text search across all conversations — titles and message content; results grouped by conversation; jump to the matching message."
