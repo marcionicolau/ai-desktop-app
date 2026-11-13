@@ -33,12 +33,11 @@ States: empty (no script → New/Import CTAs), create, view/edit one script.
 - Header: id (title-truncated), language badge, `external` badge + path
   (title attr, truncated middle) for linked, `source missing` warning
   badge when `sourceState === "missing"` with a `Relink…` button (FR-016).
-- Body: `RunForm` (existing), params table, `ScriptEditor` (existing) —
-  linked sources render the editor read-only with an "Edit on disk at
-  <path>" hint? NO — FR-010 says "the user may type a corrected path" —
-  the Advanced section keeps the editable absolute-path field, and the
-  code pane stays editable (a linked script can still be converted to
-  stored on save via the existing upsert union).
+- Body: `RunForm` (existing), params table, code pane (FR-023: **read-only
+  for linked scripts**, showing the file's current content), `ScriptEditor`
+  metadata fields (id, params, enabled, timeout — editable in place). The
+  Advanced section keeps the editable absolute-path field for linked
+  scripts (FR-020); code changes happen on disk or via Copy import.
 - Breadcrumb (existing `features/workspace/breadcrumb.ts`):
   `Scripts › Python|R › <id>`; `Scripts` alone when nothing selected.
 

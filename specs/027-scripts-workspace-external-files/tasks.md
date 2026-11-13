@@ -91,7 +91,8 @@ offers New script / Import from file.
 - [ ] T006 [US1] Create `src/renderer/src/features/scripts/ScriptDetail.tsx`:
   surface body for `surface:scripts` — states empty (New/Import CTAs) /
   create / view one script with `RunForm` + params + `ScriptEditor`
-  (in-place edit, FR-004); header: id (title-truncated), language badge,
+  (in-place edit of metadata, FR-004; code pane **read-only for linked
+  scripts** per FR-023); header: id (title-truncated), language badge,
   `external` badge + path when `linked`
 - [ ] T007 [US1] Update `src/renderer/src/features/chat/AppSidebar.tsx`:
   add top-level `Scripts` NavGroup (Chats · Extensions · Scripts ·

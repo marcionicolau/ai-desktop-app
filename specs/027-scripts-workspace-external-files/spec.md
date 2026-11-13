@@ -14,6 +14,12 @@
 
 - Q: Should re-approval of a changed linked script apply even when the user chose to allow all script runs for the session? → A: Yes. The app always re-asks when the content changed, and the prompt offers "Approve changes to this script for this session" so the user can stop being asked while iterating on purpose.
 
+### Session 2026-04-01
+
+- Q: For a linked script, can the user edit its code inside the app, or is the code view read-only? → A: Read-only. In-place editing applies to id, params, enabled, timeout and the Advanced path field; code changes happen by editing the file on disk or by importing the file as a Copy.
+- Q: When is a linked script's content counted as "approved" for the content-changed check? → A: The file's content at the moment it is linked (picker import, Relink, or typed path) is the approved baseline; a re-prompt happens only when the content changes after that.
+- Q: What size limit applies to imported script files? → A: 2 MiB per file — the same bound applied to file attachments; larger files are rejected per file with a "too large" reason.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Scripts have their own space, grouped by language (Priority: P1)
@@ -103,16 +109,17 @@ As a user who linked a script, I can tell it is external, I am protected if it c
 - **FR-010**: Import MUST let the user choose Link or Copy for the batch; Link MUST be the default.
 - **FR-011**: A linked script MUST be read from its file at each run and whenever it is opened, so edits on disk are picked up without re-importing.
 - **FR-012**: A copied script MUST be stored in the library and MUST NOT change when the original file changes.
-- **FR-013**: Import MUST validate each file (readable, text, within the size limit that applies to stored scripts), import the valid ones even when others fail, and report each failure with the file name and reason.
+- **FR-013**: Import MUST validate each file (readable, text, at most 2 MiB), import the valid ones even when others fail, and report each failure with the file name and reason.
 - **FR-014**: Importing a file that is already linked MUST NOT create a duplicate and MUST tell the user which script it already is.
 - **FR-015**: Linked scripts MUST show an "external" badge and the file location wherever the script is listed or opened.
 - **FR-016**: When a linked script's file is missing or unreadable, the script MUST show a "source missing" state with a Relink action, a run MUST NOT be attempted, and a model- or pipeline-initiated invocation MUST receive a clear refusal stating the source is missing.
 - **FR-017**: Relinking MUST keep the script's id and settings and switch it to the newly chosen file.
-- **FR-018**: When a linked script's content differs from the content the user last approved, the next model- or pipeline-initiated run MUST ask for approval again, say that the content changed, and record the new content as approved only on consent. This applies even when the user has chosen to allow all script runs for the session. The prompt MUST offer "Approve changes to this script for this session", which suppresses further prompts for that script until the session ends.
+- **FR-018**: When a linked script's content differs from the content the user last approved, the next model- or pipeline-initiated run MUST ask for approval again, say that the content changed, and record the new content as approved only on consent. The file's content at the moment it is linked (picker import, Relink, or typed path) is the approved baseline. This applies even when the user has chosen to allow all script runs for the session. The prompt MUST offer "Approve changes to this script for this session", which suppresses further prompts for that script until the session ends.
 - **FR-019**: A manual run (the user clicked Run) MUST NOT require the extra approval, matching existing behavior; a run already in progress MUST use the content read when it started.
 - **FR-020**: The editor MUST keep the typed absolute-path field, under an Advanced section.
 - **FR-021**: Existing scripts MUST keep working after the change: stored scripts are grouped by language and scripts registered with an external path appear as linked.
 - **FR-022**: Execution isolation, timeouts, argument validation and the audit trail MUST be unchanged; the audit record MUST additionally say whether the script was linked or stored.
+- **FR-023**: For a linked script, the in-app code view MUST be read-only and MUST reflect the file's current content; "editing in place" (FR-004) applies to id, params, enabled, timeout and the Advanced path field. Code changes happen by editing the file on disk or by importing the file as a Copy.
 
 ### Key Entities
 
@@ -139,7 +146,7 @@ As a user who linked a script, I can tell it is external, I am protected if it c
 - Only Python and R are supported; no other languages are added.
 - "Edits on disk are picked up" means the file is read when the script is opened or run; the app does not watch files continuously.
 - Linked files are identified by absolute path; a moved or renamed file is recovered with Relink, not tracked automatically.
-- The size and text-encoding limits are the ones already applied to stored scripts.
+- The size limit for imported files is 2 MiB per file (the bound already applied to file attachments); the text-encoding limit is UTF-8 text — the same checks applied to stored scripts at save time.
 - Re-approval applies to model- and pipeline-initiated runs, which already require approval; user-initiated manual runs are unchanged.
 - The Linux file dialog goes through the existing external-dialog mechanism used for other pickers; macOS and Windows behavior follows the existing dialog contract.
 - Collapse state of language groups is remembered per window; it is a convenience and not required to survive a reinstall.
