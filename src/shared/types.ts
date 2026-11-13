@@ -156,12 +156,30 @@ export type SetupPhase =
   | "done"
   | "error";
 
+export type SetupTargetStatus =
+  | "pending"
+  | "downloading"
+  | "loading"
+  | "done"
+  | "error";
+
+// one row per model the bootstrap provisions, labeled with the role it
+// will be bound to — the setup screen renders these as its checklist
+export interface SetupTarget {
+  role: string;
+  fileName: string;
+  status: SetupTargetStatus;
+  downloadedBytes: number;
+  totalBytes: number | null;
+}
+
 export interface SetupState {
   phase: SetupPhase;
   fileName?: string;
   downloadedBytes: number;
   totalBytes: number | null;
   error?: string;
+  targets: SetupTarget[];
 }
 
 export interface Settings {

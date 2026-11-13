@@ -3,7 +3,12 @@ import { useEffect, useState } from "react";
 import { invoke, on } from "@/lib/rpc";
 import type { SetupState } from "@shared/types";
 
-const IDLE: SetupState = { phase: "idle", downloadedBytes: 0, totalBytes: null };
+const IDLE: SetupState = {
+  phase: "idle",
+  downloadedBytes: 0,
+  totalBytes: null,
+  targets: [],
+};
 
 const retry = () => void invoke("setup.retry", {}).catch(() => {});
 

@@ -14,6 +14,8 @@ import { ModelSelector } from "@/components/ai/model-selector";
 import { useRoles } from "../roles/use-roles";
 import { ModelLibrary } from "../models/ModelLibrary";
 import { SetupPanel } from "../setup/SetupPanel";
+import { SetupScreen } from "../setup/SetupScreen";
+import { useSetup } from "../setup/use-setup";
 import { decideStartupPrompt } from "./startup-prompt";
 import { ToolSettings } from "../settings/ToolSettings";
 import { UpdatesSection } from "../settings/UpdatesSection";
@@ -100,6 +102,11 @@ export function ChatPage() {
   // status — never during "loading", never again this session (FR-001/4/6)
   const startupEval = useRef(false);
   const [startupPrompted, setStartupPrompted] = useState(false);
+  // feature 022: full-screen setup gate while the bootstrap downloads/
+  // loads a model; "skip" dismisses it for the session — the library
+  // (models surface) stays the manual fallback
+  const [setupSkipped, setSetupSkipped] = useState(false);
+  const { state: setupState, retry: retrySetup } = useSetup();
   useEffect(() => {
     const d = decideStartupPrompt({
       hydrated: state.modelStatusHydrated,
@@ -440,6 +447,16 @@ export function ChatPage() {
           )}
         </div>
       </SidebarInset>
+      {!setupSkipped &&
+        (setupState.phase === "downloading" ||
+          setupState.phase === "loading" ||
+          setupState.phase === "error") && (
+          <SetupScreen
+            state={setupState}
+            onRetry={retrySetup}
+            onSkip={() => setSetupSkipped(true)}
+          />
+        )}
     </SidebarProvider>
   );
 }
