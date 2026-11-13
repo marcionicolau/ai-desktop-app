@@ -4,7 +4,7 @@ import { computeVersion } from "./scripts/version";
 export default {
   app: {
     name: "Causerie",
-    identifier: "dev.local.ai-desktop-app",
+    identifier: "dev.local.causerie",
     // semver derived from git (scripts/version.ts) — no manual bumps
     version: computeVersion(),
   },
