@@ -2,7 +2,7 @@
 // defined in specs/001-desktop-ai-chat/contracts/ffi.md.
 import { CString, FFIType, dlopen, ptr, read } from "bun:ffi";
 import { existsSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 
 const LIB_BASENAME = "llama_shim";
 
@@ -62,6 +62,9 @@ export interface LlamaShimSymbols {
   lls_generate_end(ctx: number): void;
   lls_gguf_meta(path: string, err: number): number | null;
   lls_free_string(s: number): void;
+  // absent on stale shims — backend probing then falls back to ggml's
+  // default exe-dir + cwd search inside ensure_backend()
+  lls_backend_init?(dir: string): void;
   // feature 010: absent on stale shims — snapshot layer no-ops then
   lls_state_save?(ctx: number, path: string, err: number): number;
   lls_state_load?(ctx: number, path: string, err: number): number;
@@ -107,6 +110,9 @@ export function loadLlamaShim() {
   // feature 010: prefer the state symbols; a stale shim that lacks
   // them still loads without (snapshot layer then no-ops)
   const stateSyms = {
+    // packaging fix: probes dynamic ggml backends beside the shim
+    // (GGML_BACKEND_DL variants); stale shims fall back to base
+    lls_backend_init: { args: [FFIType.cstring], returns: FFIType.void },
     lls_state_save: {
       args: [FFIType.ptr, FFIType.cstring, FFIType.ptr],
       returns: FFIType.i32,
@@ -117,10 +123,19 @@ export function loadLlamaShim() {
     },
   } as const;
   let lib: ReturnType<typeof dlopen>;
+  let hasInit = false;
   try {
     lib = dlopen(libPath, { ...base, ...stateSyms });
+    hasInit = true;
   } catch {
     lib = dlopen(libPath, base);
+  }
+  if (hasInit) {
+    // variant libs sit next to libllama_shim — point ggml at that dir
+    // (exe-dir + cwd search inside llama finds nothing in a bundle)
+    (lib.symbols as unknown as LlamaShimSymbols).lls_backend_init?.(
+      dirname(libPath),
+    );
   }
 
   return { lib, path: libPath, symbols: lib.symbols as unknown as LlamaShimSymbols };

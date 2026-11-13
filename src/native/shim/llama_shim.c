@@ -4,6 +4,7 @@
 #include "llama_shim.h"
 
 #include "llama.h"
+#include "ggml-backend.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -49,11 +50,23 @@ static void kv_append(lls_ctx * c, llama_token t) {
     c->kv_tokens[c->kv_count++] = t;
 }
 
-static void ensure_backend(void) {
-    if (!backend_ready) {
-        llama_backend_init();
-        backend_ready = 1;
+// feature 022 packaging fix: dynamic ggml CPU backends live next to
+// this shim, not next to the bun exe, so llama's own pathless
+// load_all() would miss them — the TS side passes the shim's dir here.
+// A NULL/empty dir falls back to ggml's default exe-dir + cwd search.
+void lls_backend_init(const char * dir) {
+    if (backend_ready) return;
+    if (dir != NULL && dir[0] != '\0') {
+        ggml_backend_load_all_from_path(dir);
+    } else {
+        ggml_backend_load_all();
     }
+    llama_backend_init();
+    backend_ready = 1;
+}
+
+static void ensure_backend(void) {
+    lls_backend_init(NULL);
 }
 
 const char * lls_version(void) {
