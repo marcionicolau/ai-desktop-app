@@ -22,7 +22,7 @@ $ cz-host --module /path/libcz_python.so --interpreter /path/python3 --lib /path
 ```
 Bun→ {"id":"run-42","protocol":1,"op":"run","path":"/abs/tool.py",
       "args":{"n":3},"input":null,"cwd":"/data/script-runs/run-42",
-      "expected_sha256":"abc…","limits":{"cpu_s":0,"mem_bytes":1610612736,
+      "expected_sha256":"abc…","limits":{"mem_bytes":1610612736,
       "output_bytes":262144}}
 
 → {"id":"run-42","outcome":"ok","value":"9",
@@ -37,6 +37,9 @@ Bun→ {"id":"run-42","protocol":1,"op":"run","path":"/abs/tool.py",
   `outcome` outside the enum ⇒ treated as `host_fault`.
 - Size caps apply on the wire: `stdout`/`stderr` strings ≤ `output_bytes`
   (+ a `truncated:true` marker key in the response when clipped, FR-012).
+- Captured output is raw bytes; bytes that are not valid UTF-8 are decoded
+  lossy (`U+FFFD` substitution) before serialization — the wire is JSON
+  strings, never base64 (spec edge case: non-text output is marked, not fatal).
 
 ## Cancel & escalation
 

@@ -15,7 +15,7 @@ Field names are wire names (snake_case on the wire, camelCase in `shared/types.t
 | `input` | string | — | raw text for paramless scripts |
 | `cwd` | string | ✓ | per-run working dir (files produced land here) |
 | `expected_sha256` | string | — | when set and file bytes differ → `content_changed` (FR-005) |
-| `limits` | object | — | `{cpu_s?, mem_bytes?, output_bytes?}` — host-side rlimits/caps (FR-012) |
+| `limits` | object | — | `{mem_bytes?, output_bytes?}` — host-side rlimits/caps (FR-012) |
 
 ## RunResult (host → Bun, one NDJSON line)
 
@@ -27,6 +27,7 @@ Field names are wire names (snake_case on the wire, camelCase in `shared/types.t
 | `error` | object | `{type, message, traceback, file, line}` — `file`/`line` where the language provides them (FR-003) |
 | `stdout` / `stderr` | string | both in-language AND fd-level writes captured (FR-015); truncated+marked over `output_bytes` |
 | `files` | string[] | names produced inside `cwd` |
+| `truncated` | boolean | `true` when `stdout`/`stderr` were clipped at `output_bytes` |
 | `content_sha256` | string | hash of the exact bytes executed (FR-004) |
 | `duration_ms` | number | host-measured |
 

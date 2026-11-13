@@ -28,15 +28,19 @@ cleanup. Linux-only first release; `bun test ./tests` must stay green.
   `expectedFingerprint?` + `limits?`; `ScriptCallResult` gains `outcome`,
   `contentSha256`, `error{type,message,traceback,file,line}`, `method`,
   `methodReason`; `kind` → `"subprocess" | "host"`. Update
-  `backends/subprocess.ts` to hash `path` bytes itself (keeps the fallback
-  fingerprint-parity) and `service.ts`/`session.ts` call sites to pass the
+  `backends/subprocess.ts` to read + hash `path` bytes itself (keeps
+  fingerprint-parity; note: the read-then-run race persists on the fallback
+  path by design — the runner still receives text, which FR-019 accepts as
+  "no loss of function") and `service.ts`/`session.ts` call sites to pass the
   file path + `approvedFingerprint`. Update all existing tests that build
   requests.
 - [ ] T005 Implement `src/native/script-host/cz-host.c` core: `dlopen` the
   module passed via `--module`, `dlsym` the ABI, emit the ready line
   `{"protocol":1,"abi":1,"language":…,"ready":true}` (protocol.md), then a
-  read-line/dispatch loop calling `cz_run_file` and serializing the result
-  accessors to JSON (built in C — no external deps). Reject module/ABI
+  read-line/dispatch loop: minimal JSON request parser (path/args/input/
+  cwd/expected_sha256/limits → cz_request; args object → `k=v` argv pairs)
+  plus `cz_run_file` and JSON serialization of the result accessors (all
+  in C — no external deps). Reject module/ABI
   mismatch at start-up with a nonzero exit + message (FR-009).
 
 ## Phase 3: US1 — scripts run from their file, in place (P1)
@@ -79,7 +83,7 @@ mismatch error, no runs.
 interrupt ≤100 ms; forced stop after 2 s grace; 0 hosts after app kill.
 
 - [ ] T011 [US3] cz-host.c limits + signals: `RLIMIT_AS` (mem_bytes, 0 =
-  unlimited default) + `RLIMIT_CPU` before run; `PR_SET_PDEATHSIG`;
+  unlimited default) before run; `PR_SET_PDEATHSIG`;
   `SIGINT` → `cz_interrupt()`; run scripts in a process-group-aware way so
   the Bun side can signal the group; fd 1/2 capture pipes → merged into
   `stdout`/`stderr` fields with `output_bytes` truncation + `truncated`
@@ -115,7 +119,9 @@ notice; `backend:"host"` pin works.
 - [ ] T015 [US5] `src/bun/scripts/runtimes.ts`: probe interpreter once for
   `sysconfig` `LIBDIR`/`INSTSONAME` + version ≥3.14 → `hostUsable` flag +
   reason (`"python-3.11"`, `"no-libpython"`, …); R usable iff `libcz_r`
-  module + `libR` present.
+  module + `libR` present. A change to the configured interpreter path for a
+  language MUST reset that language's host before the next `ensure()`
+  (spec edge case: two interpreters of the same language).
 - [ ] T016 [US5] Wire `backends/host.ts` into `session.ts` backend selection:
   `"auto"` → host when `hostUsable` else subprocess; `"host"`/`"subprocess"`
   pin; stored `embedded` migrates to `auto` (settings load shim);

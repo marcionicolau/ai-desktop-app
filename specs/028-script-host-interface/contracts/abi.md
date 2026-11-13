@@ -23,7 +23,6 @@ typedef struct {
   const char *input;           /* raw text arg (paramless scripts), may be NULL */
   const char *cwd;             /* per-run working dir */
   const char *expected_sha256; /* NULL → no fingerprint check */
-  long  cpu_s;                 /* 0 = unlimited */
   long  mem_bytes;             /* 0 = unlimited */
   long  output_bytes;          /* 0 = default cap */
 } cz_request;
