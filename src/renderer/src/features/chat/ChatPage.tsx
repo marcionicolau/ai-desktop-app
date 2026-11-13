@@ -208,6 +208,7 @@ export function ChatPage() {
         onOpenLibrary={() => select("surface:models")}
         onOpenPersonas={() => select("surface:personas")}
         onOpenRoles={() => select("surface:roles")}
+        onOpenScripts={() => select("surface:scripts")}
         onOpenSettings={() => select("surface:settings")}
         onManageExtensions={() => select("surface:extensions")}
       />

@@ -22,7 +22,7 @@ import {
 import { ConversationNav } from "./ConversationNav";
 import { ThemeSettings } from "../settings/ThemeSettings";
 import { cn } from "@/lib/utils";
-import { ChevronDown, Library, Settings2, Tags, Users } from "lucide-react";
+import { ChevronDown, FileCode2, Library, Settings2, Tags, Users } from "lucide-react";
 
 interface Props {
   conversations: ConversationSummary[];
@@ -45,6 +45,7 @@ interface Props {
   onOpenLibrary: () => void;
   onOpenPersonas: () => void;
   onOpenRoles: () => void;
+  onOpenScripts: () => void;
   onOpenSettings: () => void;
   onManageExtensions: () => void;
 }
@@ -89,6 +90,7 @@ export function AppSidebar({
   onOpenLibrary,
   onOpenPersonas,
   onOpenRoles,
+  onOpenScripts,
   onOpenSettings,
   onManageExtensions,
   crashedTabIds,
@@ -201,6 +203,17 @@ export function AppSidebar({
               >
                 <Tags className="size-4" />
                 <span>Roles</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                isActive={selectedTabId === "surface:scripts"}
+                tooltip="Python &amp; R scripts"
+                onClick={onOpenScripts}
+                className="h-8"
+              >
+                <FileCode2 className="size-4" />
+                <span>Scripts</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
