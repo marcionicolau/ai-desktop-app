@@ -504,3 +504,15 @@
     margin-block-start: 0;
   }
 }
+
+/* feature 026 (formatting fix): chat models — small ones especially — emit
+   plain text with single newlines, e.g. "Structure: 1. … \n2. …". Markdown
+   folds a single newline inside a paragraph into a space, which flattened
+   those answers into one run-on line. pre-line keeps the author's line
+   breaks (and still collapses repeated spaces). Scoped to paragraphs so the
+   newline text nodes between block elements add no blank gaps. */
+@layer components {
+  .typeset :where(p) {
+    white-space: pre-line;
+  }
+}
