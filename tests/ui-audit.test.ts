@@ -79,7 +79,7 @@ const ENFORCED = new Set<string>([
   "font-sizes", // enforced since T019
   "icon-sizes", // enforced since T019
   "overlays", // enforced since T031
-  // pending: "native-controls" (T048)
+  "native-controls", // enforced since T051
 ]);
 
 function check(rule: string, offenders: string[]) {

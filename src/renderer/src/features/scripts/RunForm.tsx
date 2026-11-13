@@ -1,5 +1,10 @@
 // feature 023 (T030): manual run — declared-params form, captured
 // result view (stdout/stderr/exit/duration), produced files.
+import { SelectField } from "@/components/select-field";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
+import { Textarea } from "@/components/ui/textarea";
+import { validateRunArgs } from "./script-rules";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { IconError } from "@/components/icons";
 import { useState } from "react";
@@ -18,6 +23,8 @@ export function RunForm({ scripts }: { scripts: ScriptListItem[] }) {
   const [busy, setBusy] = useState(false);
 
   const entry = scripts.find((s) => s.id === id);
+  const argErrors = validateRunArgs(entry?.params ?? [], values);
+  const hasArgErrors = Object.keys(argErrors).length > 0;
 
   const buildArgs = () => {
     const out: Record<string, unknown> = {};
@@ -59,44 +66,81 @@ export function RunForm({ scripts }: { scripts: ScriptListItem[] }) {
     <div className="space-y-3 rounded-md border p-4">
       <h2 className="text-sm font-medium">Run a script</h2>
       <div className="flex items-center gap-2">
-        <select
-          className="h-9 rounded-md border bg-transparent px-2 text-sm"
-          value={id}
-          onChange={(e) => {
-            setId(e.target.value);
-            setValues({});
-            setRecord(null);
-          }}
-        >
-          {scripts.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.id}
-            </option>
-          ))}
-        </select>
-        <Button size="sm" disabled={busy || !id} onClick={() => void go()}>
+        <div className="flex-1">
+          <label htmlFor="run-script" className="sr-only">Script to run</label>
+          <SelectField
+            id="run-script"
+            value={id}
+            options={scripts.map((s) => ({ value: s.id, label: s.id }))}
+            onValueChange={(v) => {
+              setId(v);
+              setValues({});
+              setRecord(null);
+            }}
+          />
+        </div>
+        <Button size="sm" disabled={busy || !id || hasArgErrors} aria-busy={busy} onClick={() => void go()}>
           {busy ? "Running…" : "Run"}
         </Button>
       </div>
-      {entry?.params.map((p) => (
-        <label key={p.name} className="block space-y-1 text-sm">
-          <span className="text-muted-foreground">
+      {entry?.params.map((p) => {
+        const err = argErrors[p.name];
+        const fid = `run-${p.name}`;
+        const label = (
+          <FieldLabel htmlFor={fid}>
             {p.name}
-            <span className="ml-1 text-xs">({p.type}{p.required ? ", required" : ""})</span>
-          </span>
-          <Input
-            value={values[p.name] ?? ""}
-            onChange={(e) =>
-              setValues((v) => ({ ...v, [p.name]: e.target.value }))
-            }
-          />
-        </label>
-      ))}
+            <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+              {p.type}
+              {p.required ? ", required" : ""}
+            </span>
+          </FieldLabel>
+        );
+        return (
+          <Field key={p.name} data-invalid={err ? true : undefined}>
+            {p.type === "bool" ? (
+              <label htmlFor={fid} className="flex items-center gap-2 text-sm font-medium">
+                <Checkbox
+                  id={fid}
+                  checked={values[p.name] === "true"}
+                  onCheckedChange={(v) => setValues((o) => ({ ...o, [p.name]: v === true ? "true" : "false" }))}
+                />
+                {p.name}
+                <span className="text-xs font-normal text-muted-foreground">{p.required ? "required" : "optional"}</span>
+              </label>
+            ) : p.type === "json" ? (
+              <>
+                {label}
+                <Textarea
+                  id={fid}
+                  className="min-h-20 font-mono text-xs"
+                  value={values[p.name] ?? ""}
+                  placeholder='{"key": "value"}'
+                  aria-invalid={err ? true : undefined}
+                  onChange={(e) => setValues((o) => ({ ...o, [p.name]: e.target.value }))}
+                />
+              </>
+            ) : (
+              <>
+                {label}
+                <Input
+                  id={fid}
+                  value={values[p.name] ?? ""}
+                  inputMode={p.type === "number" ? "decimal" : undefined}
+                  aria-invalid={err ? true : undefined}
+                  onChange={(e) => setValues((o) => ({ ...o, [p.name]: e.target.value }))}
+                />
+              </>
+            )}
+            {err && <FieldError>{err}</FieldError>}
+          </Field>
+        );
+      })}
       {entry && entry.params.length === 0 && (
-        <label className="block space-y-1 text-sm">
-          <span className="text-muted-foreground">Input (raw text)</span>
-          <Input value={input} onChange={(e) => setInput(e.target.value)} />
-        </label>
+        <Field>
+          <FieldLabel htmlFor="run-input">Input</FieldLabel>
+          <Input id="run-input" value={input} onChange={(e) => setInput(e.target.value)} />
+          <FieldDescription>Plain text the script receives as INPUT.</FieldDescription>
+        </Field>
       )}
       {error && (
         <Alert variant="destructive">

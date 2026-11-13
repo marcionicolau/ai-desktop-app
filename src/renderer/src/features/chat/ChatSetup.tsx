@@ -1,6 +1,6 @@
 // feature 026 (FR-023, FR-024): the single place where a chat's mode, models
 // and persona are chosen. Replaces the header pills + second FusionControls
-// bar + native persona <select> that repeated the same choices.
+// bar + native persona dropdown that repeated the same choices.
 import { useEffect, useState } from "react";
 import type { FusionAdvise } from "@shared/types";
 import { ModelSelector, type ModelOption } from "@/components/ai/model-selector";

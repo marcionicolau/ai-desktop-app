@@ -1,5 +1,5 @@
 // feature 026 (FR-013): shadcn Select with a plain options API, replacing
-// native <select>. Radix Select forbids an empty-string item value, so ""
+// native select elements. Radix Select forbids an empty-string item value, so ""
 // (commonly "none"/"inherit") is mapped to a sentinel and back.
 import {
   Select,

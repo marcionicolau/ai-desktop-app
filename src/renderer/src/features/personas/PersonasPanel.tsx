@@ -2,6 +2,14 @@
 // surface, mirroring RolesPanel. Personas carry a system prompt, optional
 // generation overrides and a preferred tag; snippets are composer "/"
 // insert fragments.
+import { useId, useRef } from "react";
+import { SelectField } from "@/components/select-field";
+import { Badge } from "@/components/ui/badge";
+import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { ParamField } from "../settings/ParamField";
+import { specFor } from "../settings/param-spec";
+import { useUnsavedGuard } from "../settings/use-unsaved-guard";
+import { MAX_PROMPT_BYTES, validatePersonaDraft, validateSnippet } from "./persona-rules";
 import { confirm } from "@/lib/confirm";
 import { useState } from "react";
 import { IconAdd, IconCopy, IconDelete, IconEdit, IconUsers } from "@/components/icons";
@@ -227,35 +235,54 @@ export function PersonasPanel() {
             </div>
           ))}
         </div>
-        <div className="flex items-center gap-2">
-          <Input
-            placeholder="snippet-name"
-            value={snip.name}
-            onChange={(e) => setSnip({ ...snip, name: e.target.value })}
-            className="h-8 w-40 text-xs"
-          />
-          <Input
-            placeholder="Text inserted by /name…"
-            value={snip.text}
-            onChange={(e) => setSnip({ ...snip, text: e.target.value })}
-            className="h-8 flex-1 text-xs"
-          />
-          <Button
-            size="sm"
-            disabled={!snip.name.trim() || !snip.text.trim()}
-            onClick={() =>
-              run(async () => {
-                await upsertSnippet({
-                  name: snip.name.trim(),
-                  text: snip.text,
+        {(() => {
+          const errs = validateSnippet(snip.name, snip.text);
+          const nameErr = snip.name !== "" ? errs.name : undefined;
+          const textErr = snip.text !== "" ? errs.text : undefined;
+          const valid = Object.keys(errs).length === 0;
+          return (
+            <form
+              className="flex flex-wrap items-start gap-3"
+              aria-label="New snippet"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!valid) return;
+                run(async () => {
+                  await upsertSnippet({ name: snip.name.trim(), text: snip.text });
+                  setSnip({ name: "", text: "" });
                 });
-                setSnip({ name: "", text: "" });
-              })
-            }
-          >
-            <IconAdd className="size-3.5" /> Add
-          </Button>
-        </div>
+              }}
+            >
+              <Field className="w-44" data-invalid={nameErr ? true : undefined}>
+                <FieldLabel htmlFor="snippet-name">Snippet name</FieldLabel>
+                <Input
+                  id="snippet-name"
+                  placeholder="fix-bug"
+                  value={snip.name}
+                  onChange={(e) => setSnip({ ...snip, name: e.target.value })}
+                  aria-invalid={nameErr ? true : undefined}
+                  className="text-sm"
+                />
+                {nameErr && <FieldError>{nameErr}</FieldError>}
+              </Field>
+              <Field className="min-w-48 flex-1" data-invalid={textErr ? true : undefined}>
+                <FieldLabel htmlFor="snippet-text">Text inserted by /name</FieldLabel>
+                <Input
+                  id="snippet-text"
+                  placeholder="Explain this error and suggest a fix…"
+                  value={snip.text}
+                  onChange={(e) => setSnip({ ...snip, text: e.target.value })}
+                  aria-invalid={textErr ? true : undefined}
+                  className="text-sm"
+                />
+                {textErr && <FieldError>{textErr}</FieldError>}
+              </Field>
+              <Button type="submit" size="sm" className="mt-6" disabled={!valid}>
+                <IconAdd className="size-3.5" /> Add
+              </Button>
+            </form>
+          );
+        })()}
       </div>
     </div>
   );
@@ -276,63 +303,125 @@ function PersonaEditor({
   onSave: () => void;
   onCancel: () => void;
 }) {
+  const uid = useId();
+  // the draft as the editor opened: what "unsaved" is measured against
+  const baseline = useRef(draft).current;
+  const dirty = JSON.stringify(draft) !== JSON.stringify(baseline);
+  useUnsavedGuard(`persona:${uid}`, `Persona ${draft.name || "(new)"}`, dirty);
+
+  const [attempted, setAttempted] = useState(false);
+  const errors = validatePersonaDraft(draft);
+  // "required" messages wait for a save attempt; format/range errors show as you type
+  const shown = (k: keyof typeof errors) =>
+    errors[k] && (attempted || draft[k as keyof Draft] !== "") ? errors[k] : undefined;
+  const promptBytes = new TextEncoder().encode(draft.systemPrompt).length;
+
+  const trySave = () => {
+    if (Object.keys(errors).length > 0) {
+      setAttempted(true);
+      return;
+    }
+    onSave();
+  };
+  const cancel = async () => {
+    if (dirty) {
+      const ok = await confirm({
+        title: "Discard changes?",
+        itemName: draft.name || "New persona",
+        consequence: "Your edits to this persona will be lost.",
+        confirmLabel: "Discard",
+      });
+      if (!ok) return;
+    }
+    onCancel();
+  };
+
   return (
-    <div className="mt-2 space-y-2 rounded border border-border bg-background p-2">
-      <div className="flex items-center gap-2">
-        <Input
-          placeholder="persona-name"
-          value={draft.name}
-          disabled={nameLocked}
-          onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-          className="h-8 w-48 text-xs"
-        />
-        <select
-          value={draft.preferredTag}
-          onChange={(e) =>
-            setDraft({ ...draft, preferredTag: e.target.value })
-          }
-          className="h-8 rounded border border-border bg-background px-2 text-xs"
-          title="Preferred role tag"
-        >
-          <option value="">no preferred tag</option>
-          {tags.map((t) => (
-            <option key={t} value={t}>
-              → {t}
-            </option>
-          ))}
-        </select>
-        <span className="flex-1" />
-        {PARAM_FIELDS.map((f) => (
-          <Input
-            key={f.key}
-            placeholder={f.label}
-            title={f.key}
-            value={draft[f.key]}
-            onChange={(e) => setDraft({ ...draft, [f.key]: e.target.value })}
-            className="h-8 w-16 text-xs"
-            inputMode="decimal"
+    <form
+      className="mt-2 space-y-3 rounded border border-border bg-background p-3"
+      aria-label={nameLocked ? `Edit persona ${draft.name}` : "New persona"}
+      onSubmit={(e) => {
+        e.preventDefault();
+        trySave();
+      }}
+    >
+      <FieldGroup className="gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field data-invalid={shown("name") ? true : undefined}>
+            <FieldLabel htmlFor={`${uid}-name`}>Name</FieldLabel>
+            <Input
+              id={`${uid}-name`}
+              placeholder="code-review"
+              value={draft.name}
+              disabled={nameLocked}
+              onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+              aria-invalid={shown("name") ? true : undefined}
+              className="text-sm"
+            />
+            <FieldDescription>
+              Lowercase letters, numbers and dashes. Typed as /{draft.name || "name"} in the message box.
+            </FieldDescription>
+            {shown("name") && <FieldError>{shown("name")}</FieldError>}
+          </Field>
+          <Field>
+            <FieldLabel htmlFor={`${uid}-tag`}>Preferred role</FieldLabel>
+            <SelectField
+              id={`${uid}-tag`}
+              value={draft.preferredTag}
+              options={[
+                { value: "", label: "No preferred role" },
+                ...tags.map((t) => ({ value: t, label: `→ ${t}` })),
+              ]}
+              onValueChange={(v) => setDraft({ ...draft, preferredTag: v })}
+            />
+            <FieldDescription>Offered when you pick this persona in a chat.</FieldDescription>
+          </Field>
+        </div>
+
+        <Field data-invalid={shown("systemPrompt") ? true : undefined}>
+          <FieldLabel htmlFor={`${uid}-prompt`}>System prompt</FieldLabel>
+          <Textarea
+            id={`${uid}-prompt`}
+            placeholder="Instructions added to every turn…"
+            value={draft.systemPrompt}
+            onChange={(e) => setDraft({ ...draft, systemPrompt: e.target.value })}
+            aria-invalid={shown("systemPrompt") ? true : undefined}
+            rows={4}
+            className="resize-y text-sm"
           />
-        ))}
-      </div>
-      <Textarea
-        placeholder="System prompt injected into every turn…"
-        value={draft.systemPrompt}
-        onChange={(e) => setDraft({ ...draft, systemPrompt: e.target.value })}
-        rows={3}
-        className="resize-none text-xs"
-      />
-      <div className="flex justify-end gap-2">
-        <Button size="sm" variant="ghost" onClick={onCancel}>
+          <FieldDescription>
+            {promptBytes} / {MAX_PROMPT_BYTES} bytes
+          </FieldDescription>
+          {shown("systemPrompt") && <FieldError>{shown("systemPrompt")}</FieldError>}
+        </Field>
+
+        <div>
+          <p className="mb-2 text-xs font-medium text-muted-foreground">
+            Generation overrides — leave empty to inherit
+          </p>
+          <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-3">
+            {PARAM_FIELDS.map((f) => (
+              <ParamField
+                key={f.key}
+                spec={specFor(f.key)}
+                value={draft[f.key]}
+                onChange={(text) => setDraft({ ...draft, [f.key]: text })}
+                error={shown(f.key)}
+              />
+            ))}
+          </div>
+        </div>
+      </FieldGroup>
+
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        {dirty && <Badge variant="warning">Unsaved changes</Badge>}
+        <Button type="button" size="sm" variant="ghost" onClick={() => void cancel()}>
           Cancel
         </Button>
-        <Button
-          size="sm"
-          disabled={!draft.name.trim() || !draft.systemPrompt.trim()}
-          onClick={onSave}
-        >
+        <Button type="submit" size="sm">
           Save
         </Button>
       </div>
-    </div>
+    </form>
   );
 }

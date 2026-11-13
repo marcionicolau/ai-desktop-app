@@ -1,3 +1,7 @@
+import { SelectField } from "@/components/select-field";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
+import { defaultFileName, validateDownload } from "./download-rules";
 import { confirmLeave } from "../settings/use-unsaved-guard";
 import { OverrideEditor } from "./OverrideEditor";
 import { WithReason } from "@/components/with-reason";
@@ -33,15 +37,6 @@ const VERDICT: Record<ModelAdvise["verdict"], { label: string; cls: string }> = 
   tight: { label: "tight", cls: "text-warning" },
   wontfit: { label: "won't fit", cls: "text-destructive" },
 };
-
-function defaultFileName(url: string): string {
-  try {
-    const tail = new URL(url).pathname.split("/").pop() ?? "";
-    return tail.endsWith(".gguf") ? tail : "";
-  } catch {
-    return "";
-  }
-}
 
 export function ModelLibrary({ activeName, onLoad, autoLoadOnDownload }: Props) {
   // refs so the one-shot download subscription sees current props
@@ -149,44 +144,92 @@ export function ModelLibrary({ activeName, onLoad, autoLoadOnDownload }: Props) 
   return (
     <div className="border-b border-border bg-muted/40 px-4 py-3">
       <div className="mx-auto max-w-2xl space-y-3">
-        <div className="flex items-center gap-2">
-          <Input
-            placeholder="https://huggingface.co/org/repo/resolve/rev/model.gguf"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            className="h-8 flex-1 text-xs"
-          />
-          <Input
-            placeholder="file.gguf (optional)"
-            value={fileName}
-            onChange={(e) => setFileName(e.target.value)}
-            className="h-8 w-44 text-xs"
-          />
-          <select
-            className="h-8 w-36 rounded border border-border bg-background px-1 text-xs"
-            value={assignTag}
-            onChange={(e) => setAssignTag(e.target.value)}
-            title="Bind the downloaded file to a role tag"
-          >
-            <option value="">no tag</option>
-            {tags.map((t) => (
-              <option key={t.name} value={t.name}>
-                → {t.label ?? t.name}
-              </option>
-            ))}
-          </select>
-          <Button
-            size="sm"
-            disabled={!url.trim() || !(fileName.trim() || defaultFileName(url))}
-            onClick={() => void download()}
-          >
-            <IconDownload className="size-3.5" /> Download
-          </Button>
-          <Button size="sm" variant="ghost" onClick={() => void refresh()}>
-            <IconRefresh className="size-3.5" />
-          </Button>
-        </div>
-        {error && <p className="text-xs text-destructive">{error}</p>}
+        {(() => {
+          const errs = validateDownload(url, fileName);
+          const canDownload =
+            url.trim() !== "" &&
+            !errs.url &&
+            !errs.fileName &&
+            (fileName.trim() !== "" || defaultFileName(url) !== "");
+          return (
+            <form
+              className="space-y-3"
+              aria-label="Download a model"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (canDownload) void download();
+              }}
+            >
+              <Field data-invalid={errs.url ? true : undefined}>
+                <FieldLabel htmlFor="dl-url">Model link</FieldLabel>
+                <Input
+                  id="dl-url"
+                  placeholder="https://huggingface.co/org/repo/resolve/main/model.gguf"
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  aria-invalid={errs.url ? true : undefined}
+                  className="text-sm"
+                />
+                {errs.url ? (
+                  <FieldError>{errs.url}</FieldError>
+                ) : (
+                  <FieldDescription>A Hugging Face link to a .gguf file.</FieldDescription>
+                )}
+              </Field>
+              <div className="flex flex-wrap items-start gap-3">
+                <Field className="w-56" data-invalid={errs.fileName ? true : undefined}>
+                  <FieldLabel htmlFor="dl-file">File name</FieldLabel>
+                  <Input
+                    id="dl-file"
+                    placeholder={defaultFileName(url) || "model.gguf"}
+                    value={fileName}
+                    onChange={(e) => setFileName(e.target.value)}
+                    aria-invalid={errs.fileName ? true : undefined}
+                    className="text-sm"
+                  />
+                  {errs.fileName ? (
+                    <FieldError>{errs.fileName}</FieldError>
+                  ) : (
+                    <FieldDescription>Optional — taken from the link.</FieldDescription>
+                  )}
+                </Field>
+                <Field className="w-44">
+                  <FieldLabel htmlFor="dl-tag">Use for role</FieldLabel>
+                  <SelectField
+                    id="dl-tag"
+                    value={assignTag}
+                    onValueChange={setAssignTag}
+                    options={[
+                      { value: "", label: "No role" },
+                      ...tags.map((t) => ({ value: t.name, label: `→ ${t.label ?? t.name}` })),
+                    ]}
+                  />
+                  <FieldDescription>Bind the file when it lands.</FieldDescription>
+                </Field>
+                <div className="mt-6 flex items-center gap-1">
+                  <Button type="submit" size="sm" disabled={!canDownload}>
+                    <IconDownload className="size-3.5" /> Download
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    aria-label="Refresh model list"
+                    title="Refresh model list"
+                    onClick={() => void refresh()}
+                  >
+                    <IconRefresh className="size-3.5" />
+                  </Button>
+                </div>
+              </div>
+            </form>
+          );
+        })()}
+        {error && (
+          <Alert variant="destructive" className="px-3 py-2 text-xs">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
         {Object.values(downloads).map((d) => (
           <div key={d.fileName} className="text-xs">
             {d.phase === "progress" && (

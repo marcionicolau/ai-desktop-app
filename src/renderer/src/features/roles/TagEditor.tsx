@@ -1,18 +1,15 @@
+import { SelectField } from "@/components/select-field";
+import { Badge } from "@/components/ui/badge";
+import { FieldGroup } from "@/components/ui/field";
+import { ParamField } from "../settings/ParamField";
+import { draftErrors, draftToParams, PARAM_SPECS, paramsToDraft, sameDraft, type ParamDraft } from "../settings/param-spec";
+import { useUnsavedGuard } from "../settings/use-unsaved-guard";
 import { useState } from "react";
 import { IconAdd, IconClose } from "@/components/icons";
-import type { GenerationParams, ModelMeta, RoleRef, RoleView } from "@shared/types";
+import type { ModelMeta, RoleRef, RoleView } from "@shared/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useRoles } from "./use-roles";
-
-const PARAM_FIELDS: { key: keyof GenerationParams; label: string }[] = [
-  { key: "temperature", label: "Temp" },
-  { key: "topP", label: "Top-p" },
-  { key: "topK", label: "Top-k" },
-  { key: "repeatPenalty", label: "Penalty" },
-  { key: "seed", label: "Seed" },
-  { key: "maxTokens", label: "Max tok" },
-];
 
 interface Props {
   tag: RoleView;
@@ -25,7 +22,12 @@ export function TagEditor({ tag, models, tags = [], onError }: Props) {
   const { update, bind, setFallback } = useRoles();
   const [label, setLabel] = useState(tag.label ?? "");
   const [description, setDescription] = useState(tag.description ?? "");
-  const [draft, setDraft] = useState<Partial<GenerationParams>>(tag.params);
+  const [draft, setDraft] = useState<ParamDraft>(() => paramsToDraft(tag.params));
+  const errors = draftErrors(draft);
+  const paramsDirty = !sameDraft(draft, paramsToDraft(tag.params));
+  // FR-013: unsaved edits are visible and confirmed before an editor closes
+  const detailsDirty = label !== (tag.label ?? "") || description !== (tag.description ?? "");
+  useUnsavedGuard(`role:${tag.name}`, `Role ${tag.name}`, paramsDirty || detailsDirty);
   const [chain, setChain] = useState<RoleRef[]>(tag.fallback);
 
   const run = (fn: () => Promise<unknown>) => {
@@ -66,63 +68,43 @@ export function TagEditor({ tag, models, tags = [], onError }: Props) {
 
       <div className="flex items-center gap-2">
         <span className="w-20 text-muted-foreground">Bound model</span>
-        <select
-          className="h-7 flex-1 rounded border border-border bg-background px-1 text-xs"
+        <SelectField
+          aria-label={`Bound model for ${tag.name}`}
+          className="flex-1"
           value={tag.binding ?? ""}
-          onChange={(e) =>
-            run(() => bind(tag.name, e.target.value || null))
-          }
-        >
-          <option value="">— unbound —</option>
-          {models.map((m) => (
-            <option key={m.fileName} value={m.fileName}>
-              {m.name ?? m.fileName} ({m.quantization ?? "?"})
-            </option>
-          ))}
-        </select>
+          options={[
+            { value: "", label: "— unbound —" },
+            ...models.map((m) => ({
+              value: m.fileName,
+              label: `${m.name ?? m.fileName} (${m.quantization ?? "?"})`,
+            })),
+          ]}
+          onValueChange={(v) => run(() => bind(tag.name, v || null))}
+        />
       </div>
 
       <div>
         <p className="mb-1 text-muted-foreground">
           Generation overrides — empty fields inherit global/model settings.
         </p>
-        <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
-          {PARAM_FIELDS.map((f) => (
-            <label key={f.key} className="flex flex-col gap-1">
-              <span className="text-muted-foreground">{f.label}</span>
-              <Input
-                type="number"
-                step="any"
-                placeholder="—"
-                value={draft[f.key] ?? ""}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  setDraft((d) => ({
-                    ...d,
-                    [f.key]: v === "" ? undefined : Number(v),
-                  }));
-                }}
-                className="h-7 text-xs"
-              />
-            </label>
+        <FieldGroup className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
+          {PARAM_SPECS.map((spec) => (
+            <ParamField
+              key={spec.key}
+              spec={spec}
+              value={draft[spec.key] ?? ""}
+              onChange={(text) => setDraft((d) => ({ ...d, [spec.key]: text }))}
+              error={errors[spec.key]}
+              inheritedHint="inherit"
+            />
           ))}
-        </div>
-        <div className="mt-1 flex gap-2">
+        </FieldGroup>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
           <Button
             size="sm"
             variant="secondary"
-            onClick={() =>
-              run(() =>
-                update({
-                  name: tag.name,
-                  params: Object.fromEntries(
-                    Object.entries(draft).filter(
-                      ([, v]) => v !== undefined && Number.isFinite(v),
-                    ),
-                  ),
-                }),
-              )
-            }
+            disabled={Object.keys(errors).length > 0 || !paramsDirty}
+            onClick={() => run(() => update({ name: tag.name, params: draftToParams(draft) }))}
           >
             Save params
           </Button>
@@ -136,6 +118,10 @@ export function TagEditor({ tag, models, tags = [], onError }: Props) {
           >
             Clear
           </Button>
+          {(paramsDirty || detailsDirty) && <Badge variant="warning">Unsaved changes</Badge>}
+          {Object.keys(errors).length > 0 && (
+            <span className="text-xs text-destructive">Fix the highlighted fields to save.</span>
+          )}
         </div>
       </div>
 
@@ -145,11 +131,16 @@ export function TagEditor({ tag, models, tags = [], onError }: Props) {
         </p>
         {chain.map((r, i) => (
           <div key={i} className="mb-1 flex items-center gap-2">
-            <select
-              className="h-7 w-24 rounded border border-border bg-background px-1 text-xs"
+            <SelectField
+              aria-label={`Fallback ${i + 1} kind`}
+              className="w-24"
               value={r.kind}
-              onChange={(e) => {
-                const kind = e.target.value as RoleRef["kind"];
+              options={[
+                { value: "tag", label: "tag" },
+                { value: "model", label: "model" },
+              ]}
+              onValueChange={(v) => {
+                const kind = v as RoleRef["kind"];
                 setChain((c) =>
                   c.map((o, j) =>
                     j === i
@@ -160,15 +151,17 @@ export function TagEditor({ tag, models, tags = [], onError }: Props) {
                   ),
                 );
               }}
-            >
-              <option value="tag">tag</option>
-              <option value="model">model</option>
-            </select>
-            <select
-              className="h-7 flex-1 rounded border border-border bg-background px-1 text-xs"
+            />
+            <SelectField
+              aria-label={`Fallback ${i + 1} target`}
+              className="flex-1"
               value={r.kind === "tag" ? r.name : r.fileName}
-              onChange={(e) => {
-                const v = e.target.value;
+              options={
+                r.kind === "tag"
+                  ? otherTags.map((o) => ({ value: o.name, label: o.label ?? o.name }))
+                  : models.map((m) => ({ value: m.fileName, label: m.name ?? m.fileName }))
+              }
+              onValueChange={(v) =>
                 setChain((c) =>
                   c.map((o, j) =>
                     j === i
@@ -177,21 +170,9 @@ export function TagEditor({ tag, models, tags = [], onError }: Props) {
                         : { kind: "model", fileName: v }
                       : o,
                   ),
-                );
-              }}
-            >
-              {r.kind === "tag"
-                ? otherTags.map((o) => (
-                    <option key={o.name} value={o.name}>
-                      {o.label ?? o.name}
-                    </option>
-                  ))
-                : models.map((m) => (
-                    <option key={m.fileName} value={m.fileName}>
-                      {m.name ?? m.fileName}
-                    </option>
-                  ))}
-            </select>
+                )
+              }
+            />
             <Button
               size="sm"
               variant="ghost"
