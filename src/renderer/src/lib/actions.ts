@@ -38,6 +38,7 @@ export const ACTION_DEFS: ActionDef[] = [
   { id: "model.switch", label: "Switch model…", group: "action", keywords: ["load", "change", "model"], shortcut: { key: "m", mod: true, shift: true } },
   { id: "sidebar.toggle", label: "Toggle sidebar", group: "action", keywords: ["panel", "navigation", "collapse"], shortcut: { key: "b", mod: true }, displayOnly: true },
   { id: "theme.toggle", label: "Toggle light/dark theme", group: "action", keywords: ["appearance", "dark", "light", "mode"] },
+  { id: "density.toggle", label: "Toggle compact density", group: "action", keywords: ["spacing", "compact", "comfortable", "dense", "size"] },
   { id: "layout.reset", label: "Reset panel layout", group: "action", keywords: ["sizes", "sidebar", "metrics", "resize", "default"] },
   { id: "settings.open", label: "Open settings", group: "action", keywords: ["preferences", "options"], shortcut: { key: ",", mod: true } },
   ...NAV_SURFACES.map<ActionDef>((s) => ({
@@ -53,6 +54,7 @@ export interface ActionContext {
   newChat(): void;
   toggleTheme(): void;
   resetLayout(): void;
+  toggleDensity(): void;
   openPalette(initialQuery?: string): void;
   generating: boolean;
 }
@@ -80,6 +82,7 @@ export function buildActions(ctx: ActionContext): ActionEntry[] {
     "sidebar.toggle": { run: () => {} },
     "theme.toggle": { run: () => ctx.toggleTheme() },
     "layout.reset": { run: () => ctx.resetLayout() },
+    "density.toggle": { run: () => ctx.toggleDensity() },
     "settings.open": { run: () => ctx.select("surface:settings") },
   };
   return ACTION_DEFS.map((def) => {

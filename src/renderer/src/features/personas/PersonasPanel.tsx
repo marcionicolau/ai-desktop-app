@@ -140,7 +140,7 @@ export function PersonasPanel() {
         {error && <p className="text-xs text-destructive">{error}</p>}
         <div className="divide-y divide-border text-xs">
           {personas.map((p) => (
-            <div key={p.name} className="py-2">
+            <div key={p.name} className="py-(--row-pad)">
               <div className="flex items-center gap-2">
                 <span className="font-medium">{p.name}</span>
                 {p.preferredTag && (

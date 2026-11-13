@@ -1,3 +1,4 @@
+import { toggleDensity, useDensity } from "@/lib/density";
 import { SettingsPage } from "../settings/SettingsPage";
 import { LayoutSection } from "../settings/LayoutSection";
 import { resetLayout } from "@/lib/layout";
@@ -181,6 +182,7 @@ export function ChatPage() {
     setPaletteOpen(true);
   };
   const { resolved: resolvedTheme } = useTheme();
+  useDensity(); // applies the saved density at startup
   const actions = useMemo(
     () =>
       buildActions({
@@ -190,6 +192,7 @@ export function ChatPage() {
           newConversation();
         },
         toggleTheme: () => setThemeMode(resolvedTheme === "dark" ? "light" : "dark"),
+        toggleDensity,
         resetLayout: () => {
           resetLayout();
           notify.success("Panel layout reset");

@@ -105,7 +105,7 @@ export function RolesPanel() {
         {error && <p className="text-xs text-destructive">{error}</p>}
         <div className="divide-y divide-border text-xs">
           {tags.map((t) => (
-            <div key={t.name} className="py-2">
+            <div key={t.name} className="py-(--row-pad)">
               <div className="flex items-center gap-2">
                 <span className="font-medium">{t.label ?? t.name}</span>
                 <span className="text-muted-foreground">{t.name}</span>

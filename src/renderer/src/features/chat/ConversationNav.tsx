@@ -110,7 +110,7 @@ export function ConversationNav({
           <div
             key={c.id}
             className={cn(
-              "group flex items-center gap-1 px-3 py-2 text-sm",
+              "group flex items-center gap-1 px-3 py-(--row-pad) text-sm",
               c.id === activeId
                 ? "bg-muted text-foreground"
                 : "text-muted-foreground hover:bg-muted/50",

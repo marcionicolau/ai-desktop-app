@@ -1,3 +1,4 @@
+import { DENSITIES, setDensity, useDensity } from "@/lib/density";
 import { IconDark, IconLight, IconSystem } from "@/components/icons";
 import { cn } from "@/lib/utils";
 import {
@@ -21,6 +22,7 @@ const MODES: { id: ThemeMode; label: string; icon: typeof IconLight }[] = [
 // Rendered as a compact icon button (sidebar footer) or a labeled row.
 export function ThemeSettings({ compact }: { compact?: boolean }) {
   const { themeMode } = useTheme();
+  const density = useDensity();
   const Current = MODES.find((m) => m.id === themeMode) ?? MODES[2]!;
   return (
     <DropdownMenu>
@@ -42,7 +44,7 @@ export function ThemeSettings({ compact }: { compact?: boolean }) {
           )}
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent side="right" align="end" className="w-36">
+      <DropdownMenuContent side="right" align="end" className="w-40">
         <DropdownMenuLabel className="text-xs">Theme</DropdownMenuLabel>
         <DropdownMenuSeparator />
         {MODES.map((m) => (
@@ -53,6 +55,17 @@ export function ThemeSettings({ compact }: { compact?: boolean }) {
           >
             <m.icon className="size-4" />
             {m.label}
+          </DropdownMenuItem>
+        ))}
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel className="text-xs">Density</DropdownMenuLabel>
+        {DENSITIES.map((d) => (
+          <DropdownMenuItem
+            key={d}
+            onSelect={() => setDensity(d)}
+            className={cn(density === d && "bg-accent")}
+          >
+            {d === "compact" ? "Compact" : "Comfortable"}
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>

@@ -53,6 +53,18 @@
   --control-h-md: 2.25rem;
   --control-h-lg: 2.5rem;
   --hit-min: 1.5rem;
+  /* vertical padding of list rows (conversations, models, roles, personas) */
+  --row-pad: 0.5rem;
+}
+
+/* feature 026 (FR-016): compact density. The root block above IS the
+   comfortable set; this overrides only what density changes. Primary
+   controls stay ≥ 32 px and the hit area ≥ 24 px (tests/ui-tokens.test.ts). */
+[data-density="compact"] {
+  --control-h-sm: 1.75rem;
+  --control-h-md: 2rem;
+  --control-h-lg: 2.25rem;
+  --row-pad: 0.25rem;
 }
 
 .dark {

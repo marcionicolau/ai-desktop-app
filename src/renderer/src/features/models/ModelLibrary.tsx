@@ -260,7 +260,7 @@ export function ModelLibrary({ activeName, onLoad, autoLoadOnDownload }: Props) 
             const dl = downloads[m.fileName];
             const active = activeName === m.fileName;
             return (
-              <div key={m.fileName} className="py-2">
+              <div key={m.fileName} className="py-(--row-pad)">
                 <div className="flex items-center gap-2">
                   <span
                     className={cn(
