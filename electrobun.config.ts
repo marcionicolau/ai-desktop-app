@@ -19,6 +19,8 @@ export default {
     copy: {
       "dist/renderer": "views/main",
       "native/out": "native",
+      // feature 023: script runners spawn beside the bundled index.js
+      "src/bun/scripts/runners": "bun/runners",
     },
     // Per-OS sections: complete config for all three platforms; only the
     // Linux lane is verified today (feature 012). Electrobun builds on-host

@@ -346,7 +346,10 @@ export class ScriptService {
         this.deps.emitRun({ runId, script: entry.id, phase: "error" });
       }
       throw rec instanceof EngineError ? rec : Object.assign(
-        new EngineError("ENGINE_ERROR", `script run failed`),
+        new EngineError(
+          "ENGINE_ERROR",
+          `script run failed: ${(e as Error).message}`,
+        ),
         { record: rec },
       );
     }

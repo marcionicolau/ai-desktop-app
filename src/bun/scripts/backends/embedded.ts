@@ -33,6 +33,7 @@ export function findShim(): string | null {
   const bases = [
     join(import.meta.dir, "../../../../native/out", plat), // unbundled
     join(process.cwd(), "native", "out", plat), // dev layout (ffi.ts precedent)
+    join(import.meta.dir, "..", "native", plat), // bundled: Resources/app/bun → app/native/<plat>
   ];
   const cands = bases.flatMap((base) => [
     join(base, "libscript_shim.so"),

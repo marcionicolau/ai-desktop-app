@@ -21,18 +21,11 @@ const RUNNERS: Record<ScriptRuntimeKind, string> = {
 function runnerPath(rt: ScriptRuntimeKind): string {
   const name = RUNNERS[rt];
   const cands = [
+    // bundled (dev + packaged): electrobun copies runners beside index.js
+    // at Resources/app/bun/runners/ — import.meta.dir IS Resources/app/bun
+    resolve(import.meta.dir, "runners", name),
     resolve(import.meta.dir, "..", "runners", name), // unbundled (tests, smoke)
-    resolve(process.cwd(), "src", "bun", "scripts", "runners", name), // dev layout
-    resolve(
-      process.execPath,
-      "..",
-      "..",
-      "Resources",
-      "app",
-      "scripts",
-      "runners",
-      name,
-    ), // packaged layout (Resources/app/scripts/runners)
+    resolve(process.cwd(), "src", "bun", "scripts", "runners", name), // dev repo root
   ];
   return cands.find(existsSync) ?? cands[0]!;
 }
