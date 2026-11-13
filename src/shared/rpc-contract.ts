@@ -79,6 +79,7 @@ export const RPC_ERROR_CODES = [
   "UPDATE_DISABLED",
   // feature 023: script calling
   "SCRIPT_NOT_FOUND",
+  "SCRIPT_SOURCE_MISSING",
   "SCRIPT_INVALID_ARGS",
   "SCRIPT_TIMEOUT",
   "RUNTIME_NOT_FOUND",

@@ -190,14 +190,29 @@ export class RunManager {
       status: "pending",
       createdAt: new Date().toISOString(),
     };
+    // feature 027 (R3): same consent semantics as the chat loop — changed
+    // linked content re-prompts even under a session grant; missing source
+    // fails the step with a distinct error
+    const consent = svc.consentState(entry, runId);
+    if (consent === "source-missing") {
+      call.status = "refused";
+      call.error = "script source missing";
+      this.deps.onToolCall?.(runId, call);
+      throw new FabricError(
+        "SCRIPT_SOURCE_MISSING",
+        `the file for script "${slug}" is missing or unreadable — relink it`,
+        path,
+      );
+    }
     let decision: ScriptDecision = "approve";
-    if (!svc.autoApprove(runId)) {
-      const deferred = svc.awaitDecision(call.id, runId);
+    if (consent !== "auto") {
+      if (consent === "ask-changed") call.contentChanged = true;
+      const deferred = svc.awaitDecision(call.id, runId, entry.id);
       this.deps.onToolCall?.(runId, call);
       decision = await deferred;
       call.decidedAt = new Date().toISOString();
     }
-    if (decision !== "approve" && decision !== "allowSession") {
+    if (decision !== "approve" && decision !== "allowSession" && decision !== "approveChangedSession") {
       call.status = "denied";
       call.decidedAt ??= new Date().toISOString();
       this.deps.onToolCall?.(runId, call);

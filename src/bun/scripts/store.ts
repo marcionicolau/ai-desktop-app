@@ -1,15 +1,19 @@
 // feature 023: script registry (data-model.md). Registry lives in
 // dataDir()/scripts.json; stored sources at dataDir()/scripts/<slug>.<ext>
 // so deleting the user's original file can't break an entry.
+import { createHash } from "node:crypto";
 import {
   existsSync,
   mkdirSync,
   readFileSync,
+  realpathSync,
   renameSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from "node:fs";
-import { dirname, extname, join } from "node:path";
+import { homedir } from "node:os";
+import { dirname, extname, isAbsolute, join } from "node:path";
 import type { ScriptEntry, ScriptRuntimeKind } from "../../shared/types";
 import { scriptsDir, scriptsFile } from "../store/paths";
 
@@ -26,6 +30,25 @@ export function slugify(name: string): string {
 
 export function isValidSlug(s: string): boolean {
   return SLUG_RE.test(s);
+}
+
+// feature 027: sha256 of source bytes — the approved-content baseline for
+// linked scripts (research R2)
+export function fingerprint(text: string): string {
+  return createHash("sha256").update(text, "utf8").digest("hex");
+}
+
+// feature 027: normalize a user-supplied file path — expand ~, require an
+// absolute path that resolves to a regular file; null when unsafe/missing
+export function normalizeSourcePath(p: string): string | null {
+  const expanded = p.startsWith("~") ? join(homedir(), p.slice(1)) : p;
+  if (!isAbsolute(expanded)) return null;
+  try {
+    const real = realpathSync(expanded);
+    return statSync(real).isFile() ? real : null;
+  } catch {
+    return null;
+  }
 }
 
 function atomicWrite(file: string, data: unknown): void {

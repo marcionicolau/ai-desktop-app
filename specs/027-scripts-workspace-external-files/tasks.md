@@ -31,7 +31,7 @@ description: "Task list for feature implementation"
 **Purpose**: No project scaffolding needed — the feature extends the
 existing Electrobun + React codebase with zero new dependencies.
 
-- [ ] T001 [P] Extend shared types in `src/shared/types.ts`:
+- [x] T001 [P] Extend shared types in `src/shared/types.ts`:
   `ScriptEntry` gains `approvedFingerprint?: string`;
   `ScriptListItem` gains `linked: boolean` and `sourceState: "ok" | "missing"`;
   add `ScriptImportError = "unsupported-ext" | "unreadable" | "invalid-encoding" | "too-large"`,
@@ -49,11 +49,11 @@ lookup, fingerprint helper, runtime badge data. No consent-flow change yet
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T002 Add fingerprint + path utilities in
+- [x] T002 Add fingerprint + path utilities in
   `src/bun/scripts/store.ts`: `fingerprint(bytes: string): string` (sha256
   hex), `normalizeSourcePath(p: string): string | null` (tilde expand,
   absolute check, `realpathSync` best-effort, reject relative/non-file)
-- [ ] T003 In `src/bun/scripts/service.ts` `list()`: populate the new
+- [x] T003 In `src/bun/scripts/service.ts` `list()`: populate the new
   `linked` (`source.kind === "external"`) and `sourceState` (external +
   `readSource`-style probe ⇒ `"missing"`) fields on each `ScriptListItem`;
   keep one stat-style probe per external entry (R7)
@@ -144,7 +144,7 @@ an already-linked file reports the existing script (SC-002, SC-003).
 
 ### Implementation for User Story 2
 
-- [ ] T013 [US2] `src/bun/scripts/service.ts`: add `importCandidates(paths)`,
+- [x] T013 [US2] `src/bun/scripts/service.ts`: add `importCandidates(paths)`,
   `importFiles(params)`, `relink(id, newPath)` — validation per
   contracts/rpc.md, runtime from extension (`.py`→python, `.r`/`.R`→r,
   case-insensitive), slug + `-2`/`-3` dedup, `duplicateOf` on resolved
@@ -152,7 +152,7 @@ an already-linked file reports the existing script (SC-002, SC-003).
   `approvedFingerprint` = sha256(bytes); copy ⇒ stored source via
   `writeSource`; relink keeps id/params/timeout/enabled, refreshes
   fingerprint (FR-017)
-- [ ] T014 [US2] `src/bun/rpc/handlers.ts`: `script.pickImport`
+- [x] T014 [US2] `src/bun/rpc/handlers.ts`: `script.pickImport`
   (`dialogs.pickFiles` ext filter `py,PY,r,R`, cancelled ⇒ empty),
   `script.import`, `script.relink` (`INVALID_PARAMS` when entry not
   external; picker ext must match `entry.runtime`; cancel ⇒ `{entry:null}`)
@@ -205,21 +205,21 @@ reason (SC-005); Relink preserves id/settings.
 
 ### Implementation for User Story 3
 
-- [ ] T020 [US3] `src/bun/scripts/service.ts`: `consentState(entry, ns)`
+- [x] T020 [US3] `src/bun/scripts/service.ts`: `consentState(entry, ns)`
   returning `"auto" | "ask" | "ask-changed" | "source-missing"` (R3);
   `changedGrants: Map<ns, Set<id>>`; `respond()` handles
   `approveChangedSession` (grant + persist fingerprint); `autoApprove`
   unchanged; successful manual `call` refreshes `approvedFingerprint`;
   `recordAudit` gains `origin` from `entry.source.kind` (FR-022)
-- [ ] T021 [US3] `src/bun/tools/loop.ts` `runScriptVerdict`: switch to
+- [x] T021 [US3] `src/bun/tools/loop.ts` `runScriptVerdict`: switch to
   `consentState` — `source-missing` ⇒ refuse `source-missing`;
   `ask-changed` ⇒ prompt regardless of `autoApprove`, set
   `call.contentChanged = true`; approval of a changed prompt persists
   fingerprint (FR-016, FR-018)
-- [ ] T022 [US3] `src/bun/fabric/runtime.ts`: same `consentState` switch
+- [x] T022 [US3] `src/bun/fabric/runtime.ts`: same `consentState` switch
   for `pipeline` initiator — identical semantics, `source-missing` →
   `FabricError` with clear code (keeps step-failure contract)
-- [ ] T023 [US3] `src/bun/rpc/handlers.ts`: `tool.respond` accepts
+- [x] T023 [US3] `src/bun/rpc/handlers.ts`: `tool.respond` accepts
   `"approveChangedSession"` and forwards it; `script.run` fails
   `SCRIPT_SOURCE_MISSING` when a linked entry's source is unreadable
   (FR-016)

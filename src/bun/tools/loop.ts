@@ -275,9 +275,25 @@ export async function runToolLoop(
       }
       call.script = entry.id;
       call.args = va.args;
+      // feature 027 (R3): linked scripts re-consent on changed content even
+      // under a session grant; a missing source refuses before any prompt
+      const consent = svc.consentState(entry, opts.conversationId);
+      if (consent === "source-missing") {
+        return refuse(
+          call,
+          "source-missing",
+          "script source missing",
+          `refused: the file for script "${entry.id}" is missing or unreadable — relink it`,
+        );
+      }
       let decision: ToolDecision = "approve";
-      if (!svc.autoApprove(opts.conversationId)) {
-        const deferred = svc.awaitDecision(call.id, opts.conversationId);
+      if (consent !== "auto") {
+        if (consent === "ask-changed") call.contentChanged = true;
+        const deferred = svc.awaitDecision(
+          call.id,
+          opts.conversationId,
+          entry.id,
+        );
         call.status = "pending";
         emit(call);
         decision = await deferred;

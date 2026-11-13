@@ -3,10 +3,14 @@
 // declared-param validation, workdir lifecycle, and the single
 // execution entry every caller shares (chat loop, manual run,
 // pipeline step).
-import { mkdirSync } from "node:fs";
-import { join } from "node:path";
+import { mkdirSync, readFileSync } from "node:fs";
+import { basename, extname, join } from "node:path";
 import type {
   ScriptEntry,
+  ScriptImportCandidate,
+  ScriptImportError,
+  ScriptImportParams,
+  ScriptImportResult,
   ScriptInitiator,
   ScriptListItem,
   ScriptParam,
@@ -20,16 +24,29 @@ import type {
 import { EngineError } from "../llama/engine";
 import { resolveInterpreter, runtimeStatus } from "./runtimes";
 import type { SessionManager } from "./session";
-import { isValidSlug, slugify, type ScriptStore } from "./store";
+import {
+  fingerprint,
+  isValidSlug,
+  normalizeSourcePath,
+  slugify,
+  type ScriptStore,
+} from "./store";
 import { recordAudit } from "../tools/audit";
 import { scriptRunsDir } from "../store/paths";
 
 export const DEFAULT_SCRIPT_TIMEOUT = 30_000;
 export const MAX_SCRIPT_TIMEOUT = 300_000;
+export const MAX_IMPORT_BYTES = 2 * 1024 * 1024; // feature 027 (clarify Q3)
 const CAPTURE_CAP = 256 * 1024; // stored stdout/stderr bound
 const TRUNC_MARK = "\n…[truncated]";
 
-export type ScriptDecision = "approve" | "deny" | "allowSession" | "discard";
+export type ScriptDecision =
+  | "approve"
+  | "deny"
+  | "allowSession"
+  // feature 027: grant THIS script's changed content for the session (FR-018)
+  | "approveChangedSession"
+  | "discard";
 
 const cap = (s: string): string =>
   s.length > CAPTURE_CAP ? s.slice(0, CAPTURE_CAP) + TRUNC_MARK : s;
@@ -37,12 +54,15 @@ const cap = (s: string): string =>
 interface PendingCall {
   callId: string;
   ns: string; // consent namespace: conversationId or runId
+  scriptId?: string; // feature 027: needed for approveChangedSession grants
   resolve: (d: ScriptDecision) => void;
 }
 
 export class ScriptService {
   private grants = new Map<string, true>(); // ns -> allow-session
   private pending = new Map<string, PendingCall>();
+  // feature 027 (FR-018): per-script "approve changes for this session"
+  private changedGrants = new Map<string, Set<string>>(); // ns -> scriptIds
   private sessionCalls = new Map<string, number>(); // rt -> in-flight count? (informational)
 
   constructor(
@@ -93,9 +113,33 @@ export class ScriptService {
     this.grants.set(ns, true);
   }
 
-  awaitDecision(callId: string, ns: string): Promise<ScriptDecision> {
+  // feature 027 (R3): what a model/pipeline invocation needs before it may
+  // call() — "source-missing" refuses, "ask-changed" prompts with the
+  // changed-file variant EVEN under autoApprove (FR-018), "ask" prompts
+  // normally, "auto" runs straight through.
+  consentState(
+    entry: ScriptEntry,
+    ns: string,
+  ): "auto" | "ask" | "ask-changed" | "source-missing" {
+    if (entry.source.kind === "external" && this.sourceState(entry) === "missing") {
+      return "source-missing";
+    }
+    if (entry.source.kind === "external" && !this.changedGrants.get(ns)?.has(entry.id)) {
+      const code = this.deps.store.readSource(entry);
+      const changed =
+        code === null || fingerprint(code) !== entry.approvedFingerprint;
+      if (changed) return "ask-changed";
+    }
+    return this.autoApprove(ns) ? "auto" : "ask";
+  }
+
+  awaitDecision(
+    callId: string,
+    ns: string,
+    scriptId?: string,
+  ): Promise<ScriptDecision> {
     return new Promise((resolve) => {
-      this.pending.set(callId, { callId, ns, resolve });
+      this.pending.set(callId, { callId, ns, scriptId, resolve });
     });
   }
 
@@ -104,6 +148,11 @@ export class ScriptService {
     if (!p) return false;
     this.pending.delete(callId);
     if (decision === "allowSession") this.grantSession(p.ns);
+    if (decision === "approveChangedSession" && p.scriptId) {
+      const set = this.changedGrants.get(p.ns) ?? new Set<string>();
+      set.add(p.scriptId);
+      this.changedGrants.set(p.ns, set);
+    }
     p.resolve(decision);
     return true;
   }
@@ -138,7 +187,16 @@ export class ScriptService {
       ...e,
       runtimeStatus:
         rts.find((r) => r.kind === e.runtime)?.status ?? "missing",
+      linked: e.source.kind === "external",
+      sourceState: this.sourceState(e),
     }));
+  }
+
+  // feature 027 (R7): stored sources always "ok" (managed file, written on
+  // upsert); external probes readability — same gate readSource applies
+  private sourceState(e: ScriptEntry): "ok" | "missing" {
+    if (e.source.kind !== "external") return "ok";
+    return this.deps.store.readSource(e) === null ? "missing" : "ok";
   }
 
   get(id: string): ScriptEntry | null {
@@ -189,8 +247,16 @@ export class ScriptService {
     };
     if (p.source.kind === "stored") {
       this.deps.store.writeSource(id, p.runtime, p.source.text);
-    } else if (entry.source.kind === "external" && !entry.source.path) {
-      throw new EngineError("INVALID_PARAMS", "external source needs a path");
+      entry.approvedFingerprint = undefined;
+    } else if (entry.source.kind === "external") {
+      if (!entry.source.path) {
+        throw new EngineError("INVALID_PARAMS", "external source needs a path");
+      }
+      // feature 027 (clarify Q2): the file as typed/picked IS the approved
+      // baseline — re-read happens on save so a bad path still persists
+      // (surfacing "source missing", not a registry failure)
+      const code = this.deps.store.readSource(entry);
+      entry.approvedFingerprint = code === null ? undefined : fingerprint(code);
     }
     this.deps.store.upsert(entry);
     return this.list().find((e) => e.id === id)!;
@@ -228,6 +294,145 @@ export class ScriptService {
     const e = this.deps.store.get(id);
     if (!e) throw new EngineError("SCRIPT_NOT_FOUND", `no script "${id}"`);
     this.deps.store.upsert({ ...e, enabled });
+  }
+
+  // ---------- feature 027: file import + relink (contracts/rpc.md) ----------
+
+  private static extRuntime(path: string): ScriptRuntimeKind | null {
+    const ext = extname(path).toLowerCase();
+    return ext === ".py" ? "python" : ext === ".r" ? "r" : null;
+  }
+
+  // validate one picked file → runtime+text or an error code (FR-013)
+  private validateImportFile(
+    path: string,
+  ): { runtime: ScriptRuntimeKind; path: string; text: string } | { error: ScriptImportError; reason: string } {
+    const runtime = ScriptService.extRuntime(path);
+    if (!runtime) {
+      return { error: "unsupported-ext", reason: "only .py and .r files are accepted" };
+    }
+    const real = normalizeSourcePath(path);
+    if (!real) {
+      return { error: "unreadable", reason: "file is missing, unreadable, or not a regular file" };
+    }
+    let text: string;
+    try {
+      const buf = readFileSync(real);
+      if (buf.length > MAX_IMPORT_BYTES) {
+        return { error: "too-large", reason: `file exceeds ${MAX_IMPORT_BYTES / 1024 / 1024} MiB` };
+      }
+      if (buf.includes(0)) {
+        return { error: "invalid-encoding", reason: "file does not look like UTF-8 text" };
+      }
+      text = buf.toString("utf8");
+    } catch {
+      return { error: "unreadable", reason: "file could not be read" };
+    }
+    return { runtime, path: real, text };
+  }
+
+  private externalPathOf(e: ScriptEntry): string | null {
+    if (e.source.kind !== "external") return null;
+    return normalizeSourcePath(e.source.path) ?? e.source.path;
+  }
+
+  private uniqueSuggestedId(base: string, taken: Set<string>): string {
+    let id = slugify(base) || "script";
+    let n = 2;
+    while (taken.has(id) || this.deps.store.get(id)) id = `${slugify(base) || "script"}-${n++}`;
+    taken.add(id);
+    return id;
+  }
+
+  // script.pickImport — preview rows for the picked paths (FR-008/009/013/014)
+  importCandidates(paths: string[]): ScriptImportCandidate[] {
+    const taken = new Set<string>();
+    return paths.map((raw) => {
+      const fileName = basename(raw);
+      const v = this.validateImportFile(raw);
+      const suggestedId = this.uniqueSuggestedId(
+        fileName.replace(/\.[^.]+$/, ""),
+        taken,
+      );
+      if ("error" in v) {
+        return { path: raw, fileName, runtime: "python", suggestedId, error: { code: v.error, reason: v.reason } };
+      }
+      const dup = this.deps.store
+        .list()
+        .find((e) => this.externalPathOf(e) === v.path);
+      return {
+        path: v.path,
+        fileName,
+        runtime: v.runtime,
+        suggestedId,
+        duplicateOf: dup?.id,
+      };
+    });
+  }
+
+  // script.import — per-file results; one bad file never aborts (FR-013)
+  importFiles(p: ScriptImportParams): ScriptImportResult[] {
+    if (!p.files.length || p.files.length > 10) {
+      throw new EngineError("INVALID_PARAMS", "import takes 1–10 files");
+    }
+    return p.files.map(({ path, id }): ScriptImportResult => {
+      if (!isValidSlug(id)) {
+        return { path, status: "failed", reason: `invalid script id "${id}"` };
+      }
+      if (this.deps.store.get(id)) {
+        return { path, status: "failed", reason: `id "${id}" is already taken` };
+      }
+      const v = this.validateImportFile(path);
+      if ("error" in v) return { path, status: "failed", reason: v.reason };
+      const dup = this.deps.store
+        .list()
+        .find((e) => this.externalPathOf(e) === v.path);
+      if (dup) {
+        return { path: v.path, status: "duplicate", id: dup.id, reason: `already linked as "${dup.id}"` };
+      }
+      const entry: ScriptEntry = {
+        id,
+        runtime: v.runtime,
+        source:
+          p.mode === "link"
+            ? { kind: "external", path: v.path }
+            : { kind: "stored" },
+        description: "",
+        params: [],
+        enabled: true,
+        approvedFingerprint: p.mode === "link" ? fingerprint(v.text) : undefined,
+      };
+      if (p.mode === "copy") this.deps.store.writeSource(id, v.runtime, v.text);
+      this.deps.store.upsert(entry);
+      return { path: v.path, status: "imported", id };
+    });
+  }
+
+  // script.relink — new file for an external entry; id/settings kept (FR-017)
+  relink(id: string, path: string): ScriptListItem {
+    const e = this.deps.store.get(id);
+    if (!e) throw new EngineError("SCRIPT_NOT_FOUND", `no script "${id}"`);
+    if (e.source.kind !== "external") {
+      throw new EngineError("INVALID_PARAMS", `script "${id}" is not linked`);
+    }
+    const runtime = ScriptService.extRuntime(path);
+    if (runtime !== e.runtime) {
+      throw new EngineError(
+        "INVALID_PARAMS",
+        `script "${id}" is ${e.runtime} — pick a matching file`,
+      );
+    }
+    const v = this.validateImportFile(path);
+    if ("error" in v) {
+      throw new EngineError("INVALID_PARAMS", v.reason);
+    }
+    const next: ScriptEntry = {
+      ...e,
+      source: { kind: "external", path: v.path },
+      approvedFingerprint: fingerprint(v.text),
+    };
+    this.deps.store.upsert(next);
+    return this.list().find((x) => x.id === id)!;
   }
 
   // ---------- argument validation (FR-006) ----------
@@ -294,10 +499,23 @@ export class ScriptService {
     const { entry } = opts;
     const code = this.deps.store.readSource(entry);
     if (code === null) {
+      // feature 027 (FR-016): linked sources get the distinct missing state
       throw new EngineError(
-        "SCRIPT_NOT_FOUND",
+        entry.source.kind === "external"
+          ? "SCRIPT_SOURCE_MISSING"
+          : "SCRIPT_NOT_FOUND",
         `source for "${entry.id}" is unavailable`,
       );
+    }
+    // feature 027: the content actually executed becomes the approved
+    // baseline — consent (when required) always precedes call(), and a
+    // manual run of a linked file records it as the new baseline (FR-018/019)
+    if (entry.source.kind === "external") {
+      const fp = fingerprint(code);
+      if (fp !== entry.approvedFingerprint) {
+        entry.approvedFingerprint = fp;
+        this.deps.store.upsert(entry);
+      }
     }
     const { args, input } = this.validateArgs(entry, opts.args, opts.input);
     const interpreter = this.interpreter(entry.runtime);
@@ -383,7 +601,7 @@ export class ScriptService {
   }
 
   private audit(
-    opts: { initiator: ScriptInitiator; conversationId?: string; messageId?: string; callId?: string },
+    opts: { entry: ScriptEntry; initiator: ScriptInitiator; conversationId?: string; messageId?: string; callId?: string },
     rec: ScriptRunRecord,
     started: number,
   ): void {
@@ -410,6 +628,10 @@ export class ScriptService {
       exitStatus: rec.exitStatus,
       durationMs: rec.durationMs,
       sessionRestarted: rec.sessionRestarted,
+      // feature 027 (FR-022)
+      origin: opts.entry.source.kind === "external" ? "linked" : "stored",
+      sourcePath:
+        opts.entry.source.kind === "external" ? opts.entry.source.path : undefined,
     });
   }
 

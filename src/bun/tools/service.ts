@@ -5,7 +5,14 @@
 import type { Settings, ToolPolicy } from "../../shared/types";
 import { Sandbox } from "./sandbox";
 
-export type ToolDecision = "approve" | "deny" | "allowSession" | "discard";
+export type ToolDecision =
+  | "approve"
+  | "deny"
+  | "allowSession"
+  // feature 027: script-only decision — grants the changed file for the
+  // session; file calls never see it (respond() fans out per service)
+  | "approveChangedSession"
+  | "discard";
 
 const DEFAULT_POLICY: ToolPolicy = { sandboxRoot: null, mode: "deny" };
 
