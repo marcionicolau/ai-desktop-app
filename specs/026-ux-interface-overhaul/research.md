@@ -13,6 +13,8 @@
 | Icons | Phosphor (regular) | Tabler | Remix |
 | Character | neutral, tool-like | warm, document-like | dark-first, high energy |
 
+**Gate G0 decision (2026-11-13): candidate C · Midnight** — blue-slate neutrals, violet accent, DM Sans (UI and reading), Fira Code (mono), Remix icons. Starting values are in `candidates/c-midnight.html`; `ui-contrast.test.ts` (T021) is the final authority on the exact OKLCH values and may adjust them.
+
 **Rationale**: spans three genuinely different moods; each maps to a shadcn-supported icon library, and all have Fontsource variable packages (existing pattern).
 **Alternatives**: single proposal (rejected by clarification 1); keeping lucide (rejected — FR-021 replaces the icon family, though lucide stays an allowed candidate if the owner prefers).
 

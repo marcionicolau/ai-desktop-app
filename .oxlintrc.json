@@ -12,5 +12,16 @@
     "artifacts/**",
     ".hutch/**",
     "native/out/**"
-  ]
+  ],
+  "plugins": [
+    "unicorn",
+    "typescript",
+    "oxc",
+    "jsx-a11y"
+  ],
+  "rules": {
+    "jsx-a11y/label-has-associated-control": "warn",
+    "jsx-a11y/no-autofocus": "warn",
+    "jsx-a11y/prefer-tag-over-role": "off"
+  }
 }

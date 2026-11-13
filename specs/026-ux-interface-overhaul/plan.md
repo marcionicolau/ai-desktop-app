@@ -26,7 +26,7 @@ land, then per-surface slices merge as they finish.
 
 **Language/Version**: TypeScript (strict), React 19, Bun runtime for tests
 
-**Primary Dependencies**: Tailwind CSS v4 (CSS-first `@theme`), shadcn/ui (new-york style, vendored in `src/renderer/src/components/ui/`), lucide-react today (icon family is a Gate G0 decision), Fontsource variable fonts. New: `sonner` (toast), `cmdk` (command palette) — both shadcn's own wrapped dependencies; extra Radix primitives only inside `components/ui/`.
+**Primary Dependencies**: Tailwind CSS v4 (CSS-first `@theme`), shadcn/ui (new-york style, vendored in `src/renderer/src/components/ui/`), lucide-react today (icon family is a Gate G0 decision), Fontsource variable fonts. New: `sonner` (toast), `cmdk` (command palette) — both shadcn's own wrapped dependencies — and `radix-ui` (the single package the shadcn `new-york-v4` registry uses, replacing the need for nine separate `@radix-ui/*` packages); Radix imports only inside `components/ui/`, enforced by `tests/ui-audit.test.ts`.
 
 **Storage**: `settings.json` — one new optional field `density: "comfortable" | "compact"` (absent ⇒ comfortable). No other persistence.
 
@@ -135,4 +135,5 @@ tests/
 | Item | Why needed | Simpler alternative rejected because |
 |---|---|---|
 | `sonner` dependency | shadcn's toast component wraps it; needed for non-blocking feedback (FR-002) | A hand-built toast stack would reimplement stacking, timers, a11y live regions and swipe-dismiss |
+| `radix-ui` dependency | shadcn's current registry imports every primitive from this one package (dialog, select, switch, slider, tabs, popover, checkbox, radio-group, label) | Nine separate `@radix-ui/*` packages would be more dependencies, not fewer |
 | `cmdk` dependency | shadcn's Command wraps it; needed for the palette (FR-010) | Hand-rolled fuzzy list loses keyboard/aria-combobox correctness |

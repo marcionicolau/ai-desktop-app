@@ -22,9 +22,9 @@ const files = [...walk(RENDERER)];
 const outsideUi = files.filter((f) => !f.startsWith(UI_DIR));
 
 describe("ui-audit: primitive boundary", () => {
-  test("no @radix-ui imports outside components/ui/", () => {
+  test("no @radix-ui / radix-ui imports outside components/ui/", () => {
     const offenders = outsideUi.filter((f) =>
-      /@radix-ui\//.test(readFileSync(f, "utf8")),
+      /(?:@radix-ui\/|from\s+["']radix-ui["'])/.test(readFileSync(f, "utf8")),
     );
     expect(offenders.map((f) => relative(RENDERER, f))).toEqual([]);
   });
@@ -66,5 +66,57 @@ describe("ui-audit: theme tokens", () => {
       if (LITERAL.test(src)) offenders.push(relative(RENDERER, f));
     }
     expect(offenders).toEqual([]);
+  });
+});
+
+// feature 026 (US2/US1/US4): the design-scale audit. Rules start warn-only
+// (summaries via console.warn) and are promoted to hard failures by adding
+// their name to ENFORCED once their last violation is converted — overlays
+// after T029, native controls after T048, the rest in the final polish task.
+const ENFORCED = new Set<string>([
+  // "overlays", "native-controls", "font-sizes", "icon-sizes", "icon-import-site"
+]);
+
+function check(rule: string, offenders: string[]) {
+  if (ENFORCED.has(rule)) {
+    expect(offenders).toEqual([]);
+  } else if (offenders.length > 0) {
+    console.warn(`ui-audit[${rule}] (warn-only): ${offenders.length} offender(s)`);
+  }
+}
+
+const tsxOutsideUi = outsideUi.filter((f) => f.endsWith(".tsx"));
+
+function offendersOf(re: RegExp, pool = tsxOutsideUi): string[] {
+  return pool.filter((f) => re.test(readFileSync(f, "utf8"))).map((f) => relative(RENDERER, f));
+}
+
+describe("ui-audit: design scale (feature 026)", () => {
+  test("font-sizes: no arbitrary pixel font sizes", () => {
+    check("font-sizes", offendersOf(/text-\[\d+(?:\.\d+)?px\]/));
+  });
+
+  test("icon-sizes: no off-scale icon sizes (scale: size-3.5, size-4, size-5)", () => {
+    check("icon-sizes", offendersOf(/\bsize-3\b/));
+  });
+
+  test("icon-import-site: icons come only from components/icons.ts", () => {
+    const iconsFile = join(RENDERER, "components", "icons.ts");
+    const pool = files.filter((f) => /\.tsx?$/.test(f) && f !== iconsFile);
+    check(
+      "icon-import-site",
+      offendersOf(/from\s+["'](?:lucide-react|@remixicon\/react)["']/, pool),
+    );
+  });
+
+  test("native-controls: no native select/checkbox/radio/range outside ui/", () => {
+    check(
+      "native-controls",
+      offendersOf(/<select\b|type=["'](?:checkbox|radio|range)["']/),
+    );
+  });
+
+  test("overlays: no hand-rolled fixed overlays outside ui/", () => {
+    check("overlays", offendersOf(/fixed inset|role=["']dialog["']/));
   });
 });

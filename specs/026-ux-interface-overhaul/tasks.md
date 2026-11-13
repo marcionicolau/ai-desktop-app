@@ -20,15 +20,15 @@
 - [X] T003 [P] Build candidate sample A "Graphite" as standalone light+dark HTML (chat, settings form, empty state, toast, command palette mock) in `specs/026-ux-interface-overhaul/candidates/a-graphite.html` per research.md R1 (FR-021)
 - [X] T004 [P] Build candidate sample B "Paper" in `specs/026-ux-interface-overhaul/candidates/b-paper.html` (FR-021)
 - [X] T005 [P] Build candidate sample C "Midnight" in `specs/026-ux-interface-overhaul/candidates/c-midnight.html` (FR-021)
-- [ ] T006 **Gate G0**: owner picks one candidate; record the decision (palette values, font pair, icon family) in `specs/026-ux-interface-overhaul/research.md` R1. Blocks T015–T018. (FR-021)
+- [X] T006 **Gate G0**: owner picks one candidate; record the decision (palette values, font pair, icon family) in `specs/026-ux-interface-overhaul/research.md` R1. Blocks T015–T018. (FR-021)
 - [X] T007 [P] Check whether Electrobun `BrowserWindow` supports a minimum size in `src/bun/index.ts` (currently only `frame: {width: 1024, height: 720}`); record the result in research.md R7 (FR-015)
 
 ## Phase 2: Foundational (blocks all user stories)
 
-- [ ] T008 Vendor the shadcn components needed (`dialog`, `select`, `switch`, `slider`, `tabs`, `command`, `sonner`, `field`, `label`, `checkbox`, `radio-group`, `popover`, `empty`, `spinner`, `alert`) into `src/renderer/src/components/ui/` with the shadcn CLI per `src/renderer/components.json`; Radix imports only inside `ui/` Set `iconLibrary` in `src/renderer/components.json` to the family approved in T006 before vendoring (FR-020)
-- [ ] T009 Add `sonner` and `cmdk` to `package.json` and `bun.lock`, with the justification from plan.md Complexity Tracking in the commit message (FR-020)
-- [ ] T010 [P] Extend `tests/ui-audit.test.ts` with scale rules in warn-only mode: no arbitrary `text-[Npx]`, no off-scale `size-*` icon sizes, icons imported only via `components/icons.ts`, no native `<select>`/checkbox/radio/range or `fixed inset` overlays outside `components/ui/` (FR-006, FR-008, FR-020)
-- [ ] T011 [P] Enable the oxlint `jsx-a11y` rules in the project lint config first in warn mode to size the existing violations, then fix or list them (FR-005, FR-022)
+- [X] T008 Vendor the shadcn components needed (`dialog`, `select`, `switch`, `slider`, `tabs`, `command`, `sonner`, `field`, `label`, `checkbox`, `radio-group`, `popover`, `empty`, `spinner`, `alert`) into `src/renderer/src/components/ui/` with the shadcn CLI per `src/renderer/components.json`; Radix imports only inside `ui/` Set `iconLibrary` in `src/renderer/components.json` to the family approved in T006 before vendoring (FR-020) — *done: vendored from the shadcn `new-york-v4` registry (`shadcn view`; the CLI cannot run without a renderer `package.json`); imports adapted to `@/lib/utils`, `sonner` uses `@/lib/theme`; `Button` gained an `outline` variant; `iconLibrary` set to `remix`*
+- [X] T009 Add `sonner` and `cmdk` to `package.json` and `bun.lock`, with the justification from plan.md Complexity Tracking in the commit message (FR-020)
+- [X] T010 [P] Extend `tests/ui-audit.test.ts` with scale rules in warn-only mode: no arbitrary `text-[Npx]`, no off-scale `size-*` icon sizes, icons imported only via `components/icons.ts`, no native `<select>`/checkbox/radio/range or `fixed inset` overlays outside `components/ui/` (FR-006, FR-008, FR-020)
+- [X] T011 [P] Enable the oxlint `jsx-a11y` rules in the project lint config first in warn mode to size the existing violations, then fix or list them (FR-005, FR-022)
 
 **Checkpoint**: foundation ready; user stories can start (US2 after G0).
 
