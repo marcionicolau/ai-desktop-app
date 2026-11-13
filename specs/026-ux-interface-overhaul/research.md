@@ -47,8 +47,8 @@
 
 ## R7 — Minimum window size (800 × 600)
 
-**Decision**: layouts verified at 800 × 600 via a resize matrix; the sidebar uses its existing icon-rail collapse below a width breakpoint. Whether Electrobun's `BrowserWindow` can enforce a hard minimum is **unverified** — task S5 checks `src/bun/index.ts` window options; if unsupported, the floor is a tested design target, not an enforced limit.
-**Alternatives**: none needed until verified.
+**Decision**: layouts verified at 800 × 600 via a resize matrix; the sidebar uses its existing icon-rail collapse below a width breakpoint. **Verified (T007, 2026-11-13):** Electrobun's `BrowserWindow` options expose only `frame: {x, y, width, height}` (`.hutch/devkit/api/sdks/main/core/BrowserWindow.ts`); there is no minimum-size option. 800 × 600 is therefore a tested design floor, not an enforced limit, and layouts must degrade without breaking below it (T056 records this).
+**Alternatives**: a native minimum via a custom FFI window call (rejected: outside the typed host API and platform-specific).
 
 ## R8 — Command palette scope
 

@@ -15,13 +15,13 @@
 
 ## Phase 1: Setup & Visual-Direction Gate (slice S0)
 
-- [ ] T001 Write the scripted walkthrough (5 core tasks: start chat, switch model, change a generation setting, import a file, delete a conversation; each with start/stop state, timer and pass/fail checklist) in `specs/026-ux-interface-overhaul/walkthrough.md` Include a sixth step, "reach a named conversation, a model and a setting from any screen", timed with keystroke count (SC-003) (SC-002, SC-003, SC-004)
+- [X] T001 Write the scripted walkthrough (5 core tasks: start chat, switch model, change a generation setting, import a file, delete a conversation; each with start/stop state, timer and pass/fail checklist) in `specs/026-ux-interface-overhaul/walkthrough.md` Include a sixth step, "reach a named conversation, a model and a setting from any screen", timed with keystroke count (SC-003) (SC-002, SC-003, SC-004)
 - [ ] T002 Run the walkthrough on current `main` and record the baseline times and results in `specs/026-ux-interface-overhaul/validation.md` — **must be done before any visual change merges** (SC-002, SC-004)
-- [ ] T003 [P] Build candidate sample A "Graphite" as standalone light+dark HTML (chat, settings form, empty state, toast, command palette mock) in `specs/026-ux-interface-overhaul/candidates/a-graphite.html` per research.md R1 (FR-021)
-- [ ] T004 [P] Build candidate sample B "Paper" in `specs/026-ux-interface-overhaul/candidates/b-paper.html` (FR-021)
-- [ ] T005 [P] Build candidate sample C "Midnight" in `specs/026-ux-interface-overhaul/candidates/c-midnight.html` (FR-021)
+- [X] T003 [P] Build candidate sample A "Graphite" as standalone light+dark HTML (chat, settings form, empty state, toast, command palette mock) in `specs/026-ux-interface-overhaul/candidates/a-graphite.html` per research.md R1 (FR-021)
+- [X] T004 [P] Build candidate sample B "Paper" in `specs/026-ux-interface-overhaul/candidates/b-paper.html` (FR-021)
+- [X] T005 [P] Build candidate sample C "Midnight" in `specs/026-ux-interface-overhaul/candidates/c-midnight.html` (FR-021)
 - [ ] T006 **Gate G0**: owner picks one candidate; record the decision (palette values, font pair, icon family) in `specs/026-ux-interface-overhaul/research.md` R1. Blocks T015–T018. (FR-021)
-- [ ] T007 [P] Check whether Electrobun `BrowserWindow` supports a minimum size in `src/bun/index.ts` (currently only `frame: {width: 1024, height: 720}`); record the result in research.md R7 (FR-015)
+- [X] T007 [P] Check whether Electrobun `BrowserWindow` supports a minimum size in `src/bun/index.ts` (currently only `frame: {width: 1024, height: 720}`); record the result in research.md R7 (FR-015)
 
 ## Phase 2: Foundational (blocks all user stories)
 
