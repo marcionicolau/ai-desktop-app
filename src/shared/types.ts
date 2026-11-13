@@ -145,6 +145,25 @@ export interface DownloadState {
   error?: string;
 }
 
+// feature 022: first-run model bootstrap. done = a usable model exists
+// (pre-seeded or just bootstrapped); error carries retry semantics —
+// the renderer offers retry + the manual library path.
+export type SetupPhase =
+  | "idle"
+  | "checking"
+  | "downloading"
+  | "loading"
+  | "done"
+  | "error";
+
+export interface SetupState {
+  phase: SetupPhase;
+  fileName?: string;
+  downloadedBytes: number;
+  totalBytes: number | null;
+  error?: string;
+}
+
 export interface Settings {
   activeModelPath: string | null;
   contextLimitWarning: boolean;

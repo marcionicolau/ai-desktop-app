@@ -20,6 +20,7 @@ import type {
   RunRecord,
   RunSummary,
   SearchGroup,
+  SetupState,
   SnapshotClearResult,
   SnapshotStats,
   TraceEntry,
@@ -222,6 +223,16 @@ export interface ChatRpcSchema extends ElectrobunRPCSchema {
         // tagName: bind the finished file to this tag (feature 004)
         params: { url: string; fileName: string; tagName?: string };
         response: { fileName: string };
+      };
+      // feature 022: first-run bootstrap state + manual retry. Both are
+      // cheap; the actual work streams via the setup.status event.
+      "setup.status": {
+        params: Record<string, never>;
+        response: SetupState;
+      };
+      "setup.retry": {
+        params: Record<string, never>;
+        response: Record<string, never>;
       };
       "model.setOverride": {
         params: {
@@ -487,6 +498,8 @@ export interface ChatRpcSchema extends ElectrobunRPCSchema {
         detail?: string;
       };
       "model.download": DownloadState;
+      // feature 022: pushed on every SetupService phase transition
+      "setup.status": SetupState;
       "chat.warning": {
         messageId: string;
         code: "CONTEXT_TRUNCATED" | "ATTACHMENTS_BUDGET" | "TOOL_BUDGET";
