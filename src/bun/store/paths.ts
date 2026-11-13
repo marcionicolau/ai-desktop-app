@@ -49,3 +49,16 @@ export function runsDir(packId: string): string {
 export function packDataDir(packId: string): string {
   return join(dataDir(), "pack-data", packId);
 }
+
+// feature 023: script registry + sources + per-run workdirs
+export function scriptsFile(): string {
+  return join(dataDir(), "scripts.json");
+}
+
+export function scriptsDir(): string {
+  return join(dataDir(), "scripts");
+}
+
+export function scriptRunsDir(): string {
+  return join(dataDir(), "script-runs");
+}

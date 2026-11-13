@@ -203,6 +203,9 @@ export interface Settings {
   // feature 015: undefined → {sandboxRoot: null, mode: "deny"} —
   // tools inactive until a root is configured
   tools?: ToolPolicy;
+  // feature 023: script-calling policy + runtime config; undefined →
+  // {mode: "deny", backend: "auto"} — script calls inactive until enabled
+  scripts?: ScriptPolicy;
   // feature 021: theme preference; undefined/absent → "system"
   themeMode?: ThemeMode;
   // feature 013: update preferences; undefined → {enabled:true,
@@ -265,7 +268,7 @@ export type ThemeMode = "light" | "dark" | "system";
 
 // ---- feature 015: sandboxed local tool use ----
 
-export type ToolName = "read_file" | "list_dir";
+export type ToolName = "read_file" | "list_dir" | "run_script";
 
 // verdict = status in UI wording. refused = rejected before prompting
 // (out-of-sandbox / cap exhausted / tools disabled); denied = user said no
@@ -281,7 +284,11 @@ export type ToolRefuseReason =
   | "out-of-sandbox"
   | "budget"
   | "malformed"
-  | "disabled";
+  | "disabled"
+  | "unknown-script"
+  | "invalid-args"
+  | "runtime-unavailable"
+  | "interrupted";
 
 export interface ToolCallRecord {
   id: string;
@@ -295,6 +302,14 @@ export interface ToolCallRecord {
   resultBytes?: number; // post-truncation injected size
   createdAt: string;
   decidedAt?: string;
+  // feature 023: run_script calls carry script context; `path` holds the
+  // script id so existing card/audit display keeps working
+  script?: string;
+  args?: Record<string, unknown>;
+  exitStatus?: number | null;
+  durationMs?: number;
+  files?: string[]; // produced inside the run workdir
+  sessionRestarted?: boolean; // prior session state was lost
 }
 
 export type ToolMode = "ask" | "allow-read-session" | "deny";
@@ -308,15 +323,137 @@ export interface ToolPolicy {
 // executed-or-errored call — survives conversation deletion (FR-011)
 export interface AuditEntry {
   ts: string;
-  conversationId: string;
-  messageId: string;
-  callId: string;
+  // feature 023: conv-scoped fields are absent for user/pipeline runs —
+  // FR-013 audits every execution, not only model-initiated ones
+  conversationId?: string;
+  messageId?: string;
+  callId?: string;
   tool: ToolName;
   path: string;
   resolvedPath: string;
-  verdict: "executed" | "error";
+  verdict: "executed" | "error" | "timeout" | "interrupted";
   resultBytes?: number;
   error?: string;
+  // feature 023: script-call fields (tool === "run_script")
+  script?: string;
+  initiator?: ScriptInitiator;
+  exitStatus?: number | null;
+  durationMs?: number;
+  sessionRestarted?: boolean;
+}
+
+// ---- feature 023: python & r script calling ----
+
+export type ScriptRuntimeKind = "python" | "r";
+
+export type ScriptParamType = "text" | "number" | "json" | "bool";
+
+export interface ScriptParam {
+  name: string;
+  type: ScriptParamType;
+  required: boolean;
+  description?: string;
+}
+
+export type ScriptSource =
+  | { kind: "stored" } // source file lives at dataDir()/scripts/<id>.<ext>
+  | { kind: "external"; path: string }; // absolute path; degrades gracefully
+
+// registry entry persisted in dataDir()/scripts.json
+export interface ScriptEntry {
+  id: string; // slug — the name the model calls
+  runtime: ScriptRuntimeKind;
+  source: ScriptSource;
+  description: string;
+  params: ScriptParam[];
+  timeoutMs?: number; // per-script override within MAX_SCRIPT_TIMEOUT
+  enabled: boolean;
+}
+
+// script.list view: entry + the entry's runtime health
+export interface ScriptListItem extends ScriptEntry {
+  runtimeStatus: "ready" | "missing";
+}
+
+export type ScriptInitiator = "model" | "user" | "pipeline";
+
+export type SessionState = "cold" | "starting" | "live" | "dead";
+
+export interface SessionInfo {
+  state: SessionState;
+  calls: number;
+  restartCount: number;
+}
+
+// runtime.* views + settings
+export interface RuntimeStatus {
+  kind: ScriptRuntimeKind;
+  configuredPath: string | null;
+  detectedPath: string | null;
+  status: "ready" | "missing";
+  session: SessionInfo | null;
+}
+
+export type ScriptRunVerdict =
+  | "executed"
+  | "error"
+  | "timeout"
+  | "denied"
+  | "refused"
+  | "interrupted";
+
+export interface ScriptRunRecord {
+  runId: string; // also names dataDir()/script-runs/<runId>/
+  script: string;
+  initiator: ScriptInitiator;
+  verdict: ScriptRunVerdict;
+  exitStatus: number | null;
+  stdout: string; // capped capture (truncated + marker)
+  stderr: string;
+  durationMs: number;
+  files: string[]; // produced inside the run workdir
+  sessionRestarted: boolean;
+}
+
+// script.run progress event (manual runs + queued state)
+export interface ScriptRunEvent {
+  runId: string;
+  script: string;
+  phase: "queued" | "running" | "done" | "error";
+}
+
+// session.state event — powers runtime health badges
+export interface SessionStateEvent {
+  runtime: ScriptRuntimeKind;
+  state: SessionState;
+  restartCount: number;
+}
+
+export type ScriptMode = "ask" | "allow-session" | "deny";
+
+export type ScriptBackendKind = "auto" | "subprocess" | "embedded";
+
+export interface ScriptPolicy {
+  mode: ScriptMode; // default "deny" — opt-in like tools
+  runtimes?: {
+    python?: { path?: string };
+    r?: { path?: string };
+  };
+  backend?: ScriptBackendKind; // default "auto" → benchmark winner
+}
+
+// script.upsert params: id absent → create (slug derived from name)
+export interface ScriptUpsertParams {
+  id?: string;
+  name: string;
+  runtime: ScriptRuntimeKind;
+  description?: string;
+  source:
+    | { kind: "stored"; text: string }
+    | { kind: "external"; path: string };
+  params?: ScriptParam[];
+  timeoutMs?: number;
+  enabled?: boolean; // default true
 }
 
 // feature 016: one metrics entry per generation call (session ring, FR-007)
@@ -496,7 +633,8 @@ export interface SkillView {
   name: string;
   domain?: string;
   version: string;
-  runtime: string; // "prompt" | "component:<id>"
+  runtime: string; // "prompt" | "component:<id>" | "script"
+  script?: string; // feature 023: library slug when runtime:"script"
   description: string;
   inputs: Record<string, PortDecl>;
   outputs: Record<string, PortDecl>;
@@ -615,6 +753,12 @@ export type WorkspaceTab =
   | {
       kind: "surface"; // feature 021: app surface — each alone on screen
       id: string; // `surface:${surfaceId}`
-      surfaceId: "models" | "personas" | "roles" | "settings" | "extensions";
+      surfaceId:
+        | "models"
+        | "personas"
+        | "roles"
+        | "settings"
+        | "extensions"
+        | "scripts";
       title: string;
     };

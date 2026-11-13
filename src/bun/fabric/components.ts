@@ -22,6 +22,8 @@ export interface RunCtx {
   resolveSkill: (ref: string) => SkillContrib | null;
   runPipeline: (contrib: SkillContrib, inputs: Record<string, unknown>, params: Record<string, unknown>, path: string) => Promise<Record<string, unknown>>;
   onModelCall?: (usage: { promptTokens?: number; outputTokens: number }) => void;
+  // feature 023: runtime:"script" steps — absent → SCRIPT_NOT_FOUND
+  runScript?: (slug: string, args: Record<string, unknown>, path: string) => Promise<Record<string, unknown>>;
   signal?: AbortSignal;
   path: string; // trace path prefix
 }
@@ -207,6 +209,12 @@ export async function runSkill(
   let out: Record<string, unknown>;
   if (fm.runtime === "prompt") {
     out = await runPromptComponent(skill, inputs, merged, objective, ctx);
+  } else if (fm.runtime === "script") {
+    // feature 023: bound inputs + params become the script call's args
+    if (!ctx.runScript) {
+      throw new FabricError("SCRIPT_NOT_FOUND", "script execution unavailable", ctx.path);
+    }
+    out = await ctx.runScript(fm.script ?? "", { ...merged, ...inputs }, ctx.path);
   } else if (fm.runtime.startsWith("component:")) {
     out = runBuiltin(fm.runtime.slice("component:".length), inputs, merged, ctx.path);
   } else {

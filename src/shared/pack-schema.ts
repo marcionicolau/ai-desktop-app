@@ -11,6 +11,8 @@ export const CAPABILITIES = [
   "runs.read",
   "views.theme",
   "commands.invoke",
+  // feature 023: script-backed pipeline steps (runtime: "script")
+  "scripts.run",
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];
@@ -68,7 +70,8 @@ export interface SkillFrontmatter {
   domain?: string;
   description: string;
   kind?: "pipeline"; // absent = component
-  runtime?: string; // "prompt" | "component:<builtin-id>"
+  runtime?: string; // "prompt" | "component:<builtin-id>" | "script"
+  script?: string; // feature 023: library slug, required when runtime:"script"
   params?: Record<string, ParamDecl>;
   inputs?: Record<string, PortDecl>;
   outputs?: Record<string, PortDecl>;

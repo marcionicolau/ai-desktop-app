@@ -17,6 +17,8 @@ import type {
   Snippet,
   RoleRef,
   PackSource,
+  ScriptRuntimeKind,
+  ScriptUpsertParams,
   UpdateChannel,
   UpdateView,
 } from "../../shared/types";
@@ -26,6 +28,12 @@ import { mergeParams, validateParams } from "../llama/params";
 import { buildPrompt, composeSystem, type PromptTurn } from "../llama/prompt";
 import { runToolLoop } from "../tools/loop";
 import { ToolService } from "../tools/service";
+import { ScriptService } from "../scripts/service";
+import { ScriptStore } from "../scripts/store";
+import { SessionManager } from "../scripts/session";
+import { SubprocessBackend } from "../scripts/backends/subprocess";
+import { EmbeddedBackend } from "../scripts/backends/embedded";
+import { resolveInterpreter } from "../scripts/runtimes";
 import { modelsDir, scanModels } from "../models/library";
 import { downloadGguf, validateGgufTarget } from "../models/download";
 import { DEFAULT_MODEL, SetupService } from "../setup/service";
@@ -162,6 +170,9 @@ export interface HandlerDeps {
   // feature 015: tool policy/grants/deferrals; absent → tools disabled
   // (prompt injection off; stray blocks refuse as "disabled")
   tools?: ToolService;
+  // feature 023: script registry/sessions; absent → run_script refuses
+  // as disabled (same shape as tools)
+  scripts?: ScriptService;
   // feature 008: file pickers, injectable for headless tests
   dialogs?: {
     pickFolder(): Promise<string | null>;
@@ -239,6 +250,30 @@ export function createRequestHandlers(deps: HandlerDeps) {
   const tools = () =>
     (toolsSvc ??=
       deps.tools ?? new ToolService({ getSettings: () => deps.store.getSettings() }));
+  // feature 023: lazily built like tools(); backend kind from policy
+  // ("auto" → subprocess per the FR-023 benchmark decision)
+  let scriptsSvc: ScriptService | null = null;
+  const scripts = () =>
+    (scriptsSvc ??=
+      deps.scripts ??
+      new ScriptService({
+        store: new ScriptStore(),
+        sessions: new SessionManager({
+          backendFactory: () =>
+            scriptsSvc!.policy().backend === "embedded"
+              ? new EmbeddedBackend()
+              : new SubprocessBackend(),
+          emit: (e) => deps.emit("session.state", e),
+        }),
+        getSettings: () => deps.store.getSettings(),
+        emitRun: (e) => deps.emit("script.run", e),
+      }));
+  // enabled scripts whose runtime resolves — the prompt listing
+  const scriptListing = () =>
+    scripts()
+      .list()
+      .filter((s) => s.enabled && s.runtimeStatus === "ready")
+      .map((s) => ({ id: s.id, description: s.description, params: s.params }));
   // feature 015: turn-level busy — covers the approval pause where the
   // engine itself is not generating
   // feature 017 (I2): an active fabric run holds the engine too —
@@ -301,6 +336,10 @@ export function createRequestHandlers(deps: HandlerDeps) {
     new RunManager({
       registry: contribReg,
       engine: () => deps.engine,
+      // feature 023: script steps consent via the same tool.update stream
+      scripts: deps.scripts,
+      onToolCall: (runId, call) =>
+        deps.emit("tool.update", { messageId: runId, call: { ...call } }),
       onTrace: (runId, entry) => deps.emit("run.event", { runId, entry }),
       onStatus: (runId, status, error) => {
         deps.emit("run.status", {
@@ -488,9 +527,14 @@ export function createRequestHandlers(deps: HandlerDeps) {
           history,
           current,
           plannerText,
-          executorSystem: composeSystem(persona?.systemPrompt, toolsActive),
+          executorSystem: composeSystem(
+            persona?.systemPrompt,
+            toolsActive,
+            scripts().scriptsActive() ? scriptListing() : undefined,
+          ),
           tools: {
             service: tools(),
+            scripts: scripts(),
             messageId,
             isStopped: () => pendingStop === messageId,
             onBudgetWarning: () =>
@@ -619,13 +663,18 @@ export function createRequestHandlers(deps: HandlerDeps) {
               chatml,
               budget,
               costOf,
-              system: composeSystem(persona?.systemPrompt, toolsActive),
+              system: composeSystem(
+                persona?.systemPrompt,
+                toolsActive,
+                scripts().scriptsActive() ? scriptListing() : undefined,
+              ),
             });
             if (built.truncated) warnTruncated();
             try {
               // oxlint-disable-next-line no-await-in-loop -- sequential budget-halving retry
               const r = await runToolLoop(eng, built.prompt, {
                 tools: tools(),
+                scripts: scripts(),
                 conversationId: conv.id,
                 messageId,
                 genParams,
@@ -1234,6 +1283,7 @@ export function createRequestHandlers(deps: HandlerDeps) {
       pendingStop = messageId;
       // feature 015: a pending tool approval resolves as discarded
       tools().discardPending(messageId);
+      scripts().discardAllPending();
       deps.engine.stop();
       return {};
     },
@@ -1245,9 +1295,58 @@ export function createRequestHandlers(deps: HandlerDeps) {
       callId: string;
       decision: "approve" | "deny" | "allowSession";
     }) => {
-      if (!tools().respond(callId, decision)) {
+      if (!tools().respond(callId, decision) && !scripts().respond(callId, decision)) {
         fail("NOT_FOUND", `no pending tool call ${callId}`);
       }
+      return {};
+    },
+    // feature 023: script registry + manual run + runtime health
+    "script.list": () => ({ scripts: scripts().list() }),
+    "script.upsert": (p: ScriptUpsertParams) => ({
+      entry: scripts().upsert(p),
+    }),
+    "script.delete": ({ id }: { id: string }) => {
+      scripts().delete(id);
+      return {};
+    },
+    "script.enable": ({ id, enabled }: { id: string; enabled: boolean }) => {
+      scripts().setEnabled(id, enabled);
+      return {};
+    },
+    "script.run": async ({
+      id,
+      args,
+      timeoutMs,
+    }: {
+      id: string;
+      args?: Record<string, unknown>;
+      timeoutMs?: number;
+    }) => {
+      const entry = scripts().get(id);
+      if (!entry) fail("SCRIPT_NOT_FOUND", `no script "${id}"`);
+      if (!entry.enabled) fail("SCRIPT_NOT_FOUND", `script "${id}" is disabled`);
+      const over =
+        timeoutMs !== undefined ? { ...entry, timeoutMs } : entry;
+      // manual run = initiator "user", no consent prompt (the user
+      // clicked Run); validation/timeout/workdir are shared
+      return await scripts().call({
+        entry: over,
+        args,
+        initiator: "user",
+        ns: "manual",
+        emitRun: true,
+      });
+    },
+    "runtime.list": () => ({ runtimes: scripts().runtimes() }),
+    "runtime.detect": ({ kind }: { kind: ScriptRuntimeKind }) => {
+      const { path } = resolveInterpreter(kind, scripts().policy());
+      if (!path) {
+        fail("RUNTIME_NOT_FOUND", `no ${kind} interpreter found`);
+      }
+      return { path };
+    },
+    "runtime.reset": async ({ kind }: { kind: ScriptRuntimeKind }) => {
+      await scripts().resetRuntime(kind);
       return {};
     },
     // feature 015: sandbox-root folder picker; null = cancelled
@@ -1283,6 +1382,8 @@ export function createRequestHandlers(deps: HandlerDeps) {
         outputPanel: s.outputPanel ?? false,
         // feature 015: default {root: null, mode: deny} = inactive
         tools: s.tools ?? { sandboxRoot: null, mode: "deny" },
+        // feature 023: unset → deny/default backend
+        scripts: s.scripts ?? { mode: "deny", backend: "auto" },
         // feature 021: absent → "system"
         themeMode: s.themeMode ?? "system",
         // feature 013: reports the stored pref (env kill-switch affects
@@ -1299,6 +1400,7 @@ export function createRequestHandlers(deps: HandlerDeps) {
       modelOverride,
       outputPanel,
       tools: toolsPatch,
+      scripts: scriptsPatch,
       themeMode,
       resolvedTheme: resolvedPatch,
       updates: updatesPatch,
@@ -1310,6 +1412,7 @@ export function createRequestHandlers(deps: HandlerDeps) {
         params: Partial<GenerationParams> | null;
       };
       tools?: Partial<import("../../shared/types").ToolPolicy>;
+      scripts?: Partial<import("../../shared/types").ScriptPolicy>;
       themeMode?: import("../../shared/types").ThemeMode;
       resolvedTheme?: "light" | "dark";
       updates?: { enabled?: boolean; channel?: UpdateChannel };
@@ -1360,6 +1463,28 @@ export function createRequestHandlers(deps: HandlerDeps) {
           }
         }
         next.tools = merged;
+      }
+      if (scriptsPatch) {
+        // feature 023: merge into existing policy; mode must be a
+        // known value, backend one of the implemented kinds
+        const cur = s.scripts ?? { mode: "deny" as const, backend: "auto" as const };
+        const merged = { ...cur, ...scriptsPatch };
+        if (
+          merged.mode !== "ask" &&
+          merged.mode !== "allow-session" &&
+          merged.mode !== "deny"
+        ) {
+          fail("INVALID_PARAMS", `unknown script mode: ${merged.mode}`);
+        }
+        if (
+          merged.backend !== undefined &&
+          merged.backend !== "auto" &&
+          merged.backend !== "subprocess" &&
+          merged.backend !== "embedded"
+        ) {
+          fail("INVALID_PARAMS", `unknown script backend: ${merged.backend}`);
+        }
+        next.scripts = merged;
       }
       if (modelOverride) {
         if (modelOverride.params === null) {

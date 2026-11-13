@@ -3,7 +3,7 @@
 // (splitting message content into prose + card slots). Pure module —
 // no I/O, no dependencies.
 
-import type { ToolName } from "./types";
+
 
 export const TOOL_CALL_FENCE = "tool_call";
 export const TOOL_RESULT_FENCE = "tool_result";
@@ -19,7 +19,15 @@ export interface ToolBlock {
 }
 
 export type ParsedCall =
-  | { ok: true; tool: ToolName; path: string }
+  | { ok: true; tool: "read_file" | "list_dir"; path: string }
+  // feature 023: script calls carry a registry id + declared-arg map
+  | {
+      ok: true;
+      tool: "run_script";
+      script: string;
+      args: Record<string, unknown>;
+      input?: string;
+    }
   | { ok: false; reason: "malformed"; detail: string };
 
 const BLOCK_RE =
@@ -67,6 +75,33 @@ export function parseCallBody(body: string): ParsedCall {
   }
   const o = v as Record<string, unknown>;
   const tool = o.tool;
+  if (tool === "run_script") {
+    // feature 023: {"tool":"run_script","script":"<id>","args":{},"input"?}
+    const script = o.script;
+    if (typeof script !== "string" || script.trim() === "") {
+      return {
+        ok: false,
+        reason: "malformed",
+        detail: "script must be a non-empty string",
+      };
+    }
+    const args = o.args;
+    if (args !== undefined && (typeof args !== "object" || args === null || Array.isArray(args))) {
+      return {
+        ok: false,
+        reason: "malformed",
+        detail: "args must be an object",
+      };
+    }
+    const input = o.input;
+    return {
+      ok: true,
+      tool: "run_script",
+      script: script.trim(),
+      args: (args as Record<string, unknown>) ?? {},
+      input: typeof input === "string" ? input : undefined,
+    };
+  }
   if (tool !== "read_file" && tool !== "list_dir") {
     return {
       ok: false,
@@ -85,7 +120,7 @@ export function parseCallBody(body: string): ParsedCall {
 
 // serialize a tool result block for injection into the stream/prompt
 export function renderResultBlock(payload: {
-  status: "ok" | "denied" | "refused" | "error";
+  status: "ok" | "denied" | "refused" | "error" | "timeout" | "interrupted";
   content: string;
 }): string {
   return "```" + TOOL_RESULT_FENCE + "\n" + JSON.stringify(payload) + "\n```\n";

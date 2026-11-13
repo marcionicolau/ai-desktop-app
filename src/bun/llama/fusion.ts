@@ -14,6 +14,7 @@ import type {
 import type { ModelRegistry, SlotEngine } from "../models/registry";
 import type { SnapshotStore } from "../kv/store";
 import type { ToolService } from "../tools/service";
+import type { ScriptService } from "../scripts/service";
 import { runToolLoop } from "../tools/loop";
 import { buildExecutorPrompt, buildPlannerPrompt } from "./plan-prompt";
 import { buildPrompt, type PromptTurn } from "./prompt";
@@ -47,6 +48,8 @@ export interface FusionTurnOpts {
   // tool loop; the planner's output is never scanned for calls
   tools?: {
     service: ToolService;
+    // feature 023: executor-only script calls share the tool budget
+    scripts?: ScriptService;
     messageId: string;
     onCall: (call: ToolCallRecord) => void;
     onBudgetWarning: () => void;
@@ -171,6 +174,7 @@ async function genToolPhase(opts: {
       // oxlint-disable-next-line no-await-in-loop -- sequential budget-halving retry
       return await runToolLoop(opts.eng, built.prompt, {
         tools: opts.tools.service,
+        scripts: opts.tools.scripts,
         conversationId: opts.conversationId,
         messageId: opts.tools.messageId,
         genParams: opts.params,

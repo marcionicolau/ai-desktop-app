@@ -69,6 +69,15 @@ export class ContributionRegistry {
       for (const file of mdFiles(skillsDir)) {
         const spec = readSpecFile(file, validateSkill);
         const fm = spec.frontmatter;
+        // feature 023: runtime:"script" skills execute library scripts —
+        // the pack must declare the scripts.run capability (pack-script.md)
+        if (fm.runtime === "script" && !manifest.capabilities.includes("scripts.run")) {
+          throw new PackError(
+            "CAPABILITY_DENIED",
+            `skill "${fm.name}" uses runtime "script" but the pack does not declare "scripts.run"`,
+            { file, path: "runtime" },
+          );
+        }
         const id = ns(packId, fm.name);
         if (skills.has(id) || pipelines.has(id)) {
           throw new PackError("PACK_INVALID", `duplicate contribution "${fm.name}"`, { file, path: "name" });
@@ -77,7 +86,7 @@ export class ContributionRegistry {
           id, packId, name: fm.name, domain: fm.domain, version: fm.version,
           runtime: fm.runtime ?? "prompt", description: fm.description,
           inputs: fm.inputs ?? {}, outputs: fm.outputs ?? {},
-          params: fm.params ?? {},
+          params: fm.params ?? {}, script: fm.script,
           guidance: {
             whenToUse: spec.sections["when to use"],
             interpreting: spec.sections["interpreting"],

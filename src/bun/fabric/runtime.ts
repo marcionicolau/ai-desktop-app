@@ -10,13 +10,19 @@ import { executePipeline } from "./pipeline";
 import { runAgent } from "./agent";
 import type { ContributionRegistry } from "./registry";
 import { dataDir, runsDir } from "../store/paths";
-import type { Budget, RunRecord, RunStatus, RunSummary, TraceEntry } from "../../shared/types";
+import type { Budget, RunRecord, RunStatus, RunSummary, ToolCallRecord, TraceEntry } from "../../shared/types";
+import type { ScriptDecision, ScriptService } from "../scripts/service";
 
 export interface RunManagerDeps {
   registry: ContributionRegistry;
   engine: () => ComponentEngine;
+  // feature 023: script-backed steps; absent → runtime:"script" skills
+  // fail SCRIPT_NOT_FOUND at the step (pack-script.md execution contract)
+  scripts?: ScriptService;
   onTrace?: (runId: string, entry: TraceEntry) => void;
   onStatus?: (runId: string, status: RunStatus, error?: { code: string; message: string; path?: string }) => void;
+  // pending script consent surfaces like chat tool calls (tool.update)
+  onToolCall?: (runId: string, call: ToolCallRecord) => void;
 }
 
 const HISTORY_CAP = 50;
@@ -149,10 +155,87 @@ export class RunManager {
     this.controllers.set(`${opts.packId}/${runId}`, controller);
     this.live.set(runId, rec);
     void this.drive(rec, controller).finally(() => {
+      // feature 023: teardown resolves run-scoped pending script consent
+      this.deps.scripts?.discardPending(runId);
       this.controllers.delete(`${opts.packId}/${runId}`);
       this.live.delete(runId);
     });
     return runId;
+  }
+
+  // feature 023: a runtime:"script" step — resolves the library entry,
+  // runs the same consent flow as chat (pending → tool.update →
+  // tool.respond, ns = runId), then folds captured stdout into step
+  // outputs (JSON stdout → object; else {output}). pack-script.md.
+  private async runScriptStep(
+    runId: string,
+    slug: string,
+    args: Record<string, unknown>,
+    path: string,
+  ): Promise<Record<string, unknown>> {
+    const svc = this.deps.scripts;
+    if (!svc || !svc.scriptsActive()) {
+      throw new FabricError("SCRIPT_NOT_FOUND", "scripts are disabled", path);
+    }
+    const entry = svc.get(slug);
+    if (!entry || !entry.enabled) {
+      throw new FabricError("SCRIPT_NOT_FOUND", `no enabled script "${slug}"`, path);
+    }
+    const call: ToolCallRecord = {
+      id: crypto.randomUUID(),
+      tool: "run_script",
+      path: slug,
+      script: entry.id,
+      args,
+      status: "pending",
+      createdAt: new Date().toISOString(),
+    };
+    let decision: ScriptDecision = "approve";
+    if (!svc.autoApprove(runId)) {
+      const deferred = svc.awaitDecision(call.id, runId);
+      this.deps.onToolCall?.(runId, call);
+      decision = await deferred;
+      call.decidedAt = new Date().toISOString();
+    }
+    if (decision !== "approve" && decision !== "allowSession") {
+      call.status = "denied";
+      call.decidedAt ??= new Date().toISOString();
+      this.deps.onToolCall?.(runId, call);
+      throw new FabricError(
+        "CAPABILITY_DENIED",
+        decision === "discard" ? "run cancelled" : "the user denied this script call",
+        path,
+      );
+    }
+    call.status = "approved";
+    this.deps.onToolCall?.(runId, call);
+    let rec;
+    try {
+      rec = await svc.call({ entry, args, initiator: "pipeline", ns: runId, callId: call.id });
+    } catch (e) {
+      call.status = "error";
+      call.error = (e as Error).message;
+      this.deps.onToolCall?.(runId, call);
+      throw e;
+    }
+    call.status = rec.verdict === "executed" ? "executed" : "error";
+    call.exitStatus = rec.exitStatus;
+    call.durationMs = rec.durationMs;
+    call.files = rec.files;
+    call.sessionRestarted = rec.sessionRestarted;
+    this.deps.onToolCall?.(runId, call);
+    if (rec.verdict !== "executed") {
+      throw new FabricError("ENGINE_ERROR", `script "${slug}" failed`, path);
+    }
+    try {
+      const parsed: unknown = JSON.parse(rec.stdout);
+      if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
+        return parsed as Record<string, unknown>;
+      }
+      return { output: parsed };
+    } catch {
+      return { output: rec.stdout };
+    }
   }
 
   private trace(rec: RunRecord, e: Omit<TraceEntry, "seq">): void {
@@ -190,6 +273,9 @@ export class RunManager {
           const out = await executePipeline(pl, inputs, params, rec.objective, { ...ctx, path }, { trace: (e) => this.trace(rec, e) });
           return out;
         },
+        runScript: this.deps.scripts
+          ? async (slug, args, path) => this.runScriptStep(rec.id, slug, args, path)
+          : undefined,
         onModelCall: (u) => {
           rec.usage.modelCalls++;
           rec.usage.promptTokens += u.promptTokens ?? 0;
