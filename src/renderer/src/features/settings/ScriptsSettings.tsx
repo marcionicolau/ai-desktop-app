@@ -1,6 +1,8 @@
 // feature 023 (T035): script policy — mode select, per-runtime
 // interpreter path + auto-detect + status badge, backend selector,
 // session reset. Mirrors ToolSettings' settings.set merge pattern.
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { SelectField } from "@/components/select-field";
 import { useEffect, useState } from "react";
 import type { RuntimeStatus, ScriptPolicy, ScriptRuntimeKind } from "@shared/types";
 import { invoke, on } from "@/lib/rpc";
@@ -90,10 +92,11 @@ export function ScriptsSettings() {
   const rt = (kind: ScriptRuntimeKind) => runtimes.find((r) => r.kind === kind);
 
   return (
-    <section className="space-y-3">
-      <h2 className="text-sm font-medium">Python &amp; R scripts</h2>
+    <section id="settings-scripts" aria-labelledby="scripts-heading" className="border-b border-border bg-muted/40 px-4 py-3">
+      <div className="mx-auto max-w-2xl space-y-3">
+      <h2 id="scripts-heading" className="text-xs font-medium text-muted-foreground">Python &amp; R scripts</h2>
       <div className="space-y-1">
-        <span className="text-xs text-muted-foreground">Script calls</span>
+        <span id="script-calls-label" className="text-xs text-muted-foreground">Script calls</span>
         <div className="flex gap-2">
           {MODES.map((m) => (
             <Button
@@ -110,23 +113,15 @@ export function ScriptsSettings() {
         </div>
       </div>
       <div className="space-y-1">
-        <span className="text-xs text-muted-foreground">Backend</span>
-        <select
-          className="flex h-9 rounded-md border bg-transparent px-2 text-sm"
+        <span id="script-backend-label" className="text-xs text-muted-foreground">Backend</span>
+        <SelectField
+          aria-label="Script backend"
+          className="w-56"
           value={policy.backend ?? "auto"}
           disabled={busy}
-          onChange={(e) =>
-            void save({
-              backend: e.target.value as ScriptPolicy["backend"],
-            })
-          }
-        >
-          {BACKENDS.map((b) => (
-            <option key={b.value} value={b.value}>
-              {b.label}
-            </option>
-          ))}
-        </select>
+          options={BACKENDS.map((b) => ({ value: b.value, label: b.label }))}
+          onValueChange={(v) => void save({ backend: v as ScriptPolicy["backend"] })}
+        />
       </div>
       {KINDS.map(({ kind, label }) => {
         const r = rt(kind);
@@ -193,7 +188,12 @@ export function ScriptsSettings() {
           </div>
         );
       })}
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {error && (
+        <Alert variant="destructive" className="px-3 py-2 text-xs">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+      </div>
     </section>
   );
 }
