@@ -27,6 +27,8 @@ import { buildPrompt, composeSystem, type PromptTurn } from "../llama/prompt";
 import { runToolLoop } from "../tools/loop";
 import { ToolService } from "../tools/service";
 import { modelsDir, scanModels } from "../models/library";
+import { downloadGguf, validateGgufTarget } from "../models/download";
+import { DEFAULT_MODEL, SetupService } from "../setup/service";
 import { runBenchmark } from "../advisor/benchmark";
 import { fingerprint, loadBenchmarks } from "../advisor/store";
 import {
@@ -87,8 +89,6 @@ import {
   mkdirSync,
   statSync,
   readFileSync,
-  renameSync,
-  unlinkSync,
   writeFileSync,
 } from "node:fs";
 import { basename, join } from "node:path";
@@ -176,6 +176,8 @@ export interface HandlerDeps {
   viewFactory?: ViewFactory;
   // feature 013: update service; absent → update.* rejects UPDATE_DISABLED
   updater?: UpdateServiceLike;
+  // feature 022: first-run bootstrap; absent → setup.* returns idle/no-op
+  setup?: SetupService;
 }
 
 function fail(code: RpcErrorCode, message: string): never {
@@ -945,19 +947,7 @@ export function createRequestHandlers(deps: HandlerDeps) {
       fileName: string;
       tagName?: string;
     }) => {
-      // allowlist: huggingface.co/<org>/<repo>/resolve/<rev>/<file>.gguf
-      const HF_RE =
-        /^https:\/\/huggingface\.co\/[^/]+\/[^/]+\/resolve\/[^\s/]+\/[^\s/]+\.gguf(?:\?[^\s]*)?$/;
-      if (!HF_RE.test(url)) {
-        fail(
-          "INVALID_URL",
-          "only https://huggingface.co/<org>/<repo>/resolve/<rev>/<file>.gguf links are allowed",
-        );
-      }
-      const safeName = basename(fileName.trim());
-      if (!safeName.endsWith(".gguf") || safeName !== fileName.trim()) {
-        fail("INVALID_URL", "fileName must be a plain .gguf basename");
-      }
+      const safeName = validateGgufTarget(url, fileName);
       // validate the tag exists before the download starts (FR-004)
       if (tagName !== undefined) {
         const known = rolesSvc()
@@ -967,78 +957,44 @@ export function createRequestHandlers(deps: HandlerDeps) {
       }
       const dir = modelsDir();
       mkdirSync(dir, { recursive: true });
-      const target = join(dir, safeName);
-      const part = target + ".part";
-      if (existsSync(target) || existsSync(part)) {
+      if (existsSync(join(dir, safeName)) || existsSync(join(dir, safeName + ".part"))) {
         fail("ALREADY_EXISTS", `${safeName} already exists`);
       }
-
-      void (async () => {
-        let writer: ReturnType<ReturnType<typeof Bun.file>["writer"]> | null =
-          null;
-        try {
-          const res = await fetch(url, { redirect: "follow" });
-          if (!res.ok || !res.body) {
-            throw new Error(`HTTP ${res.status}`);
-          }
-          const totalHeader = res.headers.get("content-length");
-          const total = totalHeader ? Number(totalHeader) : null;
-          writer = Bun.file(part).writer();
-          let downloaded = 0;
-          let lastEmit = 0;
-          const body = res.body as unknown as AsyncIterable<Uint8Array>;
-          for await (const chunk of body) {
-            writer.write(chunk);
-            downloaded += chunk.byteLength;
-            if (downloaded - lastEmit >= 4 * 1024 * 1024) {
-              lastEmit = downloaded;
-              deps.emit("model.download", {
-                fileName: safeName,
-                phase: "progress",
-                downloadedBytes: downloaded,
-                totalBytes: total,
-              });
-            }
-          }
-          await writer.end();
-          writer = null;
-          renameSync(part, target);
-          deps.emit("model.download", {
-            fileName: safeName,
-            phase: "done",
-            downloadedBytes: downloaded,
-            totalBytes: downloaded,
-          });
-          // FR-004: bind only after the file lands; .part/error never bind
-          if (tagName !== undefined) {
-            try {
-              rolesSvc().bind(tagName, safeName);
-              deps.emit("role.changed", { name: tagName });
-            } catch {
-              // file downloaded; binding failure surfaces on next role.list
-            }
-          }
-        } catch (e) {
-          try {
-            writer?.end();
-          } catch {
-            // writer may already be closed
-          }
-          try {
-            unlinkSync(part);
-          } catch {
-            // .part may not exist yet
-          }
-          deps.emit("model.download", {
-            fileName: safeName,
-            phase: "error",
-            downloadedBytes: 0,
-            totalBytes: null,
-            error: e instanceof Error ? e.message : String(e),
-          });
+      // feature 022: tell setup a user download is in flight so a
+      // concurrent bootstrap never starts (spec FR-007)
+      deps.setup?.noteUserDownload(true);
+      void downloadGguf(url, fileName, dir, (s) => {
+        deps.emit("model.download", s);
+        if (s.phase === "done" || s.phase === "error") {
+          deps.setup?.noteUserDownload(false);
         }
-      })();
+        if (s.phase === "done" && tagName !== undefined) {
+          // FR-004: bind only after the file lands; .part/error never bind
+          try {
+            rolesSvc().bind(tagName, safeName);
+            deps.emit("role.changed", { name: tagName });
+          } catch {
+            // file downloaded; binding failure surfaces on next role.list
+          }
+        }
+      }).catch(() => {
+        // rejection already surfaced via the error event (or thrown
+        // before any event — clear the busy flag either way)
+        deps.setup?.noteUserDownload(false);
+      });
       return { fileName: safeName };
+    },
+    // feature 022: bootstrap state query + retry. retry is fire-and-
+    // forget — progress arrives via the setup.status event (FR-008)
+    "setup.status": () =>
+      deps.setup?.status() ?? {
+        phase: "idle" as const,
+        downloadedBytes: 0,
+        totalBytes: null,
+      },
+    "setup.retry": () => {
+      void deps.setup?.run();
+      return {};
     },
     "chat.send": ({
       conversationId,
@@ -2025,11 +1981,29 @@ export function createRpc(getHost?: () => HostTarget | null) {
     getSettings: () => store.getSettings(),
     emit: (m, p) => emit(m, p),
   });
+  // feature 022: first-run bootstrap — reuses the shared download core,
+  // binds to the provisioned "default" role, loads via the same
+  // bootstrapModel path as a configured model
+  const setup = new SetupService({
+    hasUsableModel: () => {
+      const path = store.getSettings().activeModelPath;
+      return scanModels().length > 0 || (path !== null && existsSync(path));
+    },
+    download: (onEvent) =>
+      downloadGguf(DEFAULT_MODEL.url, DEFAULT_MODEL.fileName, modelsDir(), onEvent),
+    bindDefault: (fileName) => {
+      roles.bind("default", fileName);
+      emit("role.changed", { name: "default" });
+    },
+    load: () => bootstrapModel(emit),
+    emit: (s) => emit("setup.status", s),
+  });
   const handlers = createRequestHandlers({
     engine,
     roles,
     registry,
     personas,
+    setup,
     snapshots: snapshotStore(),
     metrics: metricsStore(),
     emit: (m, p) => emit(m, p),
@@ -2051,6 +2025,11 @@ export function createRpc(getHost?: () => HostTarget | null) {
   };
   // bootstrap must run after a BrowserWindow attaches the rpc transport
   const start = () => {
+    // feature 022: runs before bootstrapModel on purpose — when nothing
+    // is configured the download is what eventually binds+loads the
+    // model; with a configured path setup short-circuits to "done" and
+    // bootstrapModel still performs the load as before
+    void setup.run();
     void bootstrapModel(emit);
     // feature 013: launch check — fire-and-forget, never blocks startup;
     // non-manual so failures degrade silently (FR-001/FR-007, SC-001)

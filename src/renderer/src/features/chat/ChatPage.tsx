@@ -13,6 +13,7 @@ import {
 import { ModelSelector } from "@/components/ai/model-selector";
 import { useRoles } from "../roles/use-roles";
 import { ModelLibrary } from "../models/ModelLibrary";
+import { SetupPanel } from "../setup/SetupPanel";
 import { decideStartupPrompt } from "./startup-prompt";
 import { ToolSettings } from "../settings/ToolSettings";
 import { UpdatesSection } from "../settings/UpdatesSection";
@@ -383,6 +384,9 @@ export function ChatPage() {
           className="flex min-h-0 flex-1 flex-col overflow-y-auto"
           hidden={selectedId !== "surface:models"}
         >
+          {/* feature 022: bootstrap progress/errors above the library,
+              which remains the manual fallback (spec FR-006) */}
+          <SetupPanel />
           <ModelLibrary
             activeName={state.modelName}
             onLoad={(p) => void loadModel(p)}
