@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Plus, Tags, Trash2 } from "lucide-react";
+import { IconAdd, IconDelete, IconTags } from "@/components/icons";
 import type { ModelMeta, RoleView } from "@shared/types";
 import { invoke } from "@/lib/rpc";
 import { Button } from "@/components/ui/button";
@@ -78,7 +78,7 @@ export function RolesPanel() {
     <div className="border-b border-border bg-muted/40 px-4 py-3">
       <div className="mx-auto max-w-2xl space-y-3">
         <div className="flex items-center gap-2">
-          <Tags className="size-4 text-muted-foreground" />
+          <IconTags className="size-4 text-muted-foreground" />
           <h2 className="text-xs font-semibold">Model roles</h2>
         </div>
         {pressure && (
@@ -96,7 +96,7 @@ export function RolesPanel() {
                 <span className="text-muted-foreground">{t.name}</span>
                 <span
                   className={cn(
-                    "rounded px-1.5 py-0.5 text-[10px] uppercase",
+                    "rounded px-1.5 py-0.5 text-2xs uppercase",
                     STATE_STYLE[t.state],
                   )}
                 >
@@ -123,7 +123,7 @@ export function RolesPanel() {
                     title="Delete tag"
                     onClick={() => void del(t.name)}
                   >
-                    <Trash2 className="size-3.5" />
+                    <IconDelete className="size-3.5" />
                   </Button>
                 )}
               </div>
@@ -141,7 +141,7 @@ export function RolesPanel() {
             className="h-8 w-48 text-xs"
           />
           <Button size="sm" disabled={!newName.trim()} onClick={() => void add()}>
-            <Plus className="size-3.5" /> Add tag
+            <IconAdd className="size-3.5" /> Add tag
           </Button>
         </div>
       </div>

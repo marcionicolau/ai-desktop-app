@@ -75,7 +75,7 @@ export function OutputPanel({ open }: { open: boolean }) {
               <button
                 key={m}
                 onClick={() => setTab(m)}
-                className={`rounded px-1.5 py-0.5 text-[10px] ${
+                className={`rounded px-1.5 py-0.5 text-2xs ${
                   tab === m
                     ? "bg-primary text-primary-foreground"
                     : "bg-muted text-muted-foreground"
@@ -86,13 +86,13 @@ export function OutputPanel({ open }: { open: boolean }) {
             ))}
           </div>
         )}
-        <span className="ml-auto text-[10px] text-muted-foreground">
+        <span className="ml-auto text-2xs text-muted-foreground">
           {visible.length} call{visible.length === 1 ? "" : "s"}
         </span>
         <Button
           variant="ghost"
           size="sm"
-          className="h-6 px-2 text-[10px]"
+          className="h-6 px-2 text-2xs"
           onClick={() => {
             void invoke("metrics.clear", {});
             setEntries([]);
@@ -110,18 +110,18 @@ export function OutputPanel({ open }: { open: boolean }) {
           )}
           {[...groups].map(([role, personas]) => (
             <div key={role}>
-              <div className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+              <div className="mt-1 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
                 {role}
               </div>
               {[...personas].map(([persona, list]) => (
                 <div key={persona}>
-                  <div className="pl-2 text-[10px] italic text-muted-foreground">
+                  <div className="pl-2 text-2xs italic text-muted-foreground">
                     {persona}
                   </div>
                   {list.map((e) => (
                     <div
                       key={e.id}
-                      className="flex items-baseline gap-2 py-0.5 pl-4 text-[11px]"
+                      className="flex items-baseline gap-2 py-0.5 pl-4 text-2xs"
                     >
                       <span className="shrink-0 text-muted-foreground">
                         {fmtTime(e.ts)}
@@ -130,12 +130,12 @@ export function OutputPanel({ open }: { open: boolean }) {
                         {e.modelFile.replace(/\.gguf$/, "")}
                       </span>
                       {e.tag && (
-                        <span className="shrink-0 rounded bg-muted px-1 text-[10px]">
+                        <span className="shrink-0 rounded bg-muted px-1 text-2xs">
                           {e.tag}
                         </span>
                       )}
                       {e.fallback && (
-                        <span className="shrink-0 rounded bg-warning/15 px-1 text-[10px] text-warning">
+                        <span className="shrink-0 rounded bg-warning/15 px-1 text-2xs text-warning">
                           fallback
                         </span>
                       )}

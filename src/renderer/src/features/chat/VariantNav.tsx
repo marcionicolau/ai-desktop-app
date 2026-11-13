@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { IconChevronLeft, IconChevronRight } from "@/components/icons";
 import {
   Checkpoint,
   CheckpointLabel,
@@ -23,7 +23,7 @@ export function VariantNav({ pos, total, disabled, onPrev, onNext }: Props) {
         disabled={disabled || pos <= 1}
         onClick={onPrev}
       >
-        <ChevronLeft className="h-3.5 w-3.5" />
+        <IconChevronLeft className="h-3.5 w-3.5" />
       </CheckpointTrigger>
       <CheckpointLabel className="min-w-8 flex-none text-center tabular-nums">
         {pos}/{total}
@@ -33,7 +33,7 @@ export function VariantNav({ pos, total, disabled, onPrev, onNext }: Props) {
         disabled={disabled || pos >= total}
         onClick={onNext}
       >
-        <ChevronRight className="h-3.5 w-3.5" />
+        <IconChevronRight className="h-3.5 w-3.5" />
       </CheckpointTrigger>
     </Checkpoint>
   );

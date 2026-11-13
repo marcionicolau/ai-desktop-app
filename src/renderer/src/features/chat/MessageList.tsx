@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Paperclip } from "lucide-react";
+import { IconAttach } from "@/components/icons";
 import type { Message as Msg } from "@shared/types";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
@@ -104,12 +104,12 @@ export function MessageList({
                       <span
                         key={a.id}
                         className={cn(
-                          "inline-flex items-center gap-1 rounded bg-background/40 px-1.5 py-0.5 text-[11px]",
+                          "inline-flex items-center gap-1 rounded bg-background/40 px-1.5 py-0.5 text-2xs",
                           a.status === "excluded" && "opacity-50 line-through",
                         )}
                         title={`${a.fileName} · ${a.status}`}
                       >
-                        <Paperclip className="size-3" />
+                        <IconAttach className="size-3.5" />
                         <span className="max-w-28 truncate">{a.fileName}</span>
                         {a.status === "truncated" && "·trunc"}
                         {a.status === "excluded" && "·skipped"}

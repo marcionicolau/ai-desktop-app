@@ -1,5 +1,5 @@
 import * as React from "react";
-import { ChevronDown } from "lucide-react";
+import { IconChevronDown } from "@/components/icons";
 import { cn } from "@/lib/utils";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Badge } from "@/components/ui/badge";
@@ -94,7 +94,7 @@ function TraceCollapsible({
         </span>
         <CollapsibleTrigger className="group flex w-full items-center justify-between gap-2 rounded-sm text-left text-sm outline-none focus-visible:ring-1 focus-visible:ring-ring">
           <span className="flex min-w-0 items-center gap-2">
-            <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=closed]:-rotate-90" />
+            <IconChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=closed]:-rotate-90" />
             <span className="truncate">{title}</span>
           </span>
           {status ? <span className="shrink-0">{status}</span> : null}

@@ -3,7 +3,7 @@
 // pair with ToolCallRecords by index and render the approval actions.
 // feature 021: rebuilt on the ai-elements Tool/Confirmation recipes.
 import { useState } from "react";
-import { FileText, FolderOpen, SquareTerminal } from "lucide-react";
+import { IconFileText, IconFolderOpen, IconTerminal } from "@/components/icons";
 import type { ToolCallRecord } from "@shared/types";
 import {
   parseCallBody,
@@ -52,10 +52,10 @@ function Card({ record, block }: { record?: ToolCallRecord; block: ToolBlock }) 
 
   const ToolIcon =
     tool === "list_dir"
-      ? FolderOpen
+      ? IconFolderOpen
       : tool === "run_script"
-        ? SquareTerminal
-        : FileText;
+        ? IconTerminal
+        : IconFileText;
   return (
     <ToolCall
       icon={<ToolIcon className="size-3.5 shrink-0 text-muted-foreground" />}

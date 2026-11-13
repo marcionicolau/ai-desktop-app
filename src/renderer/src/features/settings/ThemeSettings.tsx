@@ -1,4 +1,4 @@
-import { Monitor, Moon, Sun } from "lucide-react";
+import { IconDark, IconLight, IconSystem } from "@/components/icons";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -11,10 +11,10 @@ import {
 import { setThemeMode, useTheme } from "@/lib/theme";
 import type { ThemeMode } from "../../../../shared/types";
 
-const MODES: { id: ThemeMode; label: string; icon: typeof Sun }[] = [
-  { id: "light", label: "Light", icon: Sun },
-  { id: "dark", label: "Dark", icon: Moon },
-  { id: "system", label: "System", icon: Monitor },
+const MODES: { id: ThemeMode; label: string; icon: typeof IconLight }[] = [
+  { id: "light", label: "Light", icon: IconLight },
+  { id: "dark", label: "Dark", icon: IconDark },
+  { id: "system", label: "System", icon: IconSystem },
 ];
 
 // feature 021 (FR-009): persisted theme control — light/dark/system.

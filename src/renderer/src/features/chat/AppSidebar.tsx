@@ -2,7 +2,7 @@
 // conversations and extensions, plus a footer for app-level surfaces.
 // The conversation list itself lives in ConversationNav (ex-Sidebar).
 import type { ConversationSummary, WorkspaceTab } from "@shared/types";
-import { MessageSquare, Puzzle } from "lucide-react";
+import { IconChat, IconChevronDown, IconExtension, IconFileCode, IconLibrary, IconSettings, IconTags, IconUsers } from "@/components/icons";
 import {
   Collapsible,
   CollapsibleContent,
@@ -22,7 +22,6 @@ import {
 import { ConversationNav } from "./ConversationNav";
 import { ThemeSettings } from "../settings/ThemeSettings";
 import { cn } from "@/lib/utils";
-import { ChevronDown, FileCode2, Library, Settings2, Tags, Users } from "lucide-react";
 
 interface Props {
   conversations: ConversationSummary[];
@@ -64,7 +63,7 @@ function NavGroup({
       <SidebarGroup className="p-0">
         <CollapsibleTrigger className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-xs font-medium text-sidebar-foreground/70 outline-none hover:bg-sidebar-accent focus-visible:ring-1 focus-visible:ring-sidebar-ring group-data-[state=collapsed]:hidden">
           {label}
-          <ChevronDown className="size-3.5 transition-transform duration-200 group-data-[state=closed]/navgroup:-rotate-90" />
+          <IconChevronDown className="size-3.5 transition-transform duration-200 group-data-[state=closed]/navgroup:-rotate-90" />
         </CollapsibleTrigger>
         <CollapsibleContent>
           <SidebarGroupContent>{children}</SidebarGroupContent>
@@ -135,9 +134,9 @@ export function AppSidebar({
                     {isCrashed ? (
                       <span className="size-1.5 shrink-0 rounded-full bg-warning" />
                     ) : t.kind === "pack" ? (
-                      <Puzzle className="size-4" />
+                      <IconExtension className="size-4" />
                     ) : (
-                      <MessageSquare className="size-4" />
+                      <IconChat className="size-4" />
                     )}
                     <span className="truncate">{t.title}</span>
                   </SidebarMenuButton>
@@ -164,7 +163,7 @@ export function AppSidebar({
                 onClick={onManageExtensions}
                 className={cn("h-8", extTabs.length === 0 ? "" : "text-muted-foreground")}
               >
-                <Settings2 className="size-4" />
+                <IconSettings className="size-4" />
                 <span>Manage…</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
@@ -179,7 +178,7 @@ export function AppSidebar({
                 onClick={onOpenLibrary}
                 className="h-8"
               >
-                <Library className="size-4" />
+                <IconLibrary className="size-4" />
                 <span>Models</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
@@ -190,7 +189,7 @@ export function AppSidebar({
                 onClick={onOpenPersonas}
                 className="h-8"
               >
-                <Users className="size-4" />
+                <IconUsers className="size-4" />
                 <span>Personas</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
@@ -201,7 +200,7 @@ export function AppSidebar({
                 onClick={onOpenRoles}
                 className="h-8"
               >
-                <Tags className="size-4" />
+                <IconTags className="size-4" />
                 <span>Roles</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
@@ -212,7 +211,7 @@ export function AppSidebar({
                 onClick={onOpenScripts}
                 className="h-8"
               >
-                <FileCode2 className="size-4" />
+                <IconFileCode className="size-4" />
                 <span>Scripts</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
@@ -223,7 +222,7 @@ export function AppSidebar({
                 onClick={onOpenSettings}
                 className="h-8"
               >
-                <Settings2 className="size-4" />
+                <IconSettings className="size-4" />
                 <span>Settings</span>
               </SidebarMenuButton>
             </SidebarMenuItem>

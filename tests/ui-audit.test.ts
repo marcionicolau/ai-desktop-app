@@ -40,6 +40,7 @@ describe("ui-audit: primitive boundary", () => {
         if (
           spec.startsWith("@/components/ui") ||
           spec.startsWith("@/lib") ||
+          spec === "@/components/icons" ||
           spec.startsWith("@/components/ai") ||
           spec.startsWith("../") ||
           spec.startsWith("./")
@@ -74,7 +75,10 @@ describe("ui-audit: theme tokens", () => {
 // their name to ENFORCED once their last violation is converted — overlays
 // after T029, native controls after T048, the rest in the final polish task.
 const ENFORCED = new Set<string>([
-  // "overlays", "native-controls", "font-sizes", "icon-sizes", "icon-import-site"
+  "icon-import-site", // enforced since T015–T018
+  "font-sizes", // enforced since T019
+  "icon-sizes", // enforced since T019
+  // pending: "overlays" (T029), "native-controls" (T048)
 ]);
 
 function check(rule: string, offenders: string[]) {
@@ -97,7 +101,7 @@ describe("ui-audit: design scale (feature 026)", () => {
   });
 
   test("icon-sizes: no off-scale icon sizes (scale: size-3.5, size-4, size-5)", () => {
-    check("icon-sizes", offendersOf(/\bsize-3\b/));
+    check("icon-sizes", offendersOf(/\bsize-3(?![.\w])/));
   });
 
   test("icon-import-site: icons come only from components/icons.ts", () => {

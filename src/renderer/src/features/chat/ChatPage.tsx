@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { GitBranch } from "lucide-react";
+import { IconBranch } from "@/components/icons";
 import { useChat } from "./use-chat";
 import { MessageList } from "./MessageList";
 import { BranchOverview } from "./BranchOverview";
@@ -273,7 +273,7 @@ export function ChatPage() {
               disabled={branches.length === 0}
               onClick={() => setBranchesOpen((v) => !v)}
             >
-              <GitBranch className="h-4 w-4" />
+              <IconBranch className="h-4 w-4" />
             </Button>
             <label
               className="flex cursor-pointer items-center gap-1 px-1 text-xs"

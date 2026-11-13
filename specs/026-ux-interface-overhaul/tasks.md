@@ -38,18 +38,18 @@
 
 **Independent Test**: audit every surface in light + dark → AA contrast, only scale values, one icon per concept, minimum target sizes.
 
-- [ ] T012 [US2] Replace the color tokens in `src/renderer/src/index.css` (`:root`, `.dark`, `@theme inline`) with the approved palette, including semantic roles (`primary secondary accent destructive success warning info` + `-foreground`) per `contracts/design-tokens.md` (FR-005, FR-009, FR-021)
-- [ ] T013 [P] [US2] Swap Fontsource packages to the approved UI/reading/mono fonts in `package.json`, `src/renderer/src/main.tsx` and `src/renderer/src/index.css` (`--font-ui --font-reading --font-mono`); remove the old font packages (FR-006, FR-021)
-- [ ] T014 [P] [US2] Align `src/renderer/src/typeset.css` to the new type scale (6 sizes, 3 weights, line heights) (FR-006)
-- [ ] T015 [US2] Install the approved icon package and create `src/renderer/src/components/icons.ts` mapping one icon per concept with named sizes `sm` 14 / `md` 16 / `lg` 20 (FR-008)
-- [ ] T016 [P] [US2] Convert icon imports to `components/icons.ts` in `src/renderer/src/features/chat/*.tsx` and `src/renderer/src/components/ai/*.tsx` (FR-008)
-- [ ] T017 [P] [US2] Convert icon imports in `src/renderer/src/features/{extensions,update,setup,workspace}/*.tsx` and `src/renderer/src/components/ui/*.tsx` (FR-008)
-- [ ] T018 [P] [US2] Convert icon imports in `src/renderer/src/features/{models,roles,personas,scripts,settings,metrics}/*.tsx` (FR-008)
-- [ ] T019 [P] [US2] Replace the 29 arbitrary `text-[10px]`/`text-[11px]` uses with scale steps in `components/ui/kbd.tsx`, `components/ai/context.tsx`, `features/metrics/OutputPanel.tsx`, `features/chat/{MessageList,BranchOverview,ConversationNav}.tsx`, `features/roles/RolesPanel.tsx`, `features/extensions/{WorkspaceBrowser,RunView}.tsx`, `features/personas/PersonasPanel.tsx`, `features/setup/SetupScreen.tsx` (FR-006)
-- [ ] T020 [US2] Define distinct hover, focus-visible, active, disabled and busy states and minimum target sizes (24×24 hit area; primary controls ≥ `--control-h-md` 32 px) in `components/ui/{button,input,textarea,badge}.tsx` and the `sidebar`/`dropdown-menu` primitives (FR-007)
-- [ ] T021 [P] [US2] Add `tests/ui-contrast.test.ts`: OKLCH→sRGB conversion and WCAG ratio assertions for every foreground/background pair in light, dark and `prefers-contrast: more` (body 4.5:1, large/UI 3:1) (FR-005, SC-001)
-- [ ] T022 [P] [US2] Add `tests/ui-tokens.test.ts`: assert `--control-h-md` ≥ 32 px and the minimum hit-area token ≥ 24 px in both density sets, and that `--motion-fast`/`--motion-base` resolve to 0 inside the `prefers-reduced-motion: reduce` block of `src/renderer/src/index.css` (FR-007, FR-017)
-- [ ] T023 [US2] Audit semantic emphasis usage: replace ad-hoc status colors with the shared roles in `features/**` so primary/secondary/destructive/warning/success/info read identically across screens (FR-009)
+- [X] T012 [US2] Replace the color tokens in `src/renderer/src/index.css` (`:root`, `.dark`, `@theme inline`) with the approved palette, including semantic roles (`primary secondary accent destructive success warning info` + `-foreground`) per `contracts/design-tokens.md` (FR-005, FR-009, FR-021)
+- [X] T013 [P] [US2] Swap Fontsource packages to the approved UI/reading/mono fonts in `package.json`, `src/renderer/src/main.tsx` and `src/renderer/src/index.css` (`--font-ui --font-reading --font-mono`); remove the old font packages (FR-006, FR-021)
+- [X] T014 [P] [US2] Align `src/renderer/src/typeset.css` to the new type scale (6 sizes, 3 weights, line heights) (FR-006) — *fonts and font vars aligned; the 7-step scale (2xs…2xl, 2xs raised to 11 px) is kept from 021*
+- [X] T015 [US2] Install the approved icon package and create `src/renderer/src/components/icons.ts` mapping one icon per concept with named sizes `sm` 14 / `md` 16 / `lg` 20 (FR-008)
+- [X] T016 [P] [US2] Convert icon imports to `components/icons.ts` in `src/renderer/src/features/chat/*.tsx` and `src/renderer/src/components/ai/*.tsx` (FR-008)
+- [X] T017 [P] [US2] Convert icon imports in `src/renderer/src/features/{extensions,update,setup,workspace}/*.tsx` and `src/renderer/src/components/ui/*.tsx` (FR-008)
+- [X] T018 [P] [US2] Convert icon imports in `src/renderer/src/features/{models,roles,personas,scripts,settings,metrics}/*.tsx` (FR-008)
+- [X] T019 [P] [US2] Replace the 29 arbitrary `text-[10px]`/`text-[11px]` uses with scale steps in `components/ui/kbd.tsx`, `components/ai/context.tsx`, `features/metrics/OutputPanel.tsx`, `features/chat/{MessageList,BranchOverview,ConversationNav}.tsx`, `features/roles/RolesPanel.tsx`, `features/extensions/{WorkspaceBrowser,RunView}.tsx`, `features/personas/PersonasPanel.tsx`, `features/setup/SetupScreen.tsx` (FR-006)
+- [ ] T020 [US2] Define distinct hover, focus-visible, active, disabled and busy states and minimum target sizes (24×24 hit area; primary controls ≥ `--control-h-md` 32 px) in `components/ui/{button,input,textarea,badge}.tsx` and the `sidebar`/`dropdown-menu` primitives (FR-007) — *partial: button, input, textarea, badge done (new `--control-h-*`/`--hit-min` tokens, `ring-2 ring-ring`, `aria-busy`, success/warning/info badges); `sidebar` and `dropdown-menu` primitives still pending*
+- [X] T021 [P] [US2] Add `tests/ui-contrast.test.ts`: OKLCH→sRGB conversion and WCAG ratio assertions for every foreground/background pair in light, dark and `prefers-contrast: more` (body 4.5:1, large/UI 3:1) (FR-005, SC-001)
+- [X] T022 [P] [US2] Add `tests/ui-tokens.test.ts`: assert `--control-h-md` ≥ 32 px and the minimum hit-area token ≥ 24 px in both density sets, and that `--motion-fast`/`--motion-base` resolve to 0 inside the `prefers-reduced-motion: reduce` block of `src/renderer/src/index.css` (FR-007, FR-017)
+- [X] T023 [US2] Audit semantic emphasis usage: replace ad-hoc status colors with the shared roles in `features/**` so primary/secondary/destructive/warning/success/info read identically across screens (FR-009)
 
 **Checkpoint**: whole app shows the new identity; `ui-contrast` passes; `ui-audit` warnings for icons and font sizes are zero.
 

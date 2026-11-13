@@ -2,7 +2,7 @@
 // listing each provisioned model and the role it will fill. Rendered as
 // an overlay while setup is in-flight; the skip escape drops to the
 // model library, which stays the manual fallback (spec FR-006).
-import { CheckCircle2, Circle, Loader2, XCircle } from "lucide-react";
+import { IconDot, IconError, IconSpinner, IconSuccess } from "@/components/icons";
 import type { SetupState, SetupTargetStatus } from "@shared/types";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -16,11 +16,11 @@ function formatBytes(n: number): string {
 
 function StepIcon({ status }: { status: SetupTargetStatus }) {
   if (status === "done")
-    return <CheckCircle2 className="size-4 text-primary" />;
-  if (status === "error") return <XCircle className="size-4 text-destructive" />;
+    return <IconSuccess className="size-4 text-primary" />;
+  if (status === "error") return <IconError className="size-4 text-destructive" />;
   if (status === "downloading" || status === "loading")
-    return <Loader2 className="size-4 animate-spin text-primary" />;
-  return <Circle className="size-4 text-muted-foreground" />;
+    return <IconSpinner className="size-4 animate-spin text-primary" />;
+  return <IconDot className="size-4 text-muted-foreground" />;
 }
 
 export function SetupScreen({
@@ -68,7 +68,7 @@ export function SetupScreen({
                   <span className="min-w-0 flex-1 truncate text-sm">
                     {t.fileName}
                   </span>
-                  <span className="shrink-0 rounded border border-border px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+                  <span className="shrink-0 rounded border border-border px-1.5 py-0.5 text-2xs uppercase tracking-wide text-muted-foreground">
                     {t.role}
                   </span>
                 </div>

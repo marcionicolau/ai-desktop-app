@@ -1,7 +1,7 @@
 // ai-elements "Checkpoint": a flagged return point in the conversation —
 // a marker row (icon + label + actions) used by the variant picker and
 // the branch overview to navigate back to a fork point.
-import { Flag } from "lucide-react";
+import { IconFlag } from "@/components/icons";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
@@ -20,8 +20,8 @@ export function Checkpoint({
 export function CheckpointIcon({
   className,
   ...props
-}: React.ComponentProps<typeof Flag>) {
-  return <Flag className={cn("h-3.5 w-3.5", className)} {...props} />;
+}: React.ComponentProps<typeof IconFlag>) {
+  return <IconFlag className={cn("h-3.5 w-3.5", className)} {...props} />;
 }
 
 export function CheckpointLabel({

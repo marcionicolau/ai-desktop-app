@@ -1,4 +1,4 @@
-import { Gauge } from "lucide-react";
+import { IconBenchmark } from "@/components/icons";
 import { cn } from "@/lib/utils";
 import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -21,11 +21,11 @@ export function ContextChip({
       <TooltipTrigger asChild>
         <span
           className={cn(
-            "inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-2 py-0.5 text-[11px] text-muted-foreground",
+            "inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-2 py-0.5 text-2xs text-muted-foreground",
             className,
           )}
         >
-          <Gauge className="size-3" />
+          <IconBenchmark className="size-3.5" />
           {used.toLocaleString()} / {total.toLocaleString()} tok
           <Progress
             value={pct}

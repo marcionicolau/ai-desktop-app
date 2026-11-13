@@ -7,7 +7,7 @@
   .typeset {
     --typeset-font-body: inherit;
     --typeset-font-heading: var(--font-heading);
-    --typeset-font-mono: var(--font-mono);
+    --typeset-font-mono: var(--font-code);
     --typeset-size: 1em;
     --typeset-leading: 1.75;
     --typeset-flow: 1.25em;

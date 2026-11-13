@@ -116,7 +116,7 @@ export function RunView({ focusRunId }: { focusRunId: string | null }) {
               )}
             </div>
             <Queue
-              className="max-h-56 overflow-auto rounded border border-border bg-card p-2 text-[11px]"
+              className="max-h-56 overflow-auto rounded border border-border bg-card p-2 text-2xs"
               data-testid="trace-view"
             >
               <Subagent
@@ -144,7 +144,7 @@ export function RunView({ focusRunId }: { focusRunId: string | null }) {
                     status={STEP_STATUS[t.status] ?? "queued"}
                   >
                     {(t.input !== undefined || t.output !== undefined) && (
-                      <div className="mt-0.5 space-y-0.5 font-mono text-[10px]">
+                      <div className="mt-0.5 space-y-0.5 font-mono text-2xs">
                         {t.input !== undefined && (
                           <div className="text-muted-foreground">
                             in: {JSON.stringify(t.input).slice(0, 200)}

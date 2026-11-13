@@ -3,7 +3,7 @@
 // generation overrides and a preferred tag; snippets are composer "/"
 // insert fragments.
 import { useState } from "react";
-import { Copy, Pencil, Plus, Trash2, Users } from "lucide-react";
+import { IconAdd, IconCopy, IconDelete, IconEdit, IconUsers } from "@/components/icons";
 import type { Persona, Snippet } from "@shared/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -109,7 +109,7 @@ export function PersonasPanel() {
     <div className="border-b border-border bg-muted/40 px-4 py-3">
       <div className="mx-auto max-w-2xl space-y-3">
         <div className="flex items-center gap-2">
-          <Users className="size-4 text-muted-foreground" />
+          <IconUsers className="size-4 text-muted-foreground" />
           <h2 className="text-xs font-semibold">Personas</h2>
           <span className="flex-1" />
           <Button
@@ -120,7 +120,7 @@ export function PersonasPanel() {
               setDraft({ ...EMPTY });
             }}
           >
-            <Plus className="size-3.5" /> New persona
+            <IconAdd className="size-3.5" /> New persona
           </Button>
         </div>
         {error && <p className="text-xs text-destructive">{error}</p>}
@@ -130,7 +130,7 @@ export function PersonasPanel() {
               <div className="flex items-center gap-2">
                 <span className="font-medium">{p.name}</span>
                 {p.preferredTag && (
-                  <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                  <span className="rounded bg-muted px-1.5 py-0.5 text-2xs text-muted-foreground">
                     → {p.preferredTag}
                   </span>
                 )}
@@ -146,7 +146,7 @@ export function PersonasPanel() {
                     setDraft(toDraft(p));
                   }}
                 >
-                  <Pencil className="size-3.5" />
+                  <IconEdit className="size-3.5" />
                 </Button>
                 <Button
                   size="sm"
@@ -154,7 +154,7 @@ export function PersonasPanel() {
                   title="Duplicate"
                   onClick={() => duplicate(p)}
                 >
-                  <Copy className="size-3.5" />
+                  <IconCopy className="size-3.5" />
                 </Button>
                 <Button
                   size="sm"
@@ -162,7 +162,7 @@ export function PersonasPanel() {
                   title="Delete"
                   onClick={() => del(p)}
                 >
-                  <Trash2 className="size-3.5" />
+                  <IconDelete className="size-3.5" />
                 </Button>
               </div>
               {editing === p.name && draft && (
@@ -207,7 +207,7 @@ export function PersonasPanel() {
                 title="Delete snippet"
                 onClick={() => run(() => removeSnippet(s.name))}
               >
-                <Trash2 className="size-3.5" />
+                <IconDelete className="size-3.5" />
               </Button>
             </div>
           ))}
@@ -238,7 +238,7 @@ export function PersonasPanel() {
               })
             }
           >
-            <Plus className="size-3.5" /> Add
+            <IconAdd className="size-3.5" /> Add
           </Button>
         </div>
       </div>

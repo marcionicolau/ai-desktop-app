@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, X } from "lucide-react";
+import { IconAdd, IconClose } from "@/components/icons";
 import type { GenerationParams, ModelMeta, RoleRef, RoleView } from "@shared/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -197,7 +197,7 @@ export function TagEditor({ tag, models, tags = [], onError }: Props) {
               variant="ghost"
               onClick={() => setChain((c) => c.filter((_, j) => j !== i))}
             >
-              <X className="size-3.5" />
+              <IconClose className="size-3.5" />
             </Button>
           </div>
         ))}
@@ -215,7 +215,7 @@ export function TagEditor({ tag, models, tags = [], onError }: Props) {
               ])
             }
           >
-            <Plus className="size-3.5" /> Add fallback
+            <IconAdd className="size-3.5" /> Add fallback
           </Button>
           <Button
             size="sm"

@@ -135,7 +135,7 @@ export function ExtViewHost({ packId, viewId, slot = "panel", visible = true, ba
           </Button>
         </div>
       ) : (
-        <div ref={ref} className="min-h-0 flex-1 bg-black/20" />
+        <div ref={ref} className="min-h-0 flex-1 bg-muted" />
       )}
     </div>
   );

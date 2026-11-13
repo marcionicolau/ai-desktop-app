@@ -5,8 +5,9 @@ Source of truth: `src/renderer/src/index.css` (`:root`, `.dark`, `[data-density]
 ## Required token names (stable across candidates)
 
 - Color roles: `--background --foreground --card --popover --muted --muted-foreground --border --input --ring --primary --secondary --accent --destructive --success --warning --info` (each with `-foreground` where applicable).
-- Type: `--font-ui --font-reading --font-mono`; sizes `--text-xs … --text-2xl` (6 steps); weights 400/500/600.
-- Spacing/density: `--space-unit` (4 px × density factor), `--control-h-sm|md|lg`, `--row-pad`.
+- Type: `--font-ui --font-reading --font-code` (Tailwind `font-sans`/`font-heading`/`font-mono` map to them); sizes `--text-2xs … --text-2xl` (7 steps, `2xs` = 11 px); weights 400/500/600.
+- Spacing/density: `--control-h-sm|md|lg` (comfortable 32/36/40 px), `--hit-min` (24 px); density overrides and `--row-pad` land with T051.
+- Form-control boundary `--input` is separate from decorative `--border` and meets 3:1 (WCAG 1.4.11).
 - Icon sizes: `--icon-sm|md|lg` (14/16/20).
 - Motion: `--motion-fast|base` (0 under reduced motion).
 

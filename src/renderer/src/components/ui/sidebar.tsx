@@ -1,5 +1,5 @@
 import * as React from "react";
-import { PanelLeft } from "lucide-react";
+import { IconSidebar } from "@/components/icons";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -153,7 +153,7 @@ export function SidebarTrigger({ className, onClick, ...props }: React.Component
       }}
       {...props}
     >
-      <PanelLeft className="h-4 w-4" />
+      <IconSidebar className="h-4 w-4" />
     </Button>
   );
 }

@@ -1,5 +1,5 @@
 import * as React from "react";
-import { ChevronDown } from "lucide-react";
+import { IconChevronDown } from "@/components/icons";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -95,7 +95,7 @@ export function ToolCallSection({
   return (
     <Collapsible defaultOpen={defaultOpen} className={cn("mt-1.5", className)}>
       <CollapsibleTrigger className="group flex w-full items-center gap-1.5 rounded-sm text-left text-muted-foreground outline-none focus-visible:ring-1 focus-visible:ring-ring">
-        <ChevronDown className="size-3 transition-transform duration-200 group-data-[state=closed]:-rotate-90" />
+        <IconChevronDown className="size-3.5 transition-transform duration-200 group-data-[state=closed]:-rotate-90" />
         {title}
       </CollapsibleTrigger>
       <CollapsibleContent className="mt-1 overflow-hidden data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0">

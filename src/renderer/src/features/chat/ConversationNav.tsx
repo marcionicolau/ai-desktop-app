@@ -1,11 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import {
-  Download,
-  MessageSquarePlus,
-  Search,
-  Trash2,
-  Upload,
-} from "lucide-react";
+import { IconDelete, IconDownload, IconNewChat, IconSearch, IconUpload } from "@/components/icons";
 import type { ConversationSummary, SearchGroup } from "@shared/types";
 import { invoke } from "@/lib/rpc";
 import {
@@ -111,7 +105,7 @@ export function ConversationNav({
           className="w-full justify-start gap-2"
           onClick={onNew}
         >
-          <MessageSquarePlus /> New chat
+          <IconNewChat /> New chat
         </Button>
         <Button
           variant="ghost"
@@ -130,10 +124,10 @@ export function ConversationNav({
               });
           }}
         >
-          <Upload /> Import…
+          <IconUpload /> Import…
         </Button>
         <div className="relative">
-          <Search className="absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+          <IconSearch className="absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Search all chats…"
             value={filter}
@@ -177,7 +171,7 @@ export function ConversationNav({
                 >
                   {g.title}
                   {g.titleMatched && (
-                    <span className="ml-1 text-[10px] text-muted-foreground">
+                    <span className="ml-1 text-2xs text-muted-foreground">
                       (title)
                     </span>
                   )}
@@ -185,7 +179,7 @@ export function ConversationNav({
                 {g.hits.map((h) => (
                   <button
                     key={h.messageId}
-                    className="flex w-full items-baseline rounded px-4 py-0.5 text-left text-[11px] text-muted-foreground hover:bg-muted"
+                    className="flex w-full items-baseline rounded px-4 py-0.5 text-left text-2xs text-muted-foreground hover:bg-muted"
                     onClick={() => onSelectHit(g.conversationId, h.messageId)}
                     title={h.snippet}
                   >
@@ -196,7 +190,7 @@ export function ConversationNav({
                       </mark>
                       {h.snippet.slice(h.matchEnd)}
                     </span>
-                    <span className="ml-1.5 shrink-0 text-[10px] text-muted-foreground/60">
+                    <span className="ml-1.5 shrink-0 text-2xs text-muted-foreground/60">
                       {new Date(h.timestamp).toLocaleDateString()}
                     </span>
                   </button>
@@ -249,7 +243,7 @@ export function ConversationNav({
             {/* feature 006 (FR-006): active persona badge */}
             {c.personaName && editingId !== c.id && (
               <span
-                className="shrink-0 rounded bg-muted px-1 py-0.5 text-[10px] text-muted-foreground"
+                className="shrink-0 rounded bg-muted px-1 py-0.5 text-2xs text-muted-foreground"
                 title={`Persona: ${c.personaName}`}
               >
                 {c.personaName}
@@ -261,7 +255,7 @@ export function ConversationNav({
                   className="invisible shrink-0 rounded p-1 text-muted-foreground hover:text-foreground group-hover:visible"
                   title="Export conversation"
                 >
-                  <Download className="size-3.5" />
+                  <IconDownload className="size-3.5" />
                 </button>
               </AlertDialogTrigger>
               <AlertDialogContent>
@@ -301,7 +295,7 @@ export function ConversationNav({
                   className="invisible shrink-0 rounded p-1 text-muted-foreground hover:text-destructive group-hover:visible"
                   title="Delete conversation"
                 >
-                  <Trash2 className="size-3.5" />
+                  <IconDelete className="size-3.5" />
                 </button>
               </AlertDialogTrigger>
               <AlertDialogContent>

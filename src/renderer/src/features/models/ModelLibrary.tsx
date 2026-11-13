@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ModelAdvise, RoleView } from "@shared/types";
-import { Download, Gauge, Loader2, RefreshCw, SlidersHorizontal } from "lucide-react";
+import { IconBenchmark, IconDownload, IconRefresh, IconSliders, IconSpinner } from "@/components/icons";
 import type { DownloadState, GenerationParams, ModelMeta } from "@shared/types";
 import { invoke, on } from "@/lib/rpc";
 import { Button } from "@/components/ui/button";
@@ -191,10 +191,10 @@ export function ModelLibrary({ activeName, onLoad, autoLoadOnDownload }: Props) 
             disabled={!url.trim() || !(fileName.trim() || defaultFileName(url))}
             onClick={() => void download()}
           >
-            <Download className="size-3.5" /> Download
+            <IconDownload className="size-3.5" /> Download
           </Button>
           <Button size="sm" variant="ghost" onClick={() => void refresh()}>
-            <RefreshCw className="size-3.5" />
+            <IconRefresh className="size-3.5" />
           </Button>
         </div>
         {error && <p className="text-xs text-destructive">{error}</p>}
@@ -268,7 +268,7 @@ export function ModelLibrary({ activeName, onLoad, autoLoadOnDownload }: Props) 
                     );
                   })()}
                   {dl?.phase === "progress" ? (
-                    <Loader2 className="size-3.5 animate-spin text-warning" />
+                    <IconSpinner className="size-3.5 animate-spin text-warning" />
                   ) : (
                     <>
                       <Button
@@ -287,9 +287,9 @@ export function ModelLibrary({ activeName, onLoad, autoLoadOnDownload }: Props) 
                         onClick={() => void benchmark(m)}
                       >
                         {benching === m.fileName ? (
-                          <Loader2 className="size-3.5 animate-spin" />
+                          <IconSpinner className="size-3.5 animate-spin" />
                         ) : (
-                          <Gauge className="size-3.5" />
+                          <IconBenchmark className="size-3.5" />
                         )}
                       </Button>
                       <Button
@@ -302,7 +302,7 @@ export function ModelLibrary({ activeName, onLoad, autoLoadOnDownload }: Props) 
                           )
                         }
                       >
-                        <SlidersHorizontal className="size-3.5" />
+                        <IconSliders className="size-3.5" />
                       </Button>
                     </>
                   )}
