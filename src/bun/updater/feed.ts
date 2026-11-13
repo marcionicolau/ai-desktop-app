@@ -115,7 +115,19 @@ const parseVersion = (v: string) => {
   const nums = (core ?? "0")
     .split(".")
     .map((n) => Number.parseInt(n, 10) || 0);
-  return { nums, pre: pre.join("-") };
+  let pr = pre.join("-");
+  // computeVersion() stamps local builds "<tag>-<channel>.<n>" (e.g.
+  // "0.0.1-rc.4-canary.3"). The channel.N tail is a post-tag build
+  // increment, not a semver identifier — leave it inside `pre` and the
+  // numeric-vs-alpha segment rule wrongly sorts "rc.4-canary.3" newer
+  // than "rc.6". Split it out and compare it after the prerelease.
+  let buildSeq = -1;
+  const suffix = pr.match(/-(?:canary|stable)\.(\d+)$/);
+  if (suffix) {
+    buildSeq = Number(suffix[1]);
+    pr = pr.slice(0, suffix.index);
+  }
+  return { nums, pre: pr, buildSeq };
 };
 
 // semver-ish compare on the version triple (+ prerelease): >=0 newer,
@@ -128,7 +140,7 @@ export function compareVersions(a: string, b: string): number {
     const d = (x.nums[i] ?? 0) - (y.nums[i] ?? 0);
     if (d !== 0) return Math.sign(d);
   }
-  if (x.pre === y.pre) return 0;
+  if (x.pre === y.pre) return Math.sign(x.buildSeq - y.buildSeq);
   if (!x.pre) return 1; // release > prerelease
   if (!y.pre) return -1;
   const xa = x.pre.split(".");
