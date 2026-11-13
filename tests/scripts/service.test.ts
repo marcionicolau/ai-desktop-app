@@ -208,7 +208,7 @@ describe("call: initiator + audit plumbing", () => {
     expect(last.verdict).toBe("executed");
   });
 
-  test("manual call without conv ids → no audit line, still runs", async () => {
+  test("manual call → audit line without conv ids (FR-013)", async () => {
     const { svc } = mk(ask);
     const it = svc.upsert({
       name: "manual-run",
@@ -224,8 +224,11 @@ describe("call: initiator + audit plumbing", () => {
       ns: "manual",
     });
     expect(rec.verdict).toBe("executed");
-    const after = readFileSync(auditFile(), "utf8").trim().split("\n").length;
-    expect(after).toBe(before); // unchanged — no conversation context
+    const after = readFileSync(auditFile(), "utf8").trim().split("\n");
+    expect(after.length).toBe(before + 1); // FR-013: user-initiated runs audit too
+    const line = JSON.parse(after[after.length - 1] as string);
+    expect(line.initiator).toBe("user");
+    expect(line.conversationId).toBeUndefined();
   });
 
   test("missing script source → SCRIPT_NOT_FOUND", async () => {

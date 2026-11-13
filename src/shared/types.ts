@@ -323,9 +323,11 @@ export interface ToolPolicy {
 // executed-or-errored call — survives conversation deletion (FR-011)
 export interface AuditEntry {
   ts: string;
-  conversationId: string;
-  messageId: string;
-  callId: string;
+  // feature 023: conv-scoped fields are absent for user/pipeline runs —
+  // FR-013 audits every execution, not only model-initiated ones
+  conversationId?: string;
+  messageId?: string;
+  callId?: string;
   tool: ToolName;
   path: string;
   resolvedPath: string;

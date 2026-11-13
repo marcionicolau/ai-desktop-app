@@ -387,7 +387,6 @@ export class ScriptService {
     rec: ScriptRunRecord,
     started: number,
   ): void {
-    if (!opts.conversationId || !opts.messageId || !opts.callId) return;
     recordAudit({
       ts: new Date(started).toISOString(),
       conversationId: opts.conversationId,
