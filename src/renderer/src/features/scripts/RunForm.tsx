@@ -1,5 +1,7 @@
 // feature 023 (T030): manual run — declared-params form, captured
 // result view (stdout/stderr/exit/duration), produced files.
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { IconError } from "@/components/icons";
 import { useState } from "react";
 import type { ScriptListItem, ScriptRunRecord } from "@shared/types";
 import { Button } from "@/components/ui/button";
@@ -96,7 +98,18 @@ export function RunForm({ scripts }: { scripts: ScriptListItem[] }) {
           <Input value={input} onChange={(e) => setInput(e.target.value)} />
         </label>
       )}
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {error && (
+        <Alert variant="destructive">
+          <IconError aria-hidden="true" />
+          <AlertTitle>The script run failed</AlertTitle>
+          <AlertDescription className="flex flex-wrap items-center gap-2">
+            {error}
+            <Button size="sm" variant="outline" disabled={busy} onClick={() => void go()}>
+              Retry
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
       {record && (
         <div className="space-y-1 rounded bg-muted p-3 font-mono text-xs">
           <div className="flex gap-3 text-muted-foreground">

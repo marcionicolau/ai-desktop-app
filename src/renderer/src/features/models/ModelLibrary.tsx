@@ -147,7 +147,12 @@ export function ModelLibrary({ activeName, onLoad, autoLoadOnDownload }: Props) 
       setUrl("");
       setFileName("");
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      const msg = e instanceof Error ? e.message : String(e);
+      setError(msg);
+      notify.error("Download failed", {
+        description: `${name}: ${msg}`,
+        action: { label: "Retry", run: () => void download() },
+      });
     }
   };
 

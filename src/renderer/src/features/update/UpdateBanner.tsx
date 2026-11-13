@@ -2,7 +2,9 @@
 // background progress, restart-to-apply. Apply is always user-explicit
 // (FR-005); the banner hides while a generation runs so a restart
 // prompt never interrupts a turn.
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { notify } from "@/lib/notify";
+import { IconSpinner } from "@/components/icons";
 import { invoke, on } from "@/lib/rpc";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -18,6 +20,19 @@ export function UpdateBanner({ generating }: { generating: boolean }) {
     void invoke("update.state", {}).then(setView).catch(() => {});
     return on("update.status", setView);
   }, []);
+
+  // FR-002: a download that fails after the banner showed progress used to
+  // vanish silently (the banner hides on status "error"); say so, with Retry
+  const prevStatus = useRef<UpdateView["status"] | null>(null);
+  useEffect(() => {
+    if (view?.status === "error" && prevStatus.current === "downloading") {
+      notify.error("Update download failed", {
+        description: view.error?.message,
+        action: { label: "Retry", run: () => void invoke("update.download", {}).catch(() => {}) },
+      });
+    }
+    prevStatus.current = view?.status ?? null;
+  }, [view]);
 
   if (
     !view ||
@@ -35,8 +50,11 @@ export function UpdateBanner({ generating }: { generating: boolean }) {
     setBusy(true);
     try {
       await fn();
-    } catch {
-      // errors surface via update.status; keep the banner honest but quiet
+    } catch (e) {
+      notify.error("Update action failed", {
+        description: e instanceof Error ? e.message : String(e),
+        action: { label: "Retry", run: () => void run(fn) },
+      });
     } finally {
       setBusy(false);
     }
@@ -68,8 +86,10 @@ export function UpdateBanner({ generating }: { generating: boolean }) {
               <Button
                 size="sm"
                 disabled={busy}
+                aria-busy={busy}
                 onClick={() => void run(() => invoke("update.download", {}))}
               >
+                {busy && <IconSpinner className="animate-spin" aria-hidden="true" />}
                 Download
               </Button>
             )}
@@ -91,8 +111,10 @@ export function UpdateBanner({ generating }: { generating: boolean }) {
               <Button
                 size="sm"
                 disabled={busy}
+                aria-busy={busy}
                 onClick={() => void run(() => invoke("update.apply", {}))}
               >
+                {busy && <IconSpinner className="animate-spin" aria-hidden="true" />}
                 Restart to update
               </Button>
             )}
