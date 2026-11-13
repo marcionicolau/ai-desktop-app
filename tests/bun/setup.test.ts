@@ -69,6 +69,12 @@ describe("SetupService", () => {
       true,
     );
     expect(f.events[f.events.length - 1]?.phase).toBe("done");
+    // per-role provisioning rows: one default target, walked to done
+    const t = f.svc.status().targets;
+    expect(t).toHaveLength(1);
+    expect(t[0]?.role).toBe("default");
+    expect(t[0]?.fileName).toBe(DEFAULT_MODEL.fileName);
+    expect(t[0]?.status).toBe("done");
   });
 
   test("usable model → done without downloading", async () => {

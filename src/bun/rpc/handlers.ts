@@ -991,6 +991,7 @@ export function createRequestHandlers(deps: HandlerDeps) {
         phase: "idle" as const,
         downloadedBytes: 0,
         totalBytes: null,
+        targets: [],
       },
     "setup.retry": () => {
       void deps.setup?.run();

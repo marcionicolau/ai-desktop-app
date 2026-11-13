@@ -5,7 +5,7 @@
 // run() is safe to call on every startup and via setup.retry.
 //
 // Deps are injected so headless tests drive every phase with fakes.
-import type { DownloadState, SetupState } from "../../shared/types";
+import type { DownloadState, SetupState, SetupTarget } from "../../shared/types";
 
 // Small instruct quant kept to a first-run-friendly size (~400 MiB).
 // Must satisfy the HF allowlist in models/download.ts; the file name
@@ -35,6 +35,7 @@ export class SetupService {
     phase: "idle",
     downloadedBytes: 0,
     totalBytes: null,
+    targets: [],
   };
   private inflight: Promise<void> | null = null;
   private userDownloads = 0;
@@ -42,7 +43,7 @@ export class SetupService {
   constructor(private deps: SetupDeps) {}
 
   status(): SetupState {
-    return { ...this.state };
+    return { ...this.state, targets: this.state.targets.map((t) => ({ ...t })) };
   }
 
   // FR-007 busy guard; callers may repeat the inactive edge — the
@@ -68,6 +69,22 @@ export class SetupService {
     this.deps.emit(this.status());
   }
 
+  private setTarget(status: SetupTarget["status"]): void {
+    this.set({
+      targets: this.state.targets.map((t) =>
+        t.role === "default" ? { ...t, status } : t,
+      ),
+    });
+  }
+
+  private fail(e: unknown): void {
+    this.set({
+      phase: "error",
+      error: e instanceof Error ? e.message : String(e),
+    });
+    this.setTarget("error");
+  }
+
   private async exec(): Promise<void> {
     if (this.userDownloads > 0) return; // stay idle; manual path wins
     this.set({ phase: "checking", error: undefined });
@@ -75,7 +92,19 @@ export class SetupService {
       this.set({ phase: "done" });
       return;
     }
-    this.set({ phase: "downloading", fileName: DEFAULT_MODEL.fileName });
+    this.set({
+      phase: "downloading",
+      fileName: DEFAULT_MODEL.fileName,
+      targets: [
+        {
+          role: "default",
+          fileName: DEFAULT_MODEL.fileName,
+          status: "downloading",
+          downloadedBytes: 0,
+          totalBytes: null,
+        },
+      ],
+    });
     try {
       await this.deps.download((s) => {
         if (s.phase === "progress") {
@@ -83,27 +112,28 @@ export class SetupService {
             fileName: s.fileName,
             downloadedBytes: s.downloadedBytes,
             totalBytes: s.totalBytes,
+            targets: this.state.targets.map((t) =>
+              t.role === "default"
+                ? { ...t, downloadedBytes: s.downloadedBytes, totalBytes: s.totalBytes }
+                : t,
+            ),
           });
         }
       });
     } catch (e) {
-      this.set({
-        phase: "error",
-        error: e instanceof Error ? e.message : String(e),
-      });
+      this.fail(e);
       return;
     }
     this.set({ phase: "loading" });
+    this.setTarget("loading");
     try {
       this.deps.bindDefault(DEFAULT_MODEL.fileName);
       await this.deps.load();
     } catch (e) {
-      this.set({
-        phase: "error",
-        error: e instanceof Error ? e.message : String(e),
-      });
+      this.fail(e);
       return;
     }
+    this.setTarget("done");
     this.set({ phase: "done" });
   }
 }
