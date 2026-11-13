@@ -6,7 +6,7 @@ import { resetLayout } from "@/lib/layout";
 
 export function LayoutSection() {
   return (
-    <section aria-labelledby="layout-heading" className="border-b border-border bg-muted/40 px-4 py-3">
+    <section id="settings-layout" aria-labelledby="layout-heading" className="border-b border-border bg-muted/40 px-4 py-3">
       <div className="mx-auto flex max-w-2xl items-center justify-between gap-3">
         <div>
           <h2 id="layout-heading" className="text-xs font-medium text-muted-foreground">

@@ -9,6 +9,7 @@ export function ShortcutsSection() {
   const rows = ACTION_DEFS.filter((a) => a.shortcut);
   return (
     <section
+      id="settings-shortcuts"
       aria-labelledby="shortcuts-heading"
       className="border-b border-border bg-muted/40 px-4 py-3"
     >

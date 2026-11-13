@@ -29,9 +29,9 @@ export function DataPanel() {
   };
 
   return (
-    <div className="border-b border-border bg-muted/40 px-4 py-3">
-      <div className="mx-auto flex max-w-2xl items-center gap-2">
-        <span className="text-xs text-muted-foreground">Backup</span>
+    <section id="settings-data" aria-labelledby="data-heading" className="border-b border-border bg-muted/40 px-4 py-3">
+      <div className="mx-auto flex max-w-2xl flex-wrap items-center gap-2">
+        <h2 id="data-heading" className="text-xs font-medium text-muted-foreground">Backup</h2>
         <Button
           size="sm"
           variant="secondary"
@@ -74,6 +74,6 @@ export function DataPanel() {
           Restore backup…
         </Button>
       </div>
-    </div>
+    </section>
   );
 }

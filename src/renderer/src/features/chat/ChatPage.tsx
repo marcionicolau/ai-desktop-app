@@ -1,3 +1,4 @@
+import { SettingsPage } from "../settings/SettingsPage";
 import { LayoutSection } from "../settings/LayoutSection";
 import { resetLayout } from "@/lib/layout";
 import { ChatColumn } from "./ChatColumn";
@@ -549,15 +550,17 @@ export function ChatPage() {
           <ScriptsPage />
         </div>
         <div
-          className="flex min-h-0 flex-1 flex-col overflow-y-auto"
+          className="flex min-h-0 flex-1 flex-col"
           hidden={selectedId !== "surface:settings"}
         >
-          <ToolSettings />
-          <ScriptsSettings />
-          <UpdatesSection />
-          <DataPanel />
-          <LayoutSection />
-          <ShortcutsSection />
+          <SettingsPage>
+            <ToolSettings />
+            <ScriptsSettings />
+            <DataPanel />
+            <UpdatesSection />
+            <LayoutSection />
+            <ShortcutsSection />
+          </SettingsPage>
         </div>
         <div
           className="flex min-h-0 flex-1 flex-col overflow-y-auto"
