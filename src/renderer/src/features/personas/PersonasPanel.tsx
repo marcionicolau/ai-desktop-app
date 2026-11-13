@@ -2,6 +2,7 @@
 // surface, mirroring RolesPanel. Personas carry a system prompt, optional
 // generation overrides and a preferred tag; snippets are composer "/"
 // insert fragments.
+import { confirm } from "@/lib/confirm";
 import { useState } from "react";
 import { IconAdd, IconCopy, IconDelete, IconEdit, IconUsers } from "@/components/icons";
 import type { Persona, Snippet } from "@shared/types";
@@ -99,9 +100,14 @@ export function PersonasPanel() {
       const u = await usage(p.name);
       const note =
         u.count > 0
-          ? `\n\nIn use by ${u.count} conversation(s): ${u.titles.join(", ")}. They keep working with default behavior.`
+          ? ` It is in use by ${u.count} conversation(s) (${u.titles.join(", ")}); they keep working with default behavior.`
           : "";
-      if (!window.confirm(`Delete persona "${p.name}"?${note}`)) return;
+      const ok = await confirm({
+        title: "Delete persona",
+        itemName: p.name,
+        consequence: `The persona is removed.${note}`,
+      });
+      if (!ok) return;
       await remove(p.name);
     });
 
@@ -205,7 +211,16 @@ export function PersonasPanel() {
                 size="sm"
                 variant="ghost"
                 title="Delete snippet"
-                onClick={() => run(() => removeSnippet(s.name))}
+                onClick={() =>
+                  run(async () => {
+                    const ok = await confirm({
+                      title: "Delete snippet",
+                      itemName: s.name,
+                      consequence: "The snippet is removed from the / picker.",
+                    });
+                    if (ok) await removeSnippet(s.name);
+                  })
+                }
               >
                 <IconDelete className="size-3.5" />
               </Button>

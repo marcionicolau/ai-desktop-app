@@ -1,6 +1,10 @@
 // feature 017 (US1): pack lifecycle UI — install (folder/archive/url),
 // consent-gated enable, disable, remove. Panel lives under the header like
 // the other feature panels; state refreshes on extension.changed.
+import { confirm } from "@/lib/confirm";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { EmptyState } from "@/components/empty-state";
+import { IconExtension } from "@/components/icons";
 import { useEffect, useState } from "react";
 import type { InstalledPackView } from "@shared/types";
 import { invoke, on } from "@/lib/rpc";
@@ -75,12 +79,16 @@ export function ExtensionsPanel({ onBrowse }: Props) {
         </Button>
       </div>
       {error && (
-        <div className="mb-2 rounded bg-destructive px-2 py-1 text-xs text-destructive">{error}</div>
+        <Alert variant="destructive" className="mb-2 px-3 py-2 text-xs">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
       {packs.length === 0 && (
-        <p className="text-xs text-muted-foreground">
-          No packs installed — install a folder, archive, or URL to get started.
-        </p>
+        <EmptyState
+          icon={IconExtension}
+          title="No packs installed"
+          description="Install a pack from a folder, archive, or URL to add tabs and commands."
+        />
       )}
       <ul className="space-y-1">
         {packs.map((p) => (
@@ -127,9 +135,19 @@ export function ExtensionsPanel({ onBrowse }: Props) {
                   size="sm"
                   variant="ghost"
                   onClick={() =>
-                    void guard(
-                      invoke("extension.remove", { packId: p.id, purgeData: true }),
-                    )
+                    void (async () => {
+                      const ok = await confirm({
+                        title: "Remove extension",
+                        itemName: p.manifest.name,
+                        consequence: "The pack and all the data it stored are deleted.",
+                        confirmLabel: "Remove",
+                      });
+                      if (ok) {
+                        await guard(
+                          invoke("extension.remove", { packId: p.id, purgeData: true }),
+                        );
+                      }
+                    })()
                   }
                 >
                   Remove

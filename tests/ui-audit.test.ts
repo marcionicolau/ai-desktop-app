@@ -78,7 +78,8 @@ const ENFORCED = new Set<string>([
   "icon-import-site", // enforced since T015–T018
   "font-sizes", // enforced since T019
   "icon-sizes", // enforced since T019
-  // pending: "overlays" (T029), "native-controls" (T048)
+  "overlays", // enforced since T031
+  // pending: "native-controls" (T048)
 ]);
 
 function check(rule: string, offenders: string[]) {

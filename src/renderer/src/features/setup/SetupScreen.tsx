@@ -4,7 +4,15 @@
 // model library, which stays the manual fallback (spec FR-006).
 import { IconDot, IconError, IconSpinner, IconSuccess } from "@/components/icons";
 import type { SetupState, SetupTargetStatus } from "@shared/types";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { useRoles } from "../roles/use-roles";
 
@@ -43,12 +51,21 @@ export function SetupScreen({
     phase === "loading" ? "loading" : phase === "done" ? "done" : "pending";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background">
-      <div className="w-full max-w-md px-6">
-        <h1 className="text-center text-2xl font-semibold">Causerie</h1>
-        <p className="mt-1 text-center text-sm text-muted-foreground">
-          Setting up your local AI
-        </p>
+    // setup is a blocking first-run step: a modal Dialog that ignores
+    // outside clicks and Escape (the Skip action is the explicit way out)
+    <Dialog open onOpenChange={() => {}}>
+      <DialogContent
+        showCloseButton={false}
+        className="max-h-[90vh] overflow-y-auto sm:max-w-lg"
+        onInteractOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
+      >
+        <DialogHeader>
+          <DialogTitle className="text-center text-2xl font-semibold">Causerie</DialogTitle>
+          <DialogDescription className="text-center">
+            Setting up your local AI
+          </DialogDescription>
+        </DialogHeader>
 
         <div className="mt-8 space-y-3">
           <div className="flex items-center gap-3">
@@ -124,7 +141,11 @@ export function SetupScreen({
 
         {phase === "error" && (
           <div className="mt-8">
-            <p className="text-sm text-destructive">{state.error}</p>
+            <Alert variant="destructive">
+              <IconError aria-hidden="true" />
+              <AlertTitle>Setup failed</AlertTitle>
+              <AlertDescription>{state.error}</AlertDescription>
+            </Alert>
             <div className="mt-4 flex items-center justify-center gap-3">
               <Button onClick={onRetry}>Retry setup</Button>
               <button
@@ -136,7 +157,7 @@ export function SetupScreen({
             </div>
           </div>
         )}
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

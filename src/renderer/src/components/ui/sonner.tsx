@@ -9,6 +9,12 @@ const Toaster = ({ ...props }: ToasterProps) => {
     <Sonner
       theme={theme as ToasterProps["theme"]}
       className="toaster group"
+      position="bottom-right"
+      // at most three stacked; offset keeps toasts above the composer so the
+      // focused control is never covered (T035)
+      visibleToasts={3}
+      offset={{ bottom: "8rem", right: "1rem" }}
+      mobileOffset={{ bottom: "8rem", right: "1rem" }}
       icons={{
         success: <IconSuccess className="size-4" />,
         info: <IconInfo className="size-4" />,

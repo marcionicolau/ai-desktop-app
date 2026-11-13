@@ -1,3 +1,8 @@
+import { WithReason } from "@/components/with-reason";
+import { confirm } from "@/lib/confirm";
+import { notify } from "@/lib/notify";
+import { EmptyState } from "@/components/empty-state";
+import { IconLibrary } from "@/components/icons";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ModelAdvise, RoleView } from "@shared/types";
 import { IconBenchmark, IconDownload, IconRefresh, IconSliders, IconSpinner } from "@/components/icons";
@@ -218,10 +223,11 @@ export function ModelLibrary({ activeName, onLoad, autoLoadOnDownload }: Props) 
         ))}
         <div className="divide-y divide-border text-xs">
           {models.length === 0 && (
-            <p className="py-2 text-muted-foreground">
-              No .gguf files in the models folder yet — download one above or
-              use Model → browse.
-            </p>
+            <EmptyState
+              icon={IconLibrary}
+              title="No models yet"
+              description="Download a .gguf model with the form above, or pick one from your disk."
+            />
           )}
           {models.map((m) => {
             const dl = downloads[m.fileName];
@@ -268,21 +274,41 @@ export function ModelLibrary({ activeName, onLoad, autoLoadOnDownload }: Props) 
                     );
                   })()}
                   {dl?.phase === "progress" ? (
-                    <IconSpinner className="size-3.5 animate-spin text-warning" />
+                    <span
+                      className="flex items-center gap-1.5 text-warning"
+                      role="status"
+                      aria-label="Downloading"
+                    >
+                      <IconSpinner className="size-3.5 animate-spin" aria-hidden="true" />
+                      {dl.totalBytes
+                        ? `${Math.round((dl.downloadedBytes / dl.totalBytes) * 100)}%`
+                        : fmtBytes(dl.downloadedBytes)}
+                    </span>
                   ) : (
                     <>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        disabled={active}
-                        onClick={() => onLoad(m.path)}
+                      <WithReason reason={active ? "This model is already loaded" : undefined}>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={active}
+                          onClick={() => onLoad(m.path)}
+                        >
+                          Load
+                        </Button>
+                      </WithReason>
+                      <WithReason
+                        reason={
+                          benching !== null && benching !== m.fileName
+                            ? "Another benchmark is running"
+                            : undefined
+                        }
                       >
-                        Load
-                      </Button>
                       <Button
                         size="sm"
                         variant="ghost"
                         disabled={benching !== null}
+                        aria-busy={benching === m.fileName}
+                        aria-label={`Run benchmark for ${m.name ?? m.fileName}`}
                         title="Run bounded benchmark (≤30 s)"
                         onClick={() => void benchmark(m)}
                       >
@@ -292,9 +318,11 @@ export function ModelLibrary({ activeName, onLoad, autoLoadOnDownload }: Props) 
                           <IconBenchmark className="size-3.5" />
                         )}
                       </Button>
+                      </WithReason>
                       <Button
                         size="sm"
                         variant="ghost"
+                        aria-label={`Generation overrides for ${m.name ?? m.fileName}`}
                         title="Per-model generation overrides"
                         onClick={() =>
                           setOverrideFor(
@@ -373,13 +401,21 @@ export function ModelLibrary({ activeName, onLoad, autoLoadOnDownload }: Props) 
               size="sm"
               variant="secondary"
               disabled={snapStats.count === 0}
-              onClick={() => {
-                void invoke("snapshot.clear", {}).then(() =>
-                  setSnapStats((s) =>
-                    s ? { ...s, count: 0, usedBytes: 0 } : s,
-                  ),
-                );
-              }}
+              onClick={() =>
+                void (async () => {
+                  const ok = await confirm({
+                    title: "Clear saved conversation state",
+                    itemName: `${snapStats.count} snapshot${snapStats.count === 1 ? "" : "s"}`,
+                    consequence:
+                      "Chats re-read their history the next time you continue them, which is slower once.",
+                    confirmLabel: "Clear",
+                  });
+                  if (!ok) return;
+                  await invoke("snapshot.clear", {});
+                  setSnapStats((s) => (s ? { ...s, count: 0, usedBytes: 0 } : s));
+                  notify.success("Snapshots cleared");
+                })()
+              }
             >
               Clear snapshots
             </Button>

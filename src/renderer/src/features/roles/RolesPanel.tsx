@@ -1,3 +1,4 @@
+import { confirm } from "@/lib/confirm";
 import { useCallback, useEffect, useState } from "react";
 import { IconAdd, IconDelete, IconTags } from "@/components/icons";
 import type { ModelMeta, RoleView } from "@shared/types";
@@ -50,12 +51,26 @@ export function RolesPanel() {
 
   const del = async (name: string) => {
     setError(null);
+    const ok = await confirm({
+      title: "Delete role",
+      itemName: name,
+      consequence: "Its model binding and fallback chain are removed.",
+    });
+    if (!ok) return;
     try {
       await remove(name);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       // ROLE_IN_USE: offer detach-with-confirmation as a second click path
-      if (msg.includes("referenced by") && window.confirm(`${msg}\n\nDetach and delete anyway?`)) {
+      if (
+        msg.includes("referenced by") &&
+        (await confirm({
+          title: "Detach and delete role",
+          itemName: name,
+          consequence: `${msg} Detach it and delete anyway?`,
+          confirmLabel: "Detach and delete",
+        }))
+      ) {
         try {
           await remove(name, true);
         } catch (e2) {

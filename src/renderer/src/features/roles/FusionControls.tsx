@@ -2,6 +2,7 @@
 // toggle plus planner & executor tag selects. Bound tags only — enabling
 // fusion with an unbound role is rejected by the backend (ROLE_UNBOUND)
 // and surfaced here as an inline error.
+import { WithReason } from "@/components/with-reason";
 import { useEffect, useMemo, useState } from "react";
 import type { FusionAdvise } from "@shared/types";
 import { invoke } from "@/lib/rpc";
@@ -36,6 +37,12 @@ export function FusionControls({
   const bound = useMemo(() => tags.filter((t) => t.state === "bound"), [tags]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // FR-019: controls are locked while a reply streams or a change applies
+  const lockReason = generating
+    ? "Wait for the current reply to finish"
+    : busy
+      ? "Applying the change…"
+      : undefined;
 
   // role list changes (unbind) may invalidate current picks — surface state
   const plannerBound = bound.some((t) => t.name === plannerTag);
@@ -93,6 +100,7 @@ export function FusionControls({
     onChange: (v: string) => void;
     id: string;
   }) => (
+    <WithReason reason={lockReason}>
     <select
       id={id}
       className="h-7 rounded-md border border-border bg-background px-2 text-xs"
@@ -109,21 +117,24 @@ export function FusionControls({
         </option>
       ))}
     </select>
+    </WithReason>
   );
 
   return (
     <div className="flex flex-wrap items-center gap-3 border-b border-border bg-muted/50 px-4 py-2 text-xs">
       <label className="flex items-center gap-1.5">
         Mode
-        <select
-          className="h-7 rounded-md border border-border bg-background px-2"
-          value={mode}
-          disabled={busy || generating}
-          onChange={(e) => void apply(e.target.value as "single" | "fusion")}
-        >
-          <option value="single">Single model</option>
-          <option value="fusion">Planner + executor</option>
-        </select>
+        <WithReason reason={lockReason}>
+          <select
+            className="h-7 rounded-md border border-border bg-background px-2"
+            value={mode}
+            disabled={busy || generating}
+            onChange={(e) => void apply(e.target.value as "single" | "fusion")}
+          >
+            <option value="single">Single model</option>
+            <option value="fusion">Planner + executor</option>
+          </select>
+        </WithReason>
       </label>
       {mode === "fusion" && (
         <>

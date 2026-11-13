@@ -2,6 +2,7 @@
 // message area inside ChatPage's flex-col — it pushes messages up,
 // never overlays (FR-005). The same persisted switch gates recording
 // on the bun side (US2); calls while off never arrive.
+import { EmptyState } from "@/components/empty-state";
 import { useEffect, useMemo, useState } from "react";
 import type { MetricEntry } from "@shared/types";
 import { invoke, on } from "@/lib/rpc";
@@ -104,9 +105,11 @@ export function OutputPanel({ open }: { open: boolean }) {
       <ScrollArea className="h-56">
         <div className="flex flex-col gap-1 px-4 pb-2">
           {visible.length === 0 && (
-            <p className="py-4 text-center text-xs text-muted-foreground">
-              No calls recorded yet.
-            </p>
+            <EmptyState
+              compact
+              title="No calls recorded yet"
+              description="Each generation appears here as it completes."
+            />
           )}
           {[...groups].map(([role, personas]) => (
             <div key={role}>

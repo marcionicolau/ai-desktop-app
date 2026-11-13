@@ -1,3 +1,7 @@
+import { confirm } from "@/lib/confirm";
+import { notify } from "@/lib/notify";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { IconError } from "@/components/icons";
 import { useEffect, useRef, useState } from "react";
 import { IconBranch } from "@/components/icons";
 import { useChat } from "./use-chat";
@@ -59,6 +63,8 @@ export function ChatPage() {
     selectVariant,
   } = useChat();
   const modelReady = state.modelStatus === "ready";
+  // recovery target for the "last message failed" alert (FR-002)
+  const lastAssistant = [...path].reverse().find((m) => m.role === "assistant");
   // feature 021: header model selectors list bound role tags; single mode
   // applies via role.resolve → loadModel, fusion re-picks via setMode
   const { tags: roleTags } = useRoles();
@@ -189,12 +195,53 @@ export function ChatPage() {
           newConversation();
         }}
         onRename={(id, t) => void renameConversation(id, t)}
-        onDelete={(id) => void deleteConversation(id)}
-        onExport={(id, f) => exportConversation(id, f)}
+        onDelete={(id) => {
+          const c = state.conversations.find((x) => x.id === id);
+          void (async () => {
+            const ok = await confirm({
+              title: "Delete conversation",
+              itemName: c?.title || "Untitled chat",
+              consequence: "Its messages and attachments are removed permanently.",
+            });
+            if (!ok) return;
+            try {
+              await deleteConversation(id);
+              notify.success("Conversation deleted");
+            } catch (e) {
+              notify.error("Could not delete the conversation", {
+                description: e instanceof Error ? e.message : String(e),
+                action: { label: "Retry", run: () => void deleteConversation(id) },
+              });
+            }
+          })();
+        }}
+        onExport={async (id, f) => {
+          try {
+            const path = await exportConversation(id, f);
+            if (path) notify.success("Conversation exported", { description: path });
+            return path;
+          } catch (e) {
+            notify.error("Export failed", {
+              description: e instanceof Error ? e.message : String(e),
+              action: { label: "Retry", run: () => void exportConversation(id, f) },
+            });
+            return null;
+          }
+        }}
         onImport={async () => {
-          const r = await importConversation();
-          if (r) select("chat");
-          return r;
+          try {
+            const r = await importConversation();
+            if (r) {
+              select("chat");
+              notify.success("Conversation imported");
+            }
+            return r;
+          } catch (e) {
+            notify.error("Import failed", {
+              description: e instanceof Error ? e.message : String(e),
+            });
+            return null;
+          }
         }}
         onSelectHit={(cid, mid) => {
           select("chat");
@@ -334,10 +381,16 @@ export function ChatPage() {
                 </button>
               )}
               {state.modelStatus === "error" && (
-                <div className="border-b border-border bg-destructive px-4 py-2 text-center text-sm text-destructive">
-                  Model failed to load
-                  {state.modelError ? `: ${state.modelError}` : ""}
-                </div>
+                <Alert variant="destructive" className="rounded-none border-x-0 border-t-0">
+                  <IconError aria-hidden="true" />
+                  <AlertTitle>Model failed to load</AlertTitle>
+                  <AlertDescription className="flex flex-wrap items-center gap-2">
+                    {state.modelError ?? "The model could not be started."}
+                    <Button size="sm" variant="outline" onClick={() => select("surface:models")}>
+                      Open Models
+                    </Button>
+                  </AlertDescription>
+                </Alert>
               )}
               <FusionControls
                 mode={state.mode}
@@ -353,9 +406,21 @@ export function ChatPage() {
                 </div>
               )}
               {state.lastError && (
-                <div className="border-b border-border bg-destructive px-4 py-2 text-center text-sm text-destructive">
-                  {state.lastError.code}: {state.lastError.message}
-                </div>
+                <Alert variant="destructive" className="rounded-none border-x-0 border-t-0">
+                  <IconError aria-hidden="true" />
+                  <AlertTitle>The last message failed</AlertTitle>
+                  <AlertDescription className="flex flex-wrap items-center gap-2">
+                    <span>
+                      {state.lastError.message}{" "}
+                      <span className="text-xs opacity-80">({state.lastError.code})</span>
+                    </span>
+                    {lastAssistant && state.generatingId === null && (
+                      <Button size="sm" variant="outline" onClick={() => void regenerate(lastAssistant.id)}>
+                        Retry
+                      </Button>
+                    )}
+                  </AlertDescription>
+                </Alert>
               )}
               {branchesOpen && (
                 <BranchOverview

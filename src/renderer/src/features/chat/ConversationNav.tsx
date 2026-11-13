@@ -1,3 +1,4 @@
+import { EmptyState } from "@/components/empty-state";
 import { useEffect, useRef, useState } from "react";
 import { IconDelete, IconDownload, IconNewChat, IconSearch, IconUpload } from "@/components/icons";
 import type { ConversationSummary, SearchGroup } from "@shared/types";
@@ -154,9 +155,13 @@ export function ConversationNav({
               </p>
             )}
             {results !== null && results.length === 0 && !searching && (
-              <p className="px-3 py-2 text-xs text-muted-foreground">
-                No results for "{query}".
-              </p>
+              <EmptyState
+                compact
+                icon={IconSearch}
+                title="No results"
+                description={`Nothing matches "${query}".`}
+                action={{ label: "Clear search", onClick: () => setFilter("") }}
+              />
             )}
             {results?.map((g) => (
               <div key={g.conversationId} className="mb-1">
@@ -200,9 +205,13 @@ export function ConversationNav({
           </div>
         ) : null}
         {!searchMode && visible.length === 0 && conversations.length > 0 && (
-          <p className="px-3 py-2 text-xs text-muted-foreground">
-            No chats match "{filter.trim()}".
-          </p>
+          <EmptyState
+            compact
+            icon={IconSearch}
+            title="No chats match"
+            description={`Nothing matches "${filter.trim()}".`}
+            action={{ label: "Clear filter", onClick: () => setFilter("") }}
+          />
         )}
         {!searchMode &&
           visible.map((c) => (

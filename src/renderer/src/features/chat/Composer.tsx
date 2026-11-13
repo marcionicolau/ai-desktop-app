@@ -1,3 +1,4 @@
+import { WithReason, sendDisabledReason } from "@/components/with-reason";
 import { useRef, useState } from "react";
 import { IconAttach, IconClose, IconSend, IconStop } from "@/components/icons";
 import type { MessageAttachment, Snippet } from "@shared/types";
@@ -241,18 +242,22 @@ export function Composer({
             size="icon"
             onClick={onStop}
             title="Stop generation"
+            aria-label="Stop generation"
           >
             <IconStop />
           </Button>
         ) : (
-          <Button
-            size="icon"
-            onClick={submit}
-            disabled={!canSend}
-            title={modelReady ? "Send" : "No model loaded"}
+          <WithReason
+            reason={sendDisabledReason({
+              modelReady,
+              generating,
+              hasText: value.trim().length > 0,
+            })}
           >
-            <IconSend />
-          </Button>
+            <Button size="icon" onClick={submit} disabled={!canSend} aria-label="Send message">
+              <IconSend />
+            </Button>
+          </WithReason>
         )}
       </PromptInputBody>
       {!modelReady && (

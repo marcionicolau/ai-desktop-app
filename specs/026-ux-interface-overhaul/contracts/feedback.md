@@ -12,9 +12,9 @@ confirm({ title, itemName, consequence, confirmLabel }): Promise<boolean>   // w
 | State | Component | Rule |
 |---|---|---|
 | Busy (> 200 ms) | `Spinner` / `Progress` inside the triggering control; control `disabled` + `aria-busy` | visible within 200 ms (FR-001) |
-| Success / error | Sonner toast, bottom-right, announced via live region | errors carry a recovery action (FR-002) |
+| Success / error | Sonner toast, bottom-right, offset above the composer, at most 3 stacked | errors persist and carry a recovery action where one exists (FR-002) |
 | Empty | `Empty` with reason + primary action | every list/panel (FR-003) |
 | Destructive | `confirm()` naming `itemName` and `consequence` | FR-004 |
 | Unavailable | disabled control + tooltip stating reason | FR-019 |
 
-Toasts are `role="status"` (success/info) or `role="alert"` (error); streaming-reply completion announces through the same live region (FR-022).
+Toasts are announced through Sonner's polite live region. Persistent in-surface errors use `Alert` (`role="alert"`). Reply completion/stop is announced by a polite live region in `MessageList` (FR-022).
