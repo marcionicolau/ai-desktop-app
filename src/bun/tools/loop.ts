@@ -15,6 +15,7 @@ import {
   TOOL_RESULT_FENCE,
 } from "../../shared/tool-call";
 import type { SnapshotStore } from "../kv/store";
+import type { ScriptService } from "../scripts/service";
 import { recordAudit } from "./audit";
 import { runTool } from "./executor";
 import type { ToolDecision, ToolService } from "./service";
@@ -46,6 +47,8 @@ export interface LoopEngine {
 
 export interface ToolLoopOpts {
   tools: ToolService;
+  // feature 023: absent → run_script calls refuse as disabled
+  scripts?: ScriptService;
   conversationId: string;
   messageId: string;
   // append raw stream text (prose + blocks + injected results) — the
@@ -203,7 +206,7 @@ export async function runToolLoop(
       emit({
         id: newId(),
         tool: p.ok ? p.tool : null,
-        path: p.ok ? p.path : "",
+        path: p.ok ? (p.tool === "run_script" ? p.script : p.path) : "",
         status,
         refuseReason: reason,
         error,
@@ -238,15 +241,124 @@ export async function runToolLoop(
     const call: ToolCallRecord = {
       id: newId(),
       tool: parsed.ok ? parsed.tool : null,
-      path: parsed.ok ? parsed.path : "",
+      path: parsed.ok
+        ? parsed.tool === "run_script"
+          ? parsed.script
+          : parsed.path
+        : "",
       status: "refused",
       createdAt: now(),
+    };
+
+    // feature 023: script verdict — same consent/decision flow as file
+    // calls, execution routed through ScriptService (one path for all
+    // initiators). Returns null when the turn must end partial.
+    const runScriptVerdict = async (
+      p: Extract<typeof parsed, { ok: true; tool: "run_script" }>,
+    ): Promise<string | null> => {
+      const svc = opts.scripts;
+      if (!svc || !svc.scriptsActive()) {
+        return refuse(call, "disabled", "scripts disabled",
+          "scripts are disabled");
+      }
+      const entry = svc.get(p.script);
+      if (!entry || !entry.enabled) {
+        return refuse(call, "unknown-script", "unknown script",
+          `refused: no enabled script named "${p.script}"`);
+      }
+      let va: { args: Record<string, unknown>; input?: string };
+      try {
+        va = svc.validateArgs(entry, p.args, p.input);
+      } catch (e) {
+        return refuse(call, "invalid-args", (e as Error).message,
+          `invalid script args: ${(e as Error).message}`);
+      }
+      call.script = entry.id;
+      call.args = va.args;
+      let decision: ToolDecision = "approve";
+      if (!svc.autoApprove(opts.conversationId)) {
+        const deferred = svc.awaitDecision(call.id, opts.conversationId);
+        call.status = "pending";
+        emit(call);
+        decision = await deferred;
+      }
+      if (decision === "discard" || opts.isStopped()) {
+        call.status = "denied";
+        call.error = "stopped";
+        call.decidedAt = now();
+        emit(call);
+        return null; // caller ends the turn partial
+      }
+      if (decision === "deny") {
+        call.status = "denied";
+        call.decidedAt = now();
+        emit(call);
+        return renderResultBlock({
+          status: "denied",
+          content: "the user denied this script call",
+        });
+      }
+      call.status = "approved";
+      call.decidedAt = now();
+      emit(call);
+      try {
+        const rec = await svc.call({
+          entry,
+          args: va.args,
+          input: va.input,
+          initiator: "model",
+          ns: opts.conversationId,
+          conversationId: opts.conversationId,
+          messageId: opts.messageId,
+          callId: call.id,
+        });
+        call.status = rec.verdict === "executed" ? "executed" : "error";
+        call.exitStatus = rec.exitStatus;
+        call.durationMs = rec.durationMs;
+        call.files = rec.files;
+        call.sessionRestarted = rec.sessionRestarted;
+        call.resultBytes = rec.stdout.length;
+        call.resultPreview = rec.stdout ? preview(rec.stdout) : undefined;
+        call.decidedAt = now();
+        emit(call);
+        const note = rec.sessionRestarted
+          ? "\n(session restarted — prior state lost)"
+          : "";
+        return renderResultBlock(
+          rec.verdict === "executed"
+            ? { status: "ok", content: rec.stdout + note }
+            : rec.verdict === "timeout"
+              ? { status: "timeout", content: rec.stderr || "script timed out" }
+              : { status: "error", content: rec.stderr || "script error" },
+        );
+      } catch (e) {
+        const rec = (e as { record?: { verdict: string; stderr: string; durationMs: number; sessionRestarted: boolean } })
+          .record;
+        call.status = "error";
+        call.error = (e as Error).message;
+        call.durationMs = rec?.durationMs;
+        call.sessionRestarted = rec?.sessionRestarted;
+        call.decidedAt = now();
+        emit(call);
+        return renderResultBlock({
+          status: rec?.verdict === "timeout" ? "timeout" : "error",
+          content: rec?.stderr || `error: ${(e as Error).message}`,
+        });
+      }
     };
 
     let resultText: string;
     if (!parsed.ok) {
       resultText = refuse(call, "malformed", parsed.detail,
         `malformed tool call: ${parsed.detail}`);
+    } else if (parsed.tool === "run_script") {
+      const out = await runScriptVerdict(parsed);
+      if (out === null) {
+        return {
+          status: "partial", tokens, elapsedMs, warm, promptTokens, calls,
+        };
+      }
+      resultText = out;
     } else {
       const sb = opts.tools.active() ? opts.tools.sandbox() : null;
       if (!sb) {

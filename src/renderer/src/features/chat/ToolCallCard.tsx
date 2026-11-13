@@ -3,7 +3,7 @@
 // pair with ToolCallRecords by index and render the approval actions.
 // feature 021: rebuilt on the ai-elements Tool/Confirmation recipes.
 import { useState } from "react";
-import { FileText, FolderOpen } from "lucide-react";
+import { FileText, FolderOpen, SquareTerminal } from "lucide-react";
 import type { ToolCallRecord } from "@shared/types";
 import {
   parseCallBody,
@@ -21,7 +21,11 @@ const REFUSE_LABEL: Record<string, string> = {
   "out-of-sandbox": "outside sandbox",
   budget: "budget exhausted",
   malformed: "malformed call",
-  disabled: "tools disabled",
+  disabled: "disabled",
+  "unknown-script": "unknown script",
+  "invalid-args": "invalid args",
+  "runtime-unavailable": "runtime unavailable",
+  interrupted: "interrupted",
 };
 
 function Card({ record, block }: { record?: ToolCallRecord; block: ToolBlock }) {
@@ -29,7 +33,13 @@ function Card({ record, block }: { record?: ToolCallRecord; block: ToolBlock }) 
   // fallback: older messages may lack records — read the block itself
   const parsed = record ? null : parseCallBody(block.body);
   const tool = record?.tool ?? (parsed?.ok ? parsed.tool : null);
-  const path = record?.path ?? (parsed?.ok ? parsed.path : "");
+  const path =
+    record?.path ??
+    (parsed?.ok
+      ? parsed.tool === "run_script"
+        ? parsed.script
+        : parsed.path
+      : "");
   const status = record?.status ?? "executed";
 
   const respond = (decision: "approve" | "deny" | "allowSession") => {
@@ -40,7 +50,12 @@ function Card({ record, block }: { record?: ToolCallRecord; block: ToolBlock }) 
     );
   };
 
-  const ToolIcon = tool === "list_dir" ? FolderOpen : FileText;
+  const ToolIcon =
+    tool === "list_dir"
+      ? FolderOpen
+      : tool === "run_script"
+        ? SquareTerminal
+        : FileText;
   return (
     <ToolCall
       icon={<ToolIcon className="size-3.5 shrink-0 text-muted-foreground" />}
@@ -73,7 +88,9 @@ function Card({ record, block }: { record?: ToolCallRecord; block: ToolBlock }) 
             disabled={busy}
             onClick={() => respond("allowSession")}
           >
-            Allow reads this session
+            {tool === "run_script"
+              ? "Allow scripts this session"
+              : "Allow reads this session"}
           </Button>
           <Button
             size="sm"
@@ -90,6 +107,29 @@ function Card({ record, block }: { record?: ToolCallRecord; block: ToolBlock }) 
         <p className="mt-1.5 text-muted-foreground">
           {REFUSE_LABEL[record?.refuseReason ?? ""] ?? "refused"}
         </p>
+      )}
+      {/* feature 023: run_script metadata — duration, session restart,
+          produced files */}
+      {tool === "run_script" && record && status !== "pending" && (
+        <div className="mt-1.5 flex flex-wrap items-center gap-2 text-muted-foreground">
+          {record.durationMs !== undefined && (
+            <span>{Math.round(record.durationMs)} ms</span>
+          )}
+          {record.exitStatus !== undefined && record.exitStatus !== null && (
+            <span>exit {record.exitStatus}</span>
+          )}
+          {record.sessionRestarted && (
+            <span className="text-warning">
+              session restarted — prior state lost
+            </span>
+          )}
+          {record.files && record.files.length > 0 && (
+            <span title={record.files.join(", ")}>
+              {record.files.length} file
+              {record.files.length === 1 ? "" : "s"}
+            </span>
+          )}
+        </div>
       )}
       {record?.resultPreview && (
         <p className="mt-1.5 truncate text-muted-foreground">

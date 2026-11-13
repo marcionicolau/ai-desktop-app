@@ -12,6 +12,7 @@ export const SURFACE_TABS: WorkspaceTab[] = [
   { kind: "surface", id: "surface:models", surfaceId: "models", title: "Models" },
   { kind: "surface", id: "surface:personas", surfaceId: "personas", title: "Personas" },
   { kind: "surface", id: "surface:roles", surfaceId: "roles", title: "Roles" },
+  { kind: "surface", id: "surface:scripts", surfaceId: "scripts", title: "Scripts" },
   { kind: "surface", id: "surface:settings", surfaceId: "settings", title: "Settings" },
   { kind: "surface", id: "surface:extensions", surfaceId: "extensions", title: "Extensions" },
 ];

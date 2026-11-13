@@ -631,7 +631,8 @@ export interface SkillView {
   name: string;
   domain?: string;
   version: string;
-  runtime: string; // "prompt" | "component:<id>"
+  runtime: string; // "prompt" | "component:<id>" | "script"
+  script?: string; // feature 023: library slug when runtime:"script"
   description: string;
   inputs: Record<string, PortDecl>;
   outputs: Record<string, PortDecl>;

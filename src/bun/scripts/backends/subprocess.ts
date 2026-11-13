@@ -270,7 +270,7 @@ export class SubprocessBackend implements ScriptBackend {
   }
 
   async dispose(): Promise<void> {
-    for (const rt of [...this.sessions.keys()]) {
+    for (const rt of this.sessions.keys()) {
       await this.reset(rt);
     }
   }

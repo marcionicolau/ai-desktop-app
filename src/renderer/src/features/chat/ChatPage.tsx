@@ -24,6 +24,8 @@ import { DataPanel } from "../settings/DataPanel";
 import { RolesPanel } from "../roles/RolesPanel";
 import { FusionControls } from "../roles/FusionControls";
 import { PersonasPanel } from "../personas/PersonasPanel";
+import { ScriptsPage } from "../scripts/ScriptsPage";
+import { ScriptsSettings } from "../settings/ScriptsSettings";
 import { usePersonas } from "../personas/use-personas";
 import { OutputPanel } from "../metrics/OutputPanel";
 import { ExtensionsPanel } from "../extensions/ExtensionsPanel";
@@ -414,9 +416,16 @@ export function ChatPage() {
         </div>
         <div
           className="flex min-h-0 flex-1 flex-col overflow-y-auto"
+          hidden={selectedId !== "surface:scripts"}
+        >
+          <ScriptsPage />
+        </div>
+        <div
+          className="flex min-h-0 flex-1 flex-col overflow-y-auto"
           hidden={selectedId !== "surface:settings"}
         >
           <ToolSettings />
+          <ScriptsSettings />
           <UpdatesSection />
           <DataPanel />
         </div>

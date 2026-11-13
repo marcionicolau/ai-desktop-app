@@ -182,12 +182,18 @@ export function validateSkill(doc: Record<string, unknown>, file: string): Skill
   }
   const runtime = doc.runtime == null ? "prompt" : reqStr(doc.runtime, file, "runtime");
   if (!isPipeline) {
-    if (runtime !== "prompt") {
+    if (runtime !== "prompt" && runtime !== "script") {
       const id = runtime.startsWith("component:") ? runtime.slice("component:".length) : null;
       if (!id || !(BUILTIN_COMPONENTS as readonly string[]).includes(id)) {
-        bad(file, "runtime", `must be "prompt" or "component:<builtin>" (${BUILTIN_COMPONENTS.join(", ")})`);
+        bad(file, "runtime", `must be "prompt", "script" or "component:<builtin>" (${BUILTIN_COMPONENTS.join(", ")})`);
       }
     }
+  }
+  // feature 023: runtime:"script" skills name a library script slug
+  let script: string | undefined;
+  if (runtime === "script") {
+    script = reqStr(doc.script, file, "script");
+    if (!SLUG.test(script)) bad(file, "script", `must be slug-safe, got "${script}"`);
   }
   let steps: PipelineStepDecl[] | undefined;
   if (isPipeline) {
@@ -229,6 +235,7 @@ export function validateSkill(doc: Record<string, unknown>, file: string): Skill
     description: doc.description as string,
     kind: isPipeline ? "pipeline" : undefined,
     runtime,
+    script,
     params: isObj(doc.params) ? (doc.params as SkillFrontmatter["params"]) : undefined,
     inputs: ports(doc.inputs, file, "inputs"),
     outputs: ports(doc.outputs, file, "outputs"),

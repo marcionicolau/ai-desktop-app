@@ -38,14 +38,42 @@ export const TOOL_INSTRUCTIONS = `You may request read-only filesystem access in
 
 Tools: "read_file" (returns file contents) and "list_dir" (returns entry names, "/" suffix for directories). After the block, stop writing — the result arrives in a \`\`\`tool_result\`\`\` block, then continue your answer. Do not emit more than one block per reply.`;
 
+// feature 023: script-call instructions + the enabled-script listing,
+// injected only when the script policy is active (FR-012 parity)
+export function scriptInstructions(
+  scripts: { id: string; description: string; params: { name: string; type: string; required: boolean }[] }[],
+): string {
+  const listing = scripts
+    .map((s) => {
+      const ps = s.params
+        .map((p) => `${p.name}:${p.type}${p.required ? "(req)" : ""}`)
+        .join(", ");
+      return `- ${s.id}${s.description ? ` — ${s.description}` : ""}${ps ? ` | params: ${ps}` : ""}`;
+    })
+    .join("\n");
+  return `You may also run registered local scripts (Python or R) by emitting one fenced block per request:
+
+\`\`\`tool_call
+{"tool":"run_script","script":"<script id>","args":{"<param>":<value>}}
+\`\`\`
+
+Available scripts:
+${listing}
+
+Scripts keep state between calls (variables persist within a session). After the block, stop writing — output arrives in a \`\`\`tool_result\`\`\` block, then continue your answer.`;
+}
+
 // persona system prompt + tool instructions share the system slot
 export function composeSystem(
   persona: string | undefined,
   toolsActive: boolean,
+  scripts?: Parameters<typeof scriptInstructions>[0],
 ): string | undefined {
-  const parts = [persona, toolsActive ? TOOL_INSTRUCTIONS : null].filter(
-    (p): p is string => !!p,
-  );
+  const parts = [
+    persona,
+    toolsActive ? TOOL_INSTRUCTIONS : null,
+    scripts && scripts.length > 0 ? scriptInstructions(scripts) : null,
+  ].filter((p): p is string => !!p);
   return parts.length ? parts.join("\n\n") : undefined;
 }
 

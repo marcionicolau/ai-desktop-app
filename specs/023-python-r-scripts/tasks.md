@@ -110,11 +110,11 @@ description: "Task list for feature 023 — Python & R script calling"
 
 **Independent test**: enable a fixture pack with a script skill + `scripts.run` capability, run its pipeline, approve the pending call, step output feeds the next step (quickstart S6)
 
-- [ ] T038 [US4] Extend src/bun/fabric/frontmatter.ts — accept `runtime: "script"` on non-pipeline skills with required `script: <slug>` field; validate the script reference shape (resolution to library entries is run-time, not load-time)
-- [ ] T039 [US4] Extend pack validation in src/bun/fabric/frontmatter.ts and src/bun/extensions/store.ts — a pack containing script skills must declare capability `scripts.run`; enable fails without it (CAPABILITY_DENIED-class error at validation per contracts/pack-script.md)
-- [ ] T040 [US4] Implement the script skill branch in src/bun/fabric/components.ts `runSkill` — bind ports→args, call ScriptService with initiator `"pipeline"` and the run id as consent namespace; JSON-parse stdout into declared outputs (fallback `{output: stdout}`); unresolved script → `SCRIPT_NOT_FOUND` step failure (FabricError)
-- [ ] T041 [US4] Plumb ScriptService + pending-decision path into the run context in src/bun/fabric/runtime.ts (or RunCtx assembly site) — run-scoped consent grants (allow-session within one run), pending decision surfaced via tool.update keyed by run id, abort → terminate in-flight call + discard pending
-- [ ] T042 [US4] Write tests/fabric script-skill cases — frontmatter accepts/rejects, capability gate at enable, pipeline run executes script step, missing script fails located, deny policy refuses step
+- [x] T038 [US4] Extend src/bun/fabric/frontmatter.ts — accept `runtime: "script"` on non-pipeline skills with required `script: <slug>` field; validate the script reference shape (resolution to library entries is run-time, not load-time)
+- [x] T039 [US4] Extend pack validation in src/bun/fabric/frontmatter.ts and src/bun/extensions/store.ts — a pack containing script skills must declare capability `scripts.run`; enable fails without it (CAPABILITY_DENIED-class error at validation per contracts/pack-script.md)
+- [x] T040 [US4] Implement the script skill branch in src/bun/fabric/components.ts `runSkill` — bind ports→args, call ScriptService with initiator `"pipeline"` and the run id as consent namespace; JSON-parse stdout into declared outputs (fallback `{output: stdout}`); unresolved script → `SCRIPT_NOT_FOUND` step failure (FabricError)
+- [x] T041 [US4] Plumb ScriptService + pending-decision path into the run context in src/bun/fabric/runtime.ts (or RunCtx assembly site) — run-scoped consent grants (allow-session within one run), pending decision surfaced via tool.update keyed by run id, abort → terminate in-flight call + discard pending
+- [x] T042 [US4] Write tests/fabric script-skill cases — frontmatter accepts/rejects, capability gate at enable, pipeline run executes script step, missing script fails located, deny policy refuses step
 
 **Checkpoint**: extension packs can ship real computation; every story now independently functional
 

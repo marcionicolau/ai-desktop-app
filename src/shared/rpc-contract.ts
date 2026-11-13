@@ -35,6 +35,7 @@ import type {
   UpdateChannel,
   UpdateView,
   ScriptListItem,
+  ScriptPolicy,
   ScriptRunEvent,
   ScriptRunRecord,
   ScriptRuntimeKind,
@@ -155,6 +156,7 @@ export interface ChatRpcSchema extends ElectrobunRPCSchema {
           modelOverrides: Record<string, Partial<GenerationParams>>;
           outputPanel: boolean; // feature 016
           tools: ToolPolicy; // feature 015
+          scripts?: ScriptPolicy; // feature 023
           themeMode: ThemeMode; // feature 021
           updates: { enabled: boolean; channel: UpdateChannel }; // feature 013
         };
@@ -168,6 +170,7 @@ export interface ChatRpcSchema extends ElectrobunRPCSchema {
           };
           outputPanel?: boolean; // feature 016
           tools?: Partial<ToolPolicy>; // feature 015
+          scripts?: Partial<ScriptPolicy>; // feature 023
           themeMode?: ThemeMode; // feature 021
           // transient: resolved color scheme reported by the renderer;
           // not persisted — triggers pushTheme to extension views

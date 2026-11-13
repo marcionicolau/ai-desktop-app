@@ -104,7 +104,7 @@ export class SessionManager {
   }
 
   async dispose(): Promise<void> {
-    for (const rt of [...this.slots.keys()]) {
+    for (const rt of this.slots.keys()) {
       await this.reset(rt);
     }
   }

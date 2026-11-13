@@ -70,7 +70,8 @@ export interface SkillFrontmatter {
   domain?: string;
   description: string;
   kind?: "pipeline"; // absent = component
-  runtime?: string; // "prompt" | "component:<builtin-id>"
+  runtime?: string; // "prompt" | "component:<builtin-id>" | "script"
+  script?: string; // feature 023: library slug, required when runtime:"script"
   params?: Record<string, ParamDecl>;
   inputs?: Record<string, PortDecl>;
   outputs?: Record<string, PortDecl>;

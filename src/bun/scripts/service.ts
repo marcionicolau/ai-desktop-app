@@ -118,6 +118,14 @@ export class ScriptService {
     }
   }
 
+  // chat.stop: any pending script approval belongs to the in-flight turn
+  discardAllPending(): void {
+    for (const [id, p] of this.pending) {
+      this.pending.delete(id);
+      p.resolve("discard");
+    }
+  }
+
   hasPending(): boolean {
     return this.pending.size > 0;
   }
