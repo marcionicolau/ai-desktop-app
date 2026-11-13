@@ -33,6 +33,28 @@ target_include_directories(llama_shim PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../vendor/llama.cpp/ggml/include)
 target_link_libraries(llama_shim PRIVATE llama)
 
+# feature 023: script_shim — embedded script-runtime prototype.
+# python side needs only libdl (dlopens libpython RTLD_GLOBAL at
+# runtime); the R side links libR, so the target builds only when
+# R headers+lib are present — benchmark records "missing" otherwise.
+find_path(R_INCLUDE_DIR R.h PATHS /usr/include/R /usr/lib64/R/include
+    /usr/local/lib/R/include /opt/homebrew/lib/R/include
+    /Library/Frameworks/R.framework/Headers)
+find_library(R_LIBRARY NAMES R libR PATHS /usr/lib64/R/lib
+    /usr/lib/R/lib /usr/local/lib/R/lib /opt/homebrew/lib/R/lib
+    /Library/Frameworks/R.framework/Libraries)
+if(R_INCLUDE_DIR AND R_LIBRARY)
+    add_library(script_shim SHARED script_shim.c)
+    target_include_directories(script_shim PRIVATE ${R_INCLUDE_DIR})
+    target_link_libraries(script_shim PRIVATE ${R_LIBRARY} ${CMAKE_DL_LIBS})
+    if(UNIX AND NOT APPLE)
+        set_target_properties(script_shim PROPERTIES
+            BUILD_RPATH "$ORIGIN" INSTALL_RPATH "$ORIGIN")
+    endif()
+else()
+    message(STATUS "script_shim: R headers/lib not found — embedded prototype unavailable")
+endif()
+
 if(APPLE)
     # runtime must find libllama/libggml next to the shim inside the bundle
     set_target_properties(llama_shim PROPERTIES

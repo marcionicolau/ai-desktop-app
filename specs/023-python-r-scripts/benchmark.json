@@ -1,0 +1,205 @@
+[
+  {
+    "backend": "subprocess",
+    "runtime": "python",
+    "metric": "session-startup",
+    "value": 1,
+    "unit": "ms"
+  },
+  {
+    "backend": "subprocess",
+    "runtime": "python",
+    "metric": "cold-call",
+    "value": 37.75,
+    "unit": "ms"
+  },
+  {
+    "backend": "subprocess",
+    "runtime": "python",
+    "metric": "warm-p50",
+    "value": 0.18,
+    "unit": "ms"
+  },
+  {
+    "backend": "subprocess",
+    "runtime": "python",
+    "metric": "warm-p95",
+    "value": 0.3,
+    "unit": "ms"
+  },
+  {
+    "backend": "subprocess",
+    "runtime": "python",
+    "metric": "state-fidelity",
+    "value": "pass",
+    "unit": ""
+  },
+  {
+    "backend": "subprocess",
+    "runtime": "python",
+    "metric": "1mib-output",
+    "value": "11ms ok=true",
+    "unit": ""
+  },
+  {
+    "backend": "subprocess",
+    "runtime": "python",
+    "metric": "host-rss",
+    "value": 44,
+    "unit": "MiB"
+  },
+  {
+    "backend": "subprocess",
+    "runtime": "r",
+    "metric": "session-startup",
+    "value": 0,
+    "unit": "ms"
+  },
+  {
+    "backend": "subprocess",
+    "runtime": "r",
+    "metric": "cold-call",
+    "value": 230.79,
+    "unit": "ms"
+  },
+  {
+    "backend": "subprocess",
+    "runtime": "r",
+    "metric": "warm-p50",
+    "value": 0.8,
+    "unit": "ms"
+  },
+  {
+    "backend": "subprocess",
+    "runtime": "r",
+    "metric": "warm-p95",
+    "value": 1.24,
+    "unit": "ms"
+  },
+  {
+    "backend": "subprocess",
+    "runtime": "r",
+    "metric": "state-fidelity",
+    "value": "pass",
+    "unit": ""
+  },
+  {
+    "backend": "subprocess",
+    "runtime": "r",
+    "metric": "1mib-output",
+    "value": "144ms ok=true",
+    "unit": ""
+  },
+  {
+    "backend": "subprocess",
+    "runtime": "r",
+    "metric": "host-rss",
+    "value": 47,
+    "unit": "MiB"
+  },
+  {
+    "backend": "embedded",
+    "runtime": "python",
+    "metric": "session-startup",
+    "value": 84,
+    "unit": "ms"
+  },
+  {
+    "backend": "embedded",
+    "runtime": "python",
+    "metric": "cold-call",
+    "value": 0.84,
+    "unit": "ms"
+  },
+  {
+    "backend": "embedded",
+    "runtime": "python",
+    "metric": "warm-p50",
+    "value": 0.42,
+    "unit": "ms"
+  },
+  {
+    "backend": "embedded",
+    "runtime": "python",
+    "metric": "warm-p95",
+    "value": 0.52,
+    "unit": "ms"
+  },
+  {
+    "backend": "embedded",
+    "runtime": "python",
+    "metric": "state-fidelity",
+    "value": "pass",
+    "unit": ""
+  },
+  {
+    "backend": "embedded",
+    "runtime": "python",
+    "metric": "1mib-output",
+    "value": "10ms ok=true",
+    "unit": ""
+  },
+  {
+    "backend": "embedded",
+    "runtime": "python",
+    "metric": "host-rss",
+    "value": 82,
+    "unit": "MiB"
+  },
+  {
+    "backend": "embedded",
+    "runtime": "r",
+    "metric": "status",
+    "value": "init-fatal — process exited 2 (Fatal error: unable to initialize the JIT)",
+    "unit": ""
+  },
+  {
+    "backend": "subprocess",
+    "runtime": "python",
+    "metric": "crash-containment",
+    "value": "host survived, session restarted",
+    "unit": ""
+  },
+  {
+    "backend": "subprocess",
+    "runtime": "r",
+    "metric": "crash-containment",
+    "value": "host survived, session restarted",
+    "unit": ""
+  },
+  {
+    "backend": "embedded",
+    "runtime": "python",
+    "metric": "crash-containment",
+    "value": "HOST DIED (exit 139) — SIGSEGV",
+    "unit": ""
+  },
+  {
+    "backend": "embedded",
+    "runtime": "r",
+    "metric": "crash-containment",
+    "value": "HOST DIED (exit 2)",
+    "unit": ""
+  },
+  {
+    "backend": "subprocess",
+    "runtime": "python",
+    "metric": "packaging",
+    "value": "2 runner files ship in Resources/app; interpreters are user-provided",
+    "unit": ""
+  },
+  {
+    "backend": "embedded",
+    "runtime": "python",
+    "metric": "packaging",
+    "value": "needs libpython discovery at runtime + code-signing of dlopen'd libs",
+    "unit": ""
+  },
+  {
+    "backend": "embedded",
+    "runtime": "r",
+    "metric": "packaging",
+    "value": "needs script_shim build + libR headers on every target platform",
+    "unit": ""
+  }
+]
