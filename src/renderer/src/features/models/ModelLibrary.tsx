@@ -1,3 +1,5 @@
+import { confirmLeave } from "../settings/use-unsaved-guard";
+import { OverrideEditor } from "./OverrideEditor";
 import { WithReason } from "@/components/with-reason";
 import { confirm } from "@/lib/confirm";
 import { notify } from "@/lib/notify";
@@ -6,7 +8,7 @@ import { IconLibrary } from "@/components/icons";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ModelAdvise, RoleView } from "@shared/types";
 import { IconBenchmark, IconDownload, IconRefresh, IconSliders, IconSpinner } from "@/components/icons";
-import type { DownloadState, GenerationParams, ModelMeta } from "@shared/types";
+import type { DownloadState, ModelMeta } from "@shared/types";
 import { invoke, on } from "@/lib/rpc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,17 +21,6 @@ interface Props {
   // completed download counts as the selection — auto-load it (FR-005/US2)
   autoLoadOnDownload?: boolean;
 }
-
-const OVERRIDE_FIELDS: { key: keyof GenerationParams; label: string }[] = [
-  { key: "temperature", label: "Temp" },
-  { key: "topP", label: "Top-p" },
-  { key: "topK", label: "Top-k" },
-  { key: "repeatPenalty", label: "Penalty" },
-  { key: "seed", label: "Seed" },
-  { key: "maxTokens", label: "Max tok" },
-  { key: "nThreads", label: "Threads" },
-  { key: "nGpuLayers", label: "GPU layers" },
-];
 
 function fmtBytes(n: number): string {
   if (n >= 1e9) return `${(n / 1e9).toFixed(1)} GB`;
@@ -64,7 +55,6 @@ export function ModelLibrary({ activeName, onLoad, autoLoadOnDownload }: Props) 
   const [fileName, setFileName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [overrideFor, setOverrideFor] = useState<string | null>(null);
-  const [draft, setDraft] = useState<Partial<GenerationParams>>({});
   const [tags, setTags] = useState<RoleView[]>([]);
   const [assignTag, setAssignTag] = useState("");
   // feature 011: live verdicts keyed by fileName; null = not fetched yet
@@ -153,17 +143,6 @@ export function ModelLibrary({ activeName, onLoad, autoLoadOnDownload }: Props) 
         description: `${name}: ${msg}`,
         action: { label: "Retry", run: () => void download() },
       });
-    }
-  };
-
-  const saveOverride = async (file: string, params: Partial<GenerationParams> | null) => {
-    setError(null);
-    try {
-      await invoke("model.setOverride", { fileName: file, params });
-      setOverrideFor(null);
-      setDraft({});
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
     }
   };
 
@@ -329,10 +308,13 @@ export function ModelLibrary({ activeName, onLoad, autoLoadOnDownload }: Props) 
                         variant="ghost"
                         aria-label={`Generation overrides for ${m.name ?? m.fileName}`}
                         title="Per-model generation overrides"
+                        aria-expanded={overrideFor === m.fileName}
                         onClick={() =>
-                          setOverrideFor(
-                            overrideFor === m.fileName ? null : m.fileName,
-                          )
+                          void (async () => {
+                            // closing an editor with unsaved edits asks first
+                            if (overrideFor === m.fileName && !(await confirmLeave())) return;
+                            setOverrideFor(overrideFor === m.fileName ? null : m.fileName);
+                          })()
                         }
                       >
                         <IconSliders className="size-3.5" />
@@ -341,55 +323,7 @@ export function ModelLibrary({ activeName, onLoad, autoLoadOnDownload }: Props) 
                   )}
                 </div>
                 {overrideFor === m.fileName && (
-                  <div className="mt-2 space-y-2 rounded-md border border-border p-2">
-                    <p className="text-muted-foreground">
-                      Overrides for {m.fileName} — only changed fields apply;
-                      empty fields use global settings.
-                    </p>
-                    <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
-                      {OVERRIDE_FIELDS.map((f) => (
-                        <label key={f.key} className="flex flex-col gap-1">
-                          <span className="text-muted-foreground">{f.label}</span>
-                          <Input
-                            type="number"
-                            step="any"
-                            placeholder="—"
-                            value={draft[f.key] ?? ""}
-                            onChange={(e) => {
-                              const v = e.target.value;
-                              setDraft((d) => ({
-                                ...d,
-                                [f.key]: v === "" ? undefined : Number(v),
-                              }));
-                            }}
-                            className="h-7 text-xs"
-                          />
-                        </label>
-                      ))}
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        onClick={() => {
-                          const params = Object.fromEntries(
-                            Object.entries(draft).filter(
-                              ([, v]) => v !== undefined && Number.isFinite(v),
-                            ),
-                          );
-                          void saveOverride(m.fileName, params);
-                        }}
-                      >
-                        Save override
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => void saveOverride(m.fileName, null)}
-                      >
-                        Clear
-                      </Button>
-                    </div>
-                  </div>
+                  <OverrideEditor fileName={m.fileName} onClose={() => setOverrideFor(null)} />
                 )}
               </div>
             );

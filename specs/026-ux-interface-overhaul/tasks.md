@@ -115,7 +115,7 @@
 
 **Independent Test**: walk every settings/editor form → label, help text, inline validation, units/ranges, unsaved state visible.
 
-- [ ] T045 [US4] Convert `features/settings/GenerationSettings.tsx` to shadcn `Field` with `Slider` + numeric input showing value, unit and allowed range for each parameter, and help text (FR-013)
+- [X] T045 [US4] Rebuild the per-model generation overrides as a proper form: shadcn `Field` per parameter with a slider for the bounded ones, a number box, unit, allowed range, help text and inline errors (`features/models/OverrideEditor.tsx`, `features/settings/{ParamField,param-spec}.ts*`) (FR-013) — *retargeted: the global `GenerationSettings` panel was removed on purpose in `ab9529a` and was dead code, so it is deleted; the form also now starts from the saved overrides, shows what an empty box inherits, and warns before discarding edits*
 - [ ] T046 [P] [US4] Replace native selects/checkboxes/radios with `Select`/`Switch`/`Checkbox`/`RadioGroup` (the mode choice at `features/settings/ToolSettings.tsx:86` is a native radio) in `features/settings/{ToolSettings,ScriptsSettings,UpdatesSection}.tsx` (FR-013)
 - [ ] T047 [P] [US4] Replace native controls in `features/models/ModelLibrary.tsx` (per-model overrides), `features/roles/{TagEditor,FusionControls}.tsx`, `features/personas/PersonasPanel.tsx`, `features/scripts/{RunForm,ScriptEditor}.tsx` (FR-013)
 - [ ] T048 [US4] Inline validation messages that keep the entered value, using the existing server `INVALID_PARAMS` details where available, across the forms above (FR-013)
