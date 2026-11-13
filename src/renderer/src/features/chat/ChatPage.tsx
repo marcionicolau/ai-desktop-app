@@ -47,7 +47,9 @@ import { ChatSetup } from "./ChatSetup";
 import { unboundRoles } from "./chat-setup";
 import { Switch } from "@/components/ui/switch";
 import { PersonasPanel } from "../personas/PersonasPanel";
-import { ScriptsPage } from "../scripts/ScriptsPage";
+import { ScriptDetail } from "../scripts/ScriptDetail";
+import { ImportScriptsDialog } from "../scripts/ImportScriptsDialog";
+import { useScripts } from "../scripts/use-scripts";
 import { ScriptsSettings } from "../settings/ScriptsSettings";
 import { usePersonas } from "../personas/use-personas";
 import { OutputPanel } from "../metrics/OutputPanel";
@@ -204,9 +206,21 @@ export function ChatPage() {
   );
   useGlobalShortcuts(actions, (reason) => notify.info(reason));
 
+  // feature 027 (US1): which script the workspace surface shows
+  const { scripts } = useScripts();
+  const [selectedScriptId, setSelectedScriptId] = useState<string | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
+  const openScript = (id: string | null) => {
+    setSelectedScriptId(id);
+    select("surface:scripts");
+  };
+
   const crumbs = breadcrumbFor({
     selectedId,
     tabTitle: tabs.find((t) => t.id === selectedId)?.title,
+    script: selectedScriptId
+      ? scripts.find((s) => s.id === selectedScriptId)
+      : undefined,
     conversationTitle: state.conversations.find((c) => c.id === state.conversationId)?.title,
   });
 
@@ -316,7 +330,10 @@ export function ChatPage() {
         onOpenLibrary={() => select("surface:models")}
         onOpenPersonas={() => select("surface:personas")}
         onOpenRoles={() => select("surface:roles")}
-        onOpenScripts={() => select("surface:scripts")}
+        selectedScriptId={selectedScriptId}
+        onSelectScript={(id) => openScript(id)}
+        onNewScript={() => openScript("__new__")}
+        onImportScripts={() => setImportOpen(true)}
         onOpenSettings={() => select("surface:settings")}
         onManageExtensions={() => select("surface:extensions")}
       />
@@ -336,6 +353,8 @@ export function ChatPage() {
           select("chat");
           void selectConversation(id, mid);
         }}
+        scripts={scripts}
+        onSelectScript={(id) => openScript(id)}
       />
       <SidebarInset>
         <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5 border-b border-border px-4 py-2">
@@ -550,7 +569,17 @@ export function ChatPage() {
           className="flex min-h-0 flex-1 flex-col overflow-y-auto"
           hidden={selectedId !== "surface:scripts"}
         >
-          <ScriptsPage />
+          <ScriptDetail
+            scriptId={selectedScriptId}
+            onNew={() => openScript(null)}
+            onImport={() => setImportOpen(true)}
+            onOpenRuntimeSettings={() => select("surface:settings")}
+          />
+          <ImportScriptsDialog
+            open={importOpen}
+            onOpenChange={setImportOpen}
+            onImported={() => select("surface:scripts")}
+          />
         </div>
         <div
           className="flex min-h-0 flex-1 flex-col"

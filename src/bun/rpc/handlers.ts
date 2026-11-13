@@ -1351,6 +1351,12 @@ export function createRequestHandlers(deps: HandlerDeps) {
     "script.import": (p: ScriptImportParams) => ({
       results: scripts().importFiles(p),
     }),
+    // feature 027: source text for the detail code pane (re-read each open)
+    "script.read": ({ id }: { id: string }) => {
+      const entry = scripts().get(id);
+      if (!entry) fail("SCRIPT_NOT_FOUND", `no script "${id}"`);
+      return { text: scripts().readSource(entry) };
+    },
     "script.relink": async ({ id }: { id: string }) => {
       const entry = scripts().get(id);
       if (!entry) fail("SCRIPT_NOT_FOUND", `no script "${id}"`);

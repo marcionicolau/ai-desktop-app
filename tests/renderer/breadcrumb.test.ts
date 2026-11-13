@@ -29,4 +29,17 @@ describe("breadcrumbFor", () => {
       current: "Board",
     });
   });
+
+  test("scripts surface → Scripts › language › id", () => {
+    expect(
+      breadcrumbFor({
+        selectedId: "surface:scripts",
+        script: { id: "my-tool", runtime: "python" },
+      }),
+    ).toEqual({ parent: "Scripts", current: "Python › my-tool" });
+    expect(breadcrumbFor({ selectedId: "surface:scripts" })).toEqual({
+      parent: "Scripts",
+      current: "Scripts",
+    });
+  });
 });

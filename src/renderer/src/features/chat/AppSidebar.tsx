@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
 import { isMacPlatform, shortcutLabel } from "@/lib/actions";
 import type { ConversationSummary, WorkspaceTab } from "@shared/types";
-import { IconChat, IconChevronDown, IconExtension, IconFileCode, IconLibrary, IconSettings, IconTags, IconUsers, IconSearch } from "@/components/icons";
+import { IconChat, IconChevronDown, IconExtension, IconFileCode, IconLibrary, IconLink, IconSettings, IconTags, IconUsers, IconSearch, IconWarning } from "@/components/icons";
 import {
   Collapsible,
   CollapsibleContent,
@@ -26,6 +26,8 @@ import {
 } from "@/components/ui/sidebar";
 import { ConversationNav } from "./ConversationNav";
 import { ThemeSettings } from "../settings/ThemeSettings";
+import { useScripts } from "../scripts/use-scripts";
+import { groupScripts } from "../scripts/scripts-groups";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -49,7 +51,11 @@ interface Props {
   onOpenLibrary: () => void;
   onOpenPersonas: () => void;
   onOpenRoles: () => void;
-  onOpenScripts: () => void;
+  // feature 027 (US1): scripts workspace — per-script selection + actions
+  selectedScriptId: string | null;
+  onSelectScript: (id: string) => void;
+  onNewScript: () => void;
+  onImportScripts: () => void;
   onOpenSettings: () => void;
   onManageExtensions: () => void;
 }
@@ -94,12 +100,17 @@ export function AppSidebar({
   onOpenLibrary,
   onOpenPersonas,
   onOpenRoles,
-  onOpenScripts,
+  selectedScriptId,
+  onSelectScript,
+  onNewScript,
+  onImportScripts,
   onOpenSettings,
   onManageExtensions,
   crashedTabIds,
   onCloseTab,
 }: Props) {
+  const { scripts } = useScripts();
+  const scriptGroups = groupScripts(scripts);
   const extTabs = workspaceTabs.filter(
     (t) => t.kind === "ext" || t.kind === "pack",
   );
@@ -208,6 +219,95 @@ export function AppSidebar({
             </SidebarMenuItem>
           </SidebarMenu>
         </NavGroup>
+        <NavGroup label="Scripts" defaultOpen>
+          <SidebarMenu>
+            {scriptGroups.map((g) => (
+              <Collapsible key={g.runtime} defaultOpen className="group/lang">
+                <CollapsibleTrigger className="flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-xs text-sidebar-foreground/70 outline-none hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring group-data-[state=collapsed]:hidden">
+                  <IconChevronDown className="size-3.5 transition-transform group-data-[state=closed]/lang:-rotate-90" />
+                  <span className="flex-1 text-left">
+                    {g.label} ({g.count})
+                  </span>
+                  {g.runtimeMissing && (
+                    <span title="Runtime missing — no interpreter found" className="text-warning">
+                      <IconWarning className="size-3.5" />
+                    </span>
+                  )}
+                </CollapsibleTrigger>
+                <CollapsibleContent className="group-data-[state=collapsed]:hidden">
+                  <SidebarMenu className="pl-4">
+                    {g.rows.map((s) => (
+                      <SidebarMenuItem key={s.id}>
+                        <SidebarMenuButton
+                          isActive={
+                            selectedTabId === "surface:scripts" &&
+                            selectedScriptId === s.id
+                          }
+                          tooltip={
+                            s.runtimeStatus === "missing"
+                              ? `${s.id} — ${g.label} runtime missing`
+                              : s.id
+                          }
+                          onClick={() => onSelectScript(s.id)}
+                          className={cn("h-7", !s.enabled && "text-muted-foreground")}
+                        >
+                          {s.sourceState === "missing" ? (
+                            <IconWarning className="size-3.5 shrink-0 text-warning" />
+                          ) : s.linked ? (
+                            <IconLink className="size-3.5 shrink-0" />
+                          ) : (
+                            <IconFileCode className="size-3.5 shrink-0" />
+                          )}
+                          <span className="truncate font-mono text-xs">{s.id}</span>
+                          {!s.enabled && (
+                            <span className="ml-auto text-xs text-muted-foreground">off</span>
+                          )}
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    ))}
+                  </SidebarMenu>
+                </CollapsibleContent>
+              </Collapsible>
+            ))}
+            {scripts.length === 0 && (
+              <SidebarMenuItem>
+                <span className="px-2 py-1 text-xs text-muted-foreground group-data-[state=collapsed]:hidden">
+                  No scripts yet
+                </span>
+              </SidebarMenuItem>
+            )}
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                tooltip="New script"
+                onClick={onNewScript}
+                className="h-7 text-muted-foreground"
+              >
+                <IconFileCode className="size-3.5" />
+                <span className="text-xs">New script</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                tooltip="Import .py/.r files"
+                onClick={onImportScripts}
+                className="h-7 text-muted-foreground"
+              >
+                <IconLink className="size-3.5" />
+                <span className="text-xs">Import from file…</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                tooltip="Interpreter paths (Settings)"
+                onClick={onOpenSettings}
+                className="h-7 text-muted-foreground"
+              >
+                <IconSettings className="size-3.5" />
+                <span className="text-xs">Runtime paths…</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </NavGroup>
         <NavGroup label="Configurations" defaultOpen>
           <SidebarMenu>
             <SidebarMenuItem>
@@ -241,17 +341,6 @@ export function AppSidebar({
               >
                 <IconTags className="size-4" />
                 <span>Roles</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                isActive={selectedTabId === "surface:scripts"}
-                tooltip="Python &amp; R scripts"
-                onClick={onOpenScripts}
-                className="h-8"
-              >
-                <IconFileCode className="size-4" />
-                <span>Scripts</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>

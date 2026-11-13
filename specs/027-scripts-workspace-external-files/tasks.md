@@ -78,23 +78,23 @@ offers New script / Import from file.
 
 ### Tests for User Story 1
 
-- [ ] T004 [P] [US1] Unit tests for grouping helpers in
+- [x] T004 [P] [US1] Unit tests for grouping helpers in
   `tests/renderer/scripts-groups.test.ts`: per-language grouping,
   case-insensitive alphabetical sort, counts, only non-empty groups,
   disabled rows flagged, runtime-missing flagged per group
 
 ### Implementation for User Story 1
 
-- [ ] T005 [US1] Create `src/renderer/src/features/scripts/scripts-groups.ts`:
+- [x] T005 [US1] Create `src/renderer/src/features/scripts/scripts-groups.ts`:
   pure `groupScripts(items): {runtime, label, count, missing, rows}[]`
   implementing FR-002/FR-003/FR-006 sort/group/filter rules
-- [ ] T006 [US1] Create `src/renderer/src/features/scripts/ScriptDetail.tsx`:
+- [x] T006 [US1] Create `src/renderer/src/features/scripts/ScriptDetail.tsx`:
   surface body for `surface:scripts` — states empty (New/Import CTAs) /
   create / view one script with `RunForm` + params + `ScriptEditor`
   (in-place edit of metadata, FR-004; code pane **read-only for linked
   scripts** per FR-023); header: id (title-truncated), language badge,
   `external` badge + path when `linked`
-- [ ] T007 [US1] Update `src/renderer/src/features/chat/AppSidebar.tsx`:
+- [x] T007 [US1] Update `src/renderer/src/features/chat/AppSidebar.tsx`:
   add top-level `Scripts` NavGroup (Chats · Extensions · Scripts ·
   Configurations order); render language sub-groups via `groupScripts`
   with counts, collapsible, `runtime missing` badge + reason tooltip,
@@ -103,13 +103,13 @@ offers New script / Import from file.
   REMOVE the `Scripts` item from Configurations (FR-001, FR-005); row
   click selects `surface:scripts` + sets `selectedScriptId`; icon-rail
   collapsed state keeps access (edge case)
-- [ ] T008 [US1] Wire selection state: `surface:scripts` renders
+- [x] T008 [US1] Wire selection state: `surface:scripts` renders
   `ScriptDetail` for `selectedScriptId` (ChatPage/WorkspacePanel wiring);
   delete `ScriptsPage.tsx` (FR-004) and repoint its callers
-- [ ] T009 [US1] Update `src/renderer/src/features/workspace/breadcrumb.ts`:
+- [x] T009 [US1] Update `src/renderer/src/features/workspace/breadcrumb.ts`:
   `Scripts` crumb when no selection; `Scripts › Python|R › <id>` when a
   script is selected (FR-007)
-- [ ] T010 [US1] Update `src/renderer/src/features/command/CommandPalette.tsx`:
+- [x] T010 [US1] Update `src/renderer/src/features/command/CommandPalette.tsx`:
   `Scripts` group listing every script (client-filtered) → opens detail;
   actions `New script`, `Import script from file`, `Script runtime
   settings` (FR-007)
@@ -132,14 +132,14 @@ an already-linked file reports the existing script (SC-002, SC-003).
 
 ### Tests for User Story 2
 
-- [ ] T011 [P] [US2] RPC tests in `tests/rpc/scripts.test.ts` (new cases):
+- [x] T011 [P] [US2] RPC tests in `tests/rpc/scripts.test.ts` (new cases):
   `script.pickImport` candidate validation per error code
   (`unsupported-ext`, `unreadable`, `invalid-encoding`, `too-large` >2 MiB);
   `suggestedId` slug + `-2` dedup; `duplicateOf` detection;
   `script.import` batch partial-failure + per-file statuses; >10 files ⇒
   `INVALID_PARAMS`; copy mode writes stored source; link mode records
   `approvedFingerprint`
-- [ ] T012 [P] [US2] Service tests in `tests/scripts/` for import/relink
+- [x] T012 [P] [US2] Service tests in `tests/scripts/` for import/relink
   validation helpers (UTF-8/binary detection, size cap, path normalize)
 
 ### Implementation for User Story 2
@@ -156,14 +156,14 @@ an already-linked file reports the existing script (SC-002, SC-003).
   (`dialogs.pickFiles` ext filter `py,PY,r,R`, cancelled ⇒ empty),
   `script.import`, `script.relink` (`INVALID_PARAMS` when entry not
   external; picker ext must match `entry.runtime`; cancel ⇒ `{entry:null}`)
-- [ ] T015 [US2] Create `src/renderer/src/features/scripts/ImportScriptsDialog.tsx`:
+- [x] T015 [US2] Create `src/renderer/src/features/scripts/ImportScriptsDialog.tsx`:
   pickImport preview — per-row language badge, editable suggested-id
   input, error rows with reason excluded from confirm; `Link (default) |
   Copy` mode toggle (FR-010); post-import per-file status
   imported/duplicate/failed (FR-013/FR-014); wire into
   `use-scripts.ts` (pickImport/import/relink) and the sidebar/detail
   Import actions from T007/T006
-- [ ] T016 [US2] `src/renderer/src/features/scripts/ScriptEditor.tsx`: keep
+- [x] T016 [US2] `src/renderer/src/features/scripts/ScriptEditor.tsx`: keep
   the typed absolute-path field for `external` sources under an
   **Advanced** collapsible section (FR-020); upsert with external path
   resets `approvedFingerprint` (server side, service.ts)
@@ -189,17 +189,17 @@ reason (SC-005); Relink preserves id/settings.
 
 ### Tests for User Story 3
 
-- [ ] T017 [P] [US3] Service/consent tests in `tests/scripts/` (or extend
+- [x] T017 [P] [US3] Service/consent tests in `tests/scripts/` (or extend
   existing): `consentState` returns `source-missing`/`ask-changed`/`ask`/`auto`
   correctly; `ask-changed` overrides session grant; `approveChangedSession`
   grants only that script for the `ns` and persists `approvedFingerprint`;
   manual `call` refreshes fingerprint; audit JSON gains
   `origin: "linked"|"stored"`
-- [ ] T018 [P] [US3] RPC/loop tests: model `run_script` of a changed linked
+- [x] T018 [P] [US3] RPC/loop tests: model `run_script` of a changed linked
   script emits pending `tool.update` with `contentChanged: true` even with
   session grant; missing source refuses `source-missing`; pipeline
   (fabric) path mirrors both (SC-004, FR-016)
-- [ ] T019 [P] [US3] Renderer test: ToolCallCard consent variant renders
+- [x] T019 [P] [US3] Renderer test: ToolCallCard consent variant renders
   changed-file wording + three buttons mapping to
   `approve`/`approveChangedSession`/`deny`
 
@@ -223,11 +223,11 @@ reason (SC-005); Relink preserves id/settings.
   `"approveChangedSession"` and forwards it; `script.run` fails
   `SCRIPT_SOURCE_MISSING` when a linked entry's source is unreadable
   (FR-016)
-- [ ] T024 [US3] `src/renderer/src/features/scripts/ScriptDetail.tsx` +
+- [x] T024 [US3] `src/renderer/src/features/scripts/ScriptDetail.tsx` +
   sidebar rows: `source missing` warning badge + `Relink…` button wired
   to `script.relink`; `external` badge + path (title, middle-truncated)
   on all linked surfaces (FR-015, FR-016, FR-017)
-- [ ] T025 [US3] `src/renderer/src/features/chat/ToolCallCard.tsx` (and the
+- [x] T025 [US3] `src/renderer/src/features/chat/ToolCallCard.tsx` (and the
   fabric pending-call surface if separate): `contentChanged` variant —
   warning icon, "changed on disk since you last approved it" copy,
   buttons `Approve once` / `Approve changes to this script for this
@@ -241,15 +241,15 @@ reason (SC-005); Relink preserves id/settings.
 
 **Purpose**: Gates, docs, regression sweep.
 
-- [ ] T026 [P] Large-list check: seed/render 200 scripts, confirm grouped
+- [x] T026 [P] Large-list check: seed/render 200 scripts, confirm grouped
   sidebar scrolls and open time is unchanged (SC-007) — record in
   validation notes
-- [ ] T027 Migration check: pre-feature `scripts.json` with stored +
+- [x] T027 Migration check: pre-feature `scripts.json` with stored +
   external entries loads, groups correctly, external rows show linked
   badge (FR-021, SC-006)
-- [ ] T028 Update `AGENTS.md` with feature 027 module-map additions
+- [x] T028 Update `AGENTS.md` with feature 027 module-map additions
   (import flow, consentState, Scripts NavGroup, ScriptDetail)
-- [ ] T029 Run all gates: `bun run typecheck`, `bun run lint`,
+- [x] T029 Run all gates: `bun run typecheck`, `bun run lint`,
   `bun test ./tests`, `bun run build:renderer` (SC-008)
 - [ ] T030 Walkthrough `quickstart.md` end-to-end; record results
 

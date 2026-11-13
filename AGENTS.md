@@ -523,10 +523,40 @@ draft-side; `MessageList` renders `Message.attachments` chips (`·trunc` /
 - RPC: `script.list/upsert/delete/enable/run`, `runtime.list/detect/reset`;
   events `script.run` (queued|running|done|error), `session.state`.
   `settings.scripts` = `{mode, backend, runtimes.{python,r}.path}`.
-- Renderer: `features/scripts/` (ScriptsPage + ScriptEditor + RunForm +
-  use-scripts), `features/settings/ScriptsSettings.tsx`, `"scripts"`
-  workspace surface. `text-warning`/`text-destructive` tokens, no palette
-  literals (ui-audit).
+- Renderer: `features/scripts/` (ScriptEditor + RunForm + use-scripts),
+  `features/settings/ScriptsSettings.tsx`, `"scripts"` workspace surface.
+  `text-warning`/`text-destructive` tokens, no palette literals (ui-audit).
+
+## Feature 027 — scripts workspace + external files
+
+- Sidebar: `AppSidebar` top-level `Scripts` NavGroup (Chats · Extensions ·
+  Scripts · Configurations) — per-language collapsible sub-groups via
+  `features/scripts/scripts-groups.ts` (`groupScripts`), counts, missing-
+  runtime badges, linked (`IconLink`) / source-missing (`IconWarning`) /
+  disabled row affordances; footer New/Import/Runtime-paths actions.
+  The old `ScriptsPage` list is gone — `surface:scripts` renders
+  `ScriptDetail` for ChatPage-owned `selectedScriptId`.
+- Import: two-call flow — `script.pickImport` (native multi-select →
+  validated `ScriptImportCandidate[]` with slug `-2`-deduped suggested
+  ids + `duplicateOf`) then `script.import` (Link default → `external`
+  source + `approvedFingerprint`; Copy → stored bytes). Per-file
+  results; 1–10 files; 2 MiB cap; `.py`/`.r` case-insensitive.
+  `script.relink` (picker, ext must match runtime) and `script.read`
+  (source text for the read-only code pane — linked code is never
+  editable in-app, FR-023).
+- Consent: `svc.consentState(entry, ns)` → `auto|ask|ask-changed|
+  source-missing` is the single gate both call sites use
+  (`tools/loop.ts` + `fabric/runtime.ts`). Changed linked content ⇒
+  `ask-changed` EVEN under allow-session (FR-018); `call.contentChanged`
+  renders the re-consent ToolCallCard variant; decision
+  `approveChangedSession` grants just that script for the ns
+  (`changedGrants` map). Fingerprint baseline = sha256 of content at
+  link/relink/typed-path, refreshed by any successful `call()` — so a
+  denied run never blesses new bytes.
+- `ScriptListItem` gains `linked` + `sourceState` (probed via readSource);
+  `SCRIPT_SOURCE_MISSING` is the distinct refusal; audit entries carry
+  `origin:"linked"|"stored"` + `sourcePath`. `normalizeSourcePath` in
+  store.ts (~ expand, absolute-only, realpath'd regular file).
 
 ## Feature 026 — interface usability overhaul ("Midnight")
 

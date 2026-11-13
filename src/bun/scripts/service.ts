@@ -203,6 +203,12 @@ export class ScriptService {
     return this.deps.store.get(id);
   }
 
+  // feature 027: source text for the renderer code pane (FR-011 — re-read
+  // at each open; null when unreadable/missing)
+  readSource(entry: ScriptEntry): string | null {
+    return this.deps.store.readSource(entry);
+  }
+
   upsert(p: ScriptUpsertParams): ScriptListItem {
     if (p.runtime !== "python" && p.runtime !== "r") {
       throw new EngineError("INVALID_PARAMS", `unknown runtime ${p.runtime}`);
