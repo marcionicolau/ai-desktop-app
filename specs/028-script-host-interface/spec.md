@@ -16,6 +16,9 @@
 
 - Q: Should scripts execute inside a separate host process behind the native interface, rather than inside the app's own process via FFI? → A: Yes — a dedicated `script-host` child process per language, spoken to over the native interface; the app stays untouched by script faults.
 - Q: For the first release, should the new method cover Linux only or all three platforms at once? → A: Linux only — script-host becomes the default on Linux; macOS and Windows keep the existing subprocess method until verified.
+- Q: When a run carries no explicit limits, what memory and output ceilings apply by default? → A: memory unlimited, output 256 KiB (today's cap), time = the script's configured timeout; a run's own `limits` override the defaults.
+- Q: How does the `backend` setting treat the host method? → A: `auto` prefers host when usable; `host` and `subprocess` are explicit pins; a stored `embedded` value migrates to `auto`.
+- Q: How long is the grace period before a runaway script is force-stopped? → A: 2 s — long enough for cleanup handlers and output flush, short enough to stay responsive.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -146,15 +149,15 @@ As a developer, I want a conformance test suite and a benchmark that any impleme
 - **FR-008**: The Python module MUST build and work without the Python development files being installed, using the installed interpreter's shared library.
 - **FR-009**: The modules and the interface version MUST be checked at start-up; a mismatch MUST be reported with a clear message and MUST NOT run scripts.
 - **FR-010**: Scripts MUST run outside the app's own process, so that a crash, hang or memory exhaustion in a script cannot terminate the app. The isolation boundary is a dedicated `script-host` child process per language that embeds the interpreter through the native interface; the app communicates with it and is never in the fault's blast radius.
-- **FR-011**: A run MUST be cancellable; cancellation MUST interrupt a running script promptly and report an "interrupted" outcome, and a forced stop, including any processes the script started, MUST follow if it does not end within a grace period.
-- **FR-012**: Runs MUST be subject to limits on time, memory and output size; exceeding memory MUST end the script with the language's normal out-of-memory error, and exceeding output size MUST truncate the output and mark it.
+- **FR-011**: A run MUST be cancellable; cancellation MUST interrupt a running script promptly and report an "interrupted" outcome, and a forced stop, including any processes the script started, MUST follow if it does not end within a 2 s grace period.
+- **FR-012**: Runs MUST be subject to limits on time, memory and output size; exceeding memory MUST end the script with the language's normal out-of-memory error, and exceeding output size MUST truncate the output and mark it. Defaults when a run requests none: memory unlimited, output 256 KiB (the existing cap), time = the script's configured timeout; per-run `limits` override the defaults.
 - **FR-013**: No script process may remain after the app exits or crashes.
 - **FR-014**: The result of a run MUST have the same fields for Python and R: outcome (success, error, interrupted, timed out, source missing, content changed, fault), value, error details, printed output, error output, files produced, content fingerprint, duration.
 - **FR-015**: Output MUST be captured both from the language's normal output and from writes made directly to the process's output.
 - **FR-016**: R scripts MUST run without requiring optional R packages beyond a base installation.
 - **FR-017**: Session state (variables, imports) MUST persist across runs of the same language until the session is reset or restarted, as it does today.
 - **FR-018**: Python runs MUST use the interpreter the user configured, including its virtual environment's packages.
-- **FR-019**: The existing subprocess method MUST remain available as a fallback; the app MUST fall back automatically when the preferred method cannot be used (interpreter too old, no shared library, module not built or not loadable), record which method ran and why, and tell the user once.
+- **FR-019**: The existing subprocess method MUST remain available as a fallback; the app MUST fall back automatically when the preferred method cannot be used (interpreter too old, no shared library, module not built or not loadable), record which method ran and why, and tell the user once. The `backend` setting becomes `auto` (host preferred) | `host` | `subprocess`; a stored `embedded` value migrates to `auto`.
 - **FR-020**: Execution policy, consent, argument validation, timeouts, per-run folders and the audit trail from feature 023 MUST be unchanged; the audit record MUST additionally state the method used (host or fallback).
 - **FR-021**: The scripts feature MUST pass its existing tests unchanged, and a shared conformance suite MUST run against every language module covering run by path, structured result, state, cancellation, memory limit, crash containment, content fingerprint, source-missing and virtual environment.
 - **FR-022**: A benchmark MUST report start-up, first-call and warm latency per language, and its results MUST be recorded next to feature 023's for comparison.
