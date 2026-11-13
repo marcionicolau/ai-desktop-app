@@ -8,6 +8,7 @@
 import { useEffect, useRef, useState } from "react";
 import { invoke, on } from "@/lib/rpc";
 import { Button } from "@/components/ui/button";
+import { throttleTrailing } from "@/lib/throttle";
 
 interface Props {
   packId: string;
@@ -62,10 +63,16 @@ export function ExtViewHost({ packId, viewId, slot = "panel", visible = true, ba
         rect: { x: r.x, y: r.y, width: r.width, height: r.height },
       });
     };
-    const ro = new ResizeObserver(push);
+    // dragging a panel fires the observer continuously; the native view only
+    // needs the position about 20 times a second plus the final one (FR-027)
+    const th = throttleTrailing(push, 50);
+    const ro = new ResizeObserver(() => th.schedule());
     ro.observe(ref.current);
     push();
-    return () => ro.disconnect();
+    return () => {
+      th.cancel();
+      ro.disconnect();
+    };
   }, [sessionId, visible]);
 
   // park/restore the native view on visibility flips

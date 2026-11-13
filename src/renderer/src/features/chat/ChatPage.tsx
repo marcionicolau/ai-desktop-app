@@ -1,3 +1,6 @@
+import { LayoutSection } from "../settings/LayoutSection";
+import { resetLayout } from "@/lib/layout";
+import { ChatColumn } from "./ChatColumn";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -186,6 +189,10 @@ export function ChatPage() {
           newConversation();
         },
         toggleTheme: () => setThemeMode(resolvedTheme === "dark" ? "light" : "dark"),
+        resetLayout: () => {
+          resetLayout();
+          notify.success("Panel layout reset");
+        },
         openPalette,
         generating: state.generatingId !== null,
       }),
@@ -402,7 +409,7 @@ export function ChatPage() {
           onCrash={markCrashed}
           onRecovered={clearCrashed}
           chat={
-            <>
+            <ChatColumn metricsOpen={metricsOpen} metrics={<OutputPanel open />}>
               <UpdateBanner generating={state.generatingId !== null} />
               {tagOffer && (
                 <div className="flex items-center justify-center gap-2 border-b border-border bg-muted px-4 py-2 text-xs">
@@ -508,9 +515,7 @@ export function ChatPage() {
                 onStop={stop}
                 onPickModel={() => select("surface:models")}
               />
-              {/* feature 016: bottom dock — sibling shrinks the message area */}
-              <OutputPanel open={metricsOpen} />
-            </>
+            </ChatColumn>
           }
         />
         </div>
@@ -555,6 +560,7 @@ export function ChatPage() {
           <ScriptsSettings />
           <UpdatesSection />
           <DataPanel />
+          <LayoutSection />
           <ShortcutsSection />
         </div>
         <div

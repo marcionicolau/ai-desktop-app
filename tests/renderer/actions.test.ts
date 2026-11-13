@@ -25,6 +25,7 @@ function ctx(over: Partial<ActionContext> = {}) {
     select: (id) => calls.push(`select:${id}`),
     newChat: () => calls.push("newChat"),
     toggleTheme: () => calls.push("theme"),
+    resetLayout: () => calls.push("reset"),
     openPalette: (q) => calls.push(`palette:${q ?? ""}`),
     generating: false,
     ...over,
@@ -57,12 +58,14 @@ describe("action registry", () => {
     acts["nav:surface:models"]!.run();
     acts["theme.toggle"]!.run();
     acts["model.switch"]!.run();
+    acts["layout.reset"]!.run();
     expect(calls).toEqual([
       "newChat",
       "select:surface:settings",
       "select:surface:models",
       "theme",
       "palette:Use ",
+      "reset",
     ]);
   });
 

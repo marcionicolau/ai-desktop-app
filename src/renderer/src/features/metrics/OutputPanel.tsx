@@ -66,7 +66,7 @@ export function OutputPanel({ open }: { open: boolean }) {
 
   if (!open) return null;
   return (
-    <div className="shrink-0 border-t border-border">
+    <div className="flex h-full min-h-0 flex-col border-t border-border">
       <div className="flex items-center gap-2 px-4 py-1.5">
         <span className="text-xs font-medium">Metrics</span>
         <ContextChip used={ctxUsed} total={ctxTotal} />
@@ -102,7 +102,7 @@ export function OutputPanel({ open }: { open: boolean }) {
           Clear
         </Button>
       </div>
-      <ScrollArea className="h-56">
+      <ScrollArea className="min-h-0 flex-1">
         <div className="flex flex-col gap-1 px-4 pb-2">
           {visible.length === 0 && (
             <EmptyState

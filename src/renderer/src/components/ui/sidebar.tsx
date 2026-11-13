@@ -1,6 +1,7 @@
 import * as React from "react";
 import { IconSidebar } from "@/components/icons";
 import { cn } from "@/lib/utils";
+import { clampSize, onLayoutReset, readSize, SIDEBAR_WIDTH as WIDTH_SPEC, writeSize } from "@/lib/layout";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -11,7 +12,6 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
  * Ctrl/Cmd+B toggle. Widths follow shadcn: 16rem expanded, 3rem rail.
  */
 
-const SIDEBAR_WIDTH = "16rem";
 const SIDEBAR_WIDTH_ICON = "3rem";
 const STORAGE_KEY = "sidebar:state";
 
@@ -22,6 +22,13 @@ interface SidebarCtx {
   open: boolean;
   setOpen: (v: boolean | ((v: boolean) => boolean)) => void;
   toggle: () => void;
+  // feature 026 (FR-025): user-resizable width in px, remembered per window
+  width: number;
+  resizing: boolean;
+  setWidth: (px: number) => void; // live while dragging (clamped, not stored)
+  commitWidth: (px?: number) => void; // store the given (or current) width
+  resetWidth: () => void;
+  setResizing: (v: boolean) => void;
 }
 
 const Ctx = React.createContext<SidebarCtx | null>(null);
@@ -65,6 +72,21 @@ export function SidebarProvider({
 
   const toggle = React.useCallback(() => setOpenPersist((v) => !v), [setOpenPersist]);
 
+  const [width, setWidthState] = React.useState<number>(() => readSize(WIDTH_SPEC));
+  const [resizing, setResizing] = React.useState(false);
+  const widthRef = React.useRef(width);
+  widthRef.current = width;
+  const setWidth = React.useCallback((px: number) => setWidthState(clampSize(px, WIDTH_SPEC)), []);
+  const commitWidth = React.useCallback(
+    (px?: number) => writeSize(WIDTH_SPEC, px ?? widthRef.current),
+    [],
+  );
+  const resetWidth = React.useCallback(() => {
+    setWidthState(WIDTH_SPEC.default);
+    writeSize(WIDTH_SPEC, WIDTH_SPEC.default);
+  }, []);
+  React.useEffect(() => onLayoutReset(() => setWidthState(WIDTH_SPEC.default)), []);
+
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "b") {
@@ -77,8 +99,19 @@ export function SidebarProvider({
   }, [toggle]);
 
   const value = React.useMemo<SidebarCtx>(
-    () => ({ state: open ? "expanded" : "collapsed", open, setOpen: setOpenPersist, toggle }),
-    [open, setOpenPersist, toggle],
+    () => ({
+      state: open ? "expanded" : "collapsed",
+      open,
+      setOpen: setOpenPersist,
+      toggle,
+      width,
+      resizing,
+      setWidth,
+      commitWidth,
+      resetWidth,
+      setResizing,
+    }),
+    [open, setOpenPersist, toggle, width, resizing, setWidth, commitWidth, resetWidth],
   );
 
   return (
@@ -91,7 +124,7 @@ export function SidebarProvider({
         className={cn("group/sidebar-wrapper flex h-full min-h-0 w-full", className)}
         style={
           {
-            "--sidebar-width": SIDEBAR_WIDTH,
+            "--sidebar-width": `${width}px`,
             "--sidebar-width-icon": SIDEBAR_WIDTH_ICON,
             ...style,
           } as React.CSSProperties
@@ -110,20 +143,78 @@ export function Sidebar({
   children,
   ...props
 }: React.ComponentProps<"aside">) {
-  const { state } = useSidebar();
+  const { state, resizing } = useSidebar();
   return (
     <aside
       data-slot="sidebar"
       data-state={state}
+      data-resizing={resizing}
       className={cn(
-        "group flex h-full w-(--sidebar-width) shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-[width] duration-200 ease-linear overflow-hidden",
-        "data-[state=collapsed]:w-(--sidebar-width-icon)",
+        "group relative flex h-full w-(--sidebar-width) shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-[width] duration-200 ease-linear overflow-hidden",
+        "data-[state=collapsed]:w-(--sidebar-width-icon) data-[resizing=true]:transition-none",
         className,
       )}
       {...props}
     >
       {children}
+      <SidebarResizeHandle />
     </aside>
+  );
+}
+
+// drag (pointer) or arrow keys to resize; double-click or Enter resets
+function SidebarResizeHandle() {
+  const { state, width, setWidth, commitWidth, resetWidth, setResizing } = useSidebar();
+  const drag = React.useRef<{ startX: number; startW: number } | null>(null);
+  if (state === "collapsed") return null;
+  const step = (e: React.KeyboardEvent) => (e.shiftKey ? 64 : 16);
+  return (
+    // oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- a focusable ARIA separator is the standard keyboard-resizable splitter pattern
+    <div
+      role="separator"
+      aria-orientation="vertical"
+      aria-label="Resize sidebar"
+      aria-valuemin={WIDTH_SPEC.min}
+      aria-valuemax={WIDTH_SPEC.max}
+      aria-valuenow={width}
+      tabIndex={0}
+      title="Drag to resize · double-click to reset"
+      className="absolute inset-y-0 right-0 z-10 w-1.5 cursor-col-resize touch-none bg-transparent transition-colors hover:bg-ring/40 focus-visible:bg-ring/60 focus-visible:outline-none data-[dragging=true]:bg-ring/60"
+      onPointerDown={(e) => {
+        e.currentTarget.setPointerCapture(e.pointerId);
+        drag.current = { startX: e.clientX, startW: width };
+        e.currentTarget.setAttribute("data-dragging", "true");
+        setResizing(true);
+      }}
+      onPointerMove={(e) => {
+        if (drag.current) setWidth(drag.current.startW + (e.clientX - drag.current.startX));
+      }}
+      onPointerUp={(e) => {
+        if (!drag.current) return;
+        drag.current = null;
+        e.currentTarget.releasePointerCapture(e.pointerId);
+        e.currentTarget.removeAttribute("data-dragging");
+        setResizing(false);
+        commitWidth();
+      }}
+      onDoubleClick={resetWidth}
+      onKeyDown={(e) => {
+        const move = (px: number) => {
+          e.preventDefault();
+          setWidth(px);
+          // keyboard changes are discrete: store the new width right away
+          commitWidth(px);
+        };
+        if (e.key === "ArrowRight") move(width + step(e));
+        else if (e.key === "ArrowLeft") move(width - step(e));
+        else if (e.key === "Home") move(WIDTH_SPEC.min);
+        else if (e.key === "End") move(WIDTH_SPEC.max);
+        else if (e.key === "Enter") {
+          e.preventDefault();
+          resetWidth();
+        }
+      }}
+    />
   );
 }
 

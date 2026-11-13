@@ -3,7 +3,7 @@
 // that no other file imports the icon package directly. To change families,
 // edit this file only.
 import type { RemixiconComponentType } from "@remixicon/react";
-import { RiAddLine, RiAlertLine, RiArrowDownSLine, RiArrowGoBackLine, RiArrowLeftSLine, RiArrowRightSLine, RiArrowUpSLine, RiAttachment2, RiBookShelfLine, RiChat3Line, RiChatNewLine, RiCheckLine, RiCheckboxCircleLine, RiCircleLine, RiCloseLine, RiComputerLine, RiDashboard3Line, RiDeleteBinLine, RiDownload2Line, RiEqualizerLine, RiErrorWarningLine, RiExpandUpDownLine, RiFileCodeLine, RiFileCopyLine, RiFileLine, RiFileTextLine, RiFlagLine, RiFolderLine, RiFolderOpenLine, RiGitBranchLine, RiGroupLine, RiInformationLine, RiLayoutLeftLine, RiLoader4Line, RiMoonLine, RiMoreLine, RiPencilLine, RiPriceTag3Line, RiPuzzleLine, RiRefreshLine, RiSearchLine, RiSendPlaneLine, RiSettings3Line, RiSparklingLine, RiStopLine, RiSunLine, RiTerminalBoxLine, RiUpload2Line } from "@remixicon/react";
+import { RiDraggable, RiAddLine, RiAlertLine, RiArrowDownSLine, RiArrowGoBackLine, RiArrowLeftSLine, RiArrowRightSLine, RiArrowUpSLine, RiAttachment2, RiBookShelfLine, RiChat3Line, RiChatNewLine, RiCheckLine, RiCheckboxCircleLine, RiCircleLine, RiCloseLine, RiComputerLine, RiDashboard3Line, RiDeleteBinLine, RiDownload2Line, RiEqualizerLine, RiErrorWarningLine, RiExpandUpDownLine, RiFileCodeLine, RiFileCopyLine, RiFileLine, RiFileTextLine, RiFlagLine, RiFolderLine, RiFolderOpenLine, RiGitBranchLine, RiGroupLine, RiInformationLine, RiLayoutLeftLine, RiLoader4Line, RiMoonLine, RiMoreLine, RiPencilLine, RiPriceTag3Line, RiPuzzleLine, RiRefreshLine, RiSearchLine, RiSendPlaneLine, RiSettings3Line, RiSparklingLine, RiStopLine, RiSunLine, RiTerminalBoxLine, RiUpload2Line } from "@remixicon/react";
 
 export type IconComponent = RemixiconComponentType;
 
@@ -58,3 +58,4 @@ export const IconFolderOpen: IconComponent = RiFolderOpenLine;
 export const IconLight: IconComponent = RiSunLine;
 export const IconDark: IconComponent = RiMoonLine;
 export const IconSystem: IconComponent = RiComputerLine;
+export const IconGrip: IconComponent = RiDraggable;
