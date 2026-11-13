@@ -90,6 +90,11 @@ LLS_API int lls_step(lls_ctx * c, char * buf, size_t cap, size_t * out_len);
 // releases generation state; idempotent; NULL-safe
 LLS_API void lls_generate_end(lls_ctx * c);
 
+// probes dynamic ggml backends from dir (the shim's own directory —
+// variant libs sit beside it in the bundle), then inits llama. Safe to
+// call once after dlopen; later calls and NULL dirs are handled.
+LLS_API void lls_backend_init(const char * dir);
+
 // parses GGUF header metadata without loading the model; returns a
 // shim-allocated JSON string {name,architecture,paramCount,quantization,
 // contextTrain} (fields null when absent) or NULL on failure — free via

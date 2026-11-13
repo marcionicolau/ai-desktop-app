@@ -63,6 +63,10 @@ Main process (`src/bun/`):
 Native (`src/native/shim/`): `lls_gen_params` sampler chain (greedy when
 `temperature<=0`), KV token mirror + longest-common-prefix reuse
 (`lls_generate_continue`, `2` = full-decode fallback), `lls_gguf_meta`.
+Packaging: `GGML_BACKEND_DL` + `GGML_CPU_ALL_VARIANTS` ship one
+`libggml-cpu-<isa>.so` per arch (no `-march=native` — it SIGILLs
+off-builder); `lls_backend_init(dir)` probes variants beside the shim via
+`ggml_backend_load_all_from_path`, called by `ffi.ts` at dlopen.
 
 Renderer (`src/renderer/src/`): `components/ai/` (markdown `AiMessage`,
 `CodeBlock` copy, `MessageActions`), `features/settings/GenerationSettings`,

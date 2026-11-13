@@ -59,6 +59,13 @@ missing=()
 if   present "libllama_shim" || present "llama_shim"; then :; else missing+=("llama_shim"); fi
 if   present "libllama"      || present "llama";      then :; else missing+=("llama"); fi
 if   present "libggml"       || present "ggml";       then :; else missing+=("ggml"); fi
+# runtime CPU dispatch ships one libggml-cpu-<variant> per ISA (GGML_CPU_ALL_VARIANTS);
+# a monolithic libggml-cpu alone means the build regressed to -march=native (SIGILL off-host)
+if [ -n "$listing" ]; then
+  echo "$listing" | grep -q "native/$plat/.*ggml-cpu-.*${ext}" || missing+=("ggml-cpu-<variant>")
+else
+  find "$plat_dir" -name "*ggml-cpu-*.${ext}" | grep -q . || missing+=("ggml-cpu-<variant>")
+fi
 ((${#missing[@]})) && fail "missing native libs in $plat_dir: ${missing[*]}"
 
 echo "verify-artifact: PASS — $plat artifact at $app_dir"

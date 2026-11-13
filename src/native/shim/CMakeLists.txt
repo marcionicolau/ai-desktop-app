@@ -8,7 +8,20 @@ set(LLAMA_BUILD_SERVER OFF CACHE BOOL "" FORCE)
 set(LLAMA_BUILD_TOOLS OFF CACHE BOOL "" FORCE)
 set(LLAMA_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(LLAMA_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-set(GGML_BACKEND_DL OFF CACHE BOOL "" FORCE)
+# Packaged builds run on arbitrary hosts: compile one ggml CPU backend
+# per ISA variant (libggml-cpu-<arch>.so) and let ggml pick at runtime —
+# -march=native here produced AVX-512 code in CI that SIGILLs on older
+# CPUs. GGML_NATIVE must be OFF with BACKEND_DL (cmake enforces it).
+set(GGML_NATIVE OFF CACHE BOOL "" FORCE)
+set(GGML_BACKEND_DL ON CACHE BOOL "" FORCE)
+set(GGML_CPU_ALL_VARIANTS ON CACHE BOOL "" FORCE)
+
+if(UNIX AND NOT APPLE)
+    # applies to every target created below — incl. the variant
+    # libs, which link ggml-base and must resolve it via $ORIGIN
+    set(CMAKE_BUILD_RPATH "$ORIGIN")
+    set(CMAKE_INSTALL_RPATH "$ORIGIN")
+endif()
 
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../vendor/llama.cpp
                  ${CMAKE_BINARY_DIR}/llama.cpp
