@@ -14,7 +14,7 @@ import { setThemeMode, useTheme } from "@/lib/theme";
 import { confirm } from "@/lib/confirm";
 import { notify } from "@/lib/notify";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { IconError } from "@/components/icons";
+import { IconError, IconWarning } from "@/components/icons";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { IconBranch } from "@/components/icons";
 import { useChat } from "./use-chat";
@@ -27,7 +27,6 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-import { ModelSelector } from "@/components/ai/model-selector";
 import { useRoles } from "../roles/use-roles";
 import { ModelLibrary } from "../models/ModelLibrary";
 import { SetupPanel } from "../setup/SetupPanel";
@@ -39,7 +38,9 @@ import { UpdatesSection } from "../settings/UpdatesSection";
 import { UpdateBanner } from "../update/UpdateBanner";
 import { DataPanel } from "../settings/DataPanel";
 import { RolesPanel } from "../roles/RolesPanel";
-import { FusionControls } from "../roles/FusionControls";
+import { ChatSetup } from "./ChatSetup";
+import { unboundRoles } from "./chat-setup";
+import { Switch } from "@/components/ui/switch";
 import { PersonasPanel } from "../personas/PersonasPanel";
 import { ScriptsPage } from "../scripts/ScriptsPage";
 import { ScriptsSettings } from "../settings/ScriptsSettings";
@@ -98,6 +99,15 @@ export function ChatPage() {
     await loadModel(r.resolved.path);
   };
   const [branchesOpen, setBranchesOpen] = useState(false);
+  // errors from changing mode/models are shown as one inline alert (FR-023)
+  const [setupError, setSetupError] = useState<string | null>(null);
+  useEffect(() => setSetupError(null), [state.mode, state.plannerTag, state.executorTag]);
+  const unbound = unboundRoles(
+    state.mode,
+    state.plannerTag,
+    state.executorTag,
+    boundTags.map((t) => t.id),
+  );
   // feature 006: preferred-tag offer from conversation.setPersona —
   // suggestion only; the user applies or dismisses
   const [tagOffer, setTagOffer] = useState<string | null>(null);
@@ -321,7 +331,7 @@ export function ChatPage() {
         }}
       />
       <SidebarInset>
-        <header className="flex flex-wrap items-center justify-between gap-x-4 border-b border-border px-4 py-2">
+        <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5 border-b border-border px-4 py-2">
           <div className="flex min-w-0 items-center gap-2">
             <SidebarTrigger />
             <Breadcrumb>
@@ -337,52 +347,26 @@ export function ChatPage() {
                 </BreadcrumbItem>
               </BreadcrumbList>
             </Breadcrumb>
-            {/* feature 006 (FR-006): per-conversation persona badge/select */}
-            <select
-              value={state.personaName ?? ""}
-              onChange={(e) => void onPersona(e.target.value || null)}
-              className="h-7 max-w-36 rounded border border-border bg-background px-1.5 text-xs"
-              title="Persona for this conversation"
-              aria-label="Persona"
-            >
-              <option value="">No persona</option>
-              {personas.map((p) => (
-                <option key={p.name} value={p.name}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
           </div>
-          <div className="flex min-w-0 items-center gap-1">
-            {state.mode === "fusion" ? (
-              <>
-                <ModelSelector
-                  label="Planner"
-                  value={state.plannerTag}
-                  options={boundTags}
-                  onSelect={(t) => void setMode("fusion", t, state.executorTag)}
-                  onManage={() => select("surface:roles")}
-                  disabled={state.generatingId !== null}
-                />
-                <ModelSelector
-                  label="Executor"
-                  value={state.executorTag}
-                  options={boundTags}
-                  onSelect={(t) => void setMode("fusion", state.plannerTag, t)}
-                  onManage={() => select("surface:roles")}
-                  disabled={state.generatingId !== null}
-                />
-              </>
-            ) : (
-              <ModelSelector
-                label="Model"
-                value={modelTagName}
-                options={boundTags}
-                onSelect={(t) => void applyTag(t)}
-                onManage={() => select("surface:models")}
-                disabled={state.generatingId !== null}
-              />
-            )}
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            {/* feature 026 (FR-023): mode, models and persona live here only */}
+            <ChatSetup
+              mode={state.mode}
+              plannerTag={state.plannerTag}
+              executorTag={state.executorTag}
+              modelTagName={modelTagName}
+              boundTags={boundTags}
+              personas={personas}
+              personaName={state.personaName ?? null}
+              generating={state.generatingId !== null}
+              onSetMode={setMode}
+              onApplyTag={applyTag}
+              onPersona={onPersona}
+              onManageRoles={() => select("surface:roles")}
+              onManageModels={() => select("surface:models")}
+              onError={setSetupError}
+              onUnbound={() => select("surface:roles")}
+            />
             <Button
               variant="ghost"
               size="icon"
@@ -393,15 +377,11 @@ export function ChatPage() {
             >
               <IconBranch className="h-4 w-4" />
             </Button>
-            <label
-              className="flex cursor-pointer items-center gap-1 px-1 text-xs"
-              title="Output metrics panel"
-            >
-              <input
-                type="checkbox"
+            <label htmlFor="metrics-switch" className="flex cursor-pointer items-center gap-1.5 text-xs">
+              <Switch
+                id="metrics-switch"
                 checked={metricsOpen}
-                onChange={(e) => void toggleMetrics(e.target.checked)}
-                aria-label="Output metrics panel"
+                onCheckedChange={(v) => void toggleMetrics(v)}
               />
               Metrics
             </label>
@@ -463,14 +443,24 @@ export function ChatPage() {
                   </AlertDescription>
                 </Alert>
               )}
-              <FusionControls
-                mode={state.mode}
-                plannerTag={state.plannerTag}
-                executorTag={state.executorTag}
-                generating={state.generatingId !== null}
-                onSetMode={setMode}
-                onUnbound={() => select("surface:roles")}
-              />
+              {(setupError || unbound.length > 0) && (
+                <Alert
+                  variant={setupError ? "destructive" : "default"}
+                  className="rounded-none border-x-0 border-t-0"
+                >
+                  {setupError ? <IconError aria-hidden="true" /> : <IconWarning aria-hidden="true" />}
+                  <AlertTitle>
+                    {setupError ? "The change could not be applied" : "Fusion needs both roles bound"}
+                  </AlertTitle>
+                  <AlertDescription className="flex flex-wrap items-center gap-2">
+                    {setupError ??
+                      `Bind ${unbound.join(" and ")} to a model in the Roles panel to use planner + executor.`}
+                    <Button size="sm" variant="outline" onClick={() => select("surface:roles")}>
+                      Open Roles
+                    </Button>
+                  </AlertDescription>
+                </Alert>
+              )}
               {state.notice && (
                 <div className="border-b border-border bg-warning/15 px-4 py-2 text-center text-sm text-warning">
                   {state.notice}

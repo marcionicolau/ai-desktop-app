@@ -99,7 +99,7 @@ events `chat.phase`, `chat.token{phase}`, `chat.done.stats{plan,answer,total}`,
 `role.changed`.
 
 Renderer additions: `features/roles/` (`use-roles`, `RolesPanel`,
-`TagEditor`, `FusionControls`); `use-chat` reducer is phase-aware
+`TagEditor`; fusion mode/model choice moved to `features/chat/ChatSetup` in feature 026); `use-chat` reducer is phase-aware
 (plan tokens → `phases.plan.content`, `servedBy` badges).
 
 Gotchas:
