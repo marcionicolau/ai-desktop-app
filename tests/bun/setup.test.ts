@@ -2,7 +2,11 @@
 // spec acceptance paths: fresh → download+bind+load; usable → skip;
 // failure → error + retry; FR-007 busy guard; run() single-flight.
 import { describe, expect, test } from "bun:test";
-import { DEFAULT_MODEL, SetupService } from "../../src/bun/setup/service";
+import {
+  DEFAULT_MODEL,
+  PROVISION_ROLES,
+  SetupService,
+} from "../../src/bun/setup/service";
 import type { DownloadState, SetupState } from "../../src/shared/types";
 
 interface Fake {
@@ -46,7 +50,7 @@ function make(): Fake {
         totalBytes: 400 * 1024 * 1024,
       });
     },
-    bindDefault: (n) => f.calls.binds.push(n),
+    bindRole: (role, n) => f.calls.binds.push(`${role}:${n}`),
     load: async () => {
       f.calls.loads++;
       if (f.failLoad) throw new Error("llm load failed");
@@ -61,7 +65,9 @@ describe("SetupService", () => {
     const f = make();
     await f.svc.run();
     expect(f.calls.downloads).toBe(1);
-    expect(f.calls.binds).toEqual([DEFAULT_MODEL.fileName]);
+    expect(f.calls.binds).toEqual(
+      PROVISION_ROLES.map((r) => `${r}:${DEFAULT_MODEL.fileName}`),
+    );
     expect(f.calls.loads).toBe(1);
     expect(f.svc.status().phase).toBe("done");
     // download progress streamed through setup.status events
@@ -69,12 +75,11 @@ describe("SetupService", () => {
       true,
     );
     expect(f.events[f.events.length - 1]?.phase).toBe("done");
-    // per-role provisioning rows: one default target, walked to done
+    // per-role provisioning rows: every provisioned role walked to done
     const t = f.svc.status().targets;
-    expect(t).toHaveLength(1);
-    expect(t[0]?.role).toBe("default");
-    expect(t[0]?.fileName).toBe(DEFAULT_MODEL.fileName);
-    expect(t[0]?.status).toBe("done");
+    expect(t.map((x) => x.role)).toEqual([...PROVISION_ROLES]);
+    expect(t.every((x) => x.fileName === DEFAULT_MODEL.fileName)).toBe(true);
+    expect(t.every((x) => x.status === "done")).toBe(true);
   });
 
   test("usable model → done without downloading", async () => {
@@ -104,7 +109,9 @@ describe("SetupService", () => {
     f.failLoad = true;
     await f.svc.run();
     expect(f.svc.status().phase).toBe("error");
-    expect(f.calls.binds).toEqual([DEFAULT_MODEL.fileName]);
+    expect(f.calls.binds).toEqual(
+      PROVISION_ROLES.map((r) => `${r}:${DEFAULT_MODEL.fileName}`),
+    );
     // file landed + bound → a rescan reports usable, so retry skips to done
     f.usable = true;
     f.failLoad = false;
