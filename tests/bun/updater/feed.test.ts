@@ -115,6 +115,22 @@ describe("compareVersions", () => {
     expect(compareVersions("1.0.0-rc.10", "1.0.0-rc.2")).toBeGreaterThan(0);
     expect(compareVersions("1.0.0-canary.4", "1.0.0-rc.1")).toBeLessThan(0);
   });
+  test("post-tag channel suffix (<tag>-canary.N) is older than the next tag", () => {
+    // computeVersion() stamps local builds "0.0.1-rc.4-canary.3" — the
+    // trailing "-canary.N" is a build increment, not a prerelease
+    // identifier; without special-casing it, "rc.4-canary.3" wrongly
+    // sorts NEWER than "rc.6" and the feed check treats a real upgrade
+    // as a downgrade (bug: canary build reported "up to date" vs rc.6)
+    expect(
+      compareVersions("0.0.1-rc.6", "0.0.1-rc.4-canary.3"),
+    ).toBeGreaterThan(0);
+    expect(
+      compareVersions("0.0.1-rc.4-canary.3", "0.0.1-rc.6"),
+    ).toBeLessThan(0);
+    expect(
+      compareVersions("0.0.1-rc.6-canary.2", "0.0.1-rc.6"),
+    ).toBeGreaterThan(0);
+  });
 });
 
 describe("checkChannelFeed", () => {
