@@ -34,6 +34,13 @@ import type {
   ToolPolicy,
   UpdateChannel,
   UpdateView,
+  ScriptListItem,
+  ScriptRunEvent,
+  ScriptRunRecord,
+  ScriptRuntimeKind,
+  ScriptUpsertParams,
+  RuntimeStatus,
+  SessionStateEvent,
 } from "./types";
 
 export const RPC_ERROR_CODES = [
@@ -68,6 +75,12 @@ export const RPC_ERROR_CODES = [
   "UPDATE_INVALID",
   "UPDATE_FAILED",
   "UPDATE_DISABLED",
+  // feature 023: script calling
+  "SCRIPT_NOT_FOUND",
+  "SCRIPT_INVALID_ARGS",
+  "SCRIPT_TIMEOUT",
+  "RUNTIME_NOT_FOUND",
+  "SESSION_DEAD",
 ] as const;
 
 export type RpcErrorCode = (typeof RPC_ERROR_CODES)[number];
@@ -202,6 +215,45 @@ export interface ChatRpcSchema extends ElectrobunRPCSchema {
       "tool.pickRoot": {
         params: Record<string, never>;
         response: { path: string | null };
+      };
+      // feature 023: script library + session runtimes. Script calls
+      // share tool.respond/tool.update for consent; these cover the
+      // library CRUD, manual runs, and runtime health/reset.
+      "script.list": {
+        params: Record<string, never>;
+        response: { scripts: ScriptListItem[] };
+      };
+      "script.upsert": {
+        params: ScriptUpsertParams;
+        response: { entry: ScriptListItem };
+      };
+      "script.delete": {
+        params: { id: string };
+        response: Record<string, never>;
+      };
+      "script.enable": {
+        params: { id: string; enabled: boolean };
+        response: Record<string, never>;
+      };
+      // manual run — bypasses the consent prompt (user clicked Run) but
+      // shares validation/timeout/workdir/capture; progress via the
+      // "script.run" event
+      "script.run": {
+        params: { id: string; args?: Record<string, unknown>; timeoutMs?: number };
+        response: ScriptRunRecord;
+      };
+      "runtime.list": {
+        params: Record<string, never>;
+        response: { runtimes: RuntimeStatus[] };
+      };
+      "runtime.detect": {
+        params: { kind: ScriptRuntimeKind };
+        response: { path: string };
+      };
+      // kill + clear a runtime session; in-flight call → interrupted
+      "runtime.reset": {
+        params: { kind: ScriptRuntimeKind };
+        response: Record<string, never>;
       };
       "model.list": {
         params: Record<string, never>;
@@ -510,6 +562,9 @@ export interface ChatRpcSchema extends ElectrobunRPCSchema {
       // feature 015: full record on every status transition; the
       // renderer keeps a callId-keyed map for inline cards
       "tool.update": { messageId: string; call: ToolCallRecord };
+      // feature 023: manual-run progress + runtime session transitions
+      "script.run": ScriptRunEvent;
+      "session.state": SessionStateEvent;
       // feature 013: pushed on every devkit status transition + progress
       "update.status": UpdateView;
       // feature 017

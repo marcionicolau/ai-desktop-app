@@ -11,6 +11,8 @@ export const CAPABILITIES = [
   "runs.read",
   "views.theme",
   "commands.invoke",
+  // feature 023: script-backed pipeline steps (runtime: "script")
+  "scripts.run",
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];

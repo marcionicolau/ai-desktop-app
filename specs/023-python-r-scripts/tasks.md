@@ -24,9 +24,9 @@ description: "Task list for feature 023 — Python & R script calling"
 
 **Purpose**: shared types and contract surface every other task compiles against
 
-- [ ] T001 Add script types to src/shared/types.ts — `ScriptEntry` (id slug, runtime `"python"|"r"`, source `{kind:"stored"}|{kind:"external",path}`, description, `params: ScriptParam[]`, `timeoutMs?`, `enabled`), `ScriptParam` (name, type `"text"|"number"|"json"|"bool"`, required, description), `SessionState` (`"cold"|"starting"|"live"|"dead"`), `ScriptRunRecord` (runId, script, args, initiator `"model"|"user"|"pipeline"`, verdict, exitStatus, stdout/stderr, durationMs, files, sessionRestarted), `ScriptPolicy` + `Settings.scripts` block, `RuntimeStatus`; extend `ToolCallRecord` with `script?`/`args?`/`exitStatus?`/`durationMs?`/`files?` and `ToolName` union with `"run_script"`
-- [ ] T002 [P] Add RPC surface to src/shared/rpc-contract.ts — methods `script.list`, `script.upsert`, `script.delete`, `script.run`, `script.enable`, `runtime.list`, `runtime.detect`, `runtime.reset`; events `script.run` and `session.state`; `surfaceId` union gains `"scripts"`; error codes `SCRIPT_NOT_FOUND`, `SCRIPT_INVALID_ARGS`, `SCRIPT_TIMEOUT`, `RUNTIME_NOT_FOUND`, `SESSION_DEAD`
-- [ ] T003 [P] Add `"scripts.run"` to `CAPABILITIES` in src/shared/pack-schema.ts
+- [x] T001 Add script types to src/shared/types.ts — `ScriptEntry` (id slug, runtime `"python"|"r"`, source `{kind:"stored"}|{kind:"external",path}`, description, `params: ScriptParam[]`, `timeoutMs?`, `enabled`), `ScriptParam` (name, type `"text"|"number"|"json"|"bool"`, required, description), `SessionState` (`"cold"|"starting"|"live"|"dead"`), `ScriptRunRecord` (runId, script, args, initiator `"model"|"user"|"pipeline"`, verdict, exitStatus, stdout/stderr, durationMs, files, sessionRestarted), `ScriptPolicy` + `Settings.scripts` block, `RuntimeStatus`; extend `ToolCallRecord` with `script?`/`args?`/`exitStatus?`/`durationMs?`/`files?` and `ToolName` union with `"run_script"`
+- [x] T002 [P] Add RPC surface to src/shared/rpc-contract.ts — methods `script.list`, `script.upsert`, `script.delete`, `script.run`, `script.enable`, `runtime.list`, `runtime.detect`, `runtime.reset`; events `script.run` and `session.state`; `surfaceId` union gains `"scripts"`; error codes `SCRIPT_NOT_FOUND`, `SCRIPT_INVALID_ARGS`, `SCRIPT_TIMEOUT`, `RUNTIME_NOT_FOUND`, `SESSION_DEAD`
+- [x] T003 [P] Add `"scripts.run"` to `CAPABILITIES` in src/shared/pack-schema.ts
 
 ---
 
