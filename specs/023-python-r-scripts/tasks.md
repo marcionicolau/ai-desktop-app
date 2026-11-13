@@ -56,14 +56,14 @@ description: "Task list for feature 023 — Python & R script calling"
 
 **Independent test**: register `add-one` with param `input_value:number`, ask the model to run it on 41, approve the pending card → answer uses `42` (quickstart S2)
 
-- [ ] T017 [US1] Extend src/shared/tool-call.ts `parseCallBody` — `run_script` arm accepting `{"tool":"run_script","script":"<id>","args":{...}}` plus `"input"` raw-text form for paramless scripts, per contracts/tool-call.md; unknown/malformed stays `malformed`
-- [ ] T018 [US1] Add the run_script verdict branch to src/bun/tools/loop.ts — order per contracts/tool-call.md: parse → policy inactive (`disabled`) → registry miss/disabled (`unknown-script`) → arg validation (`invalid-args`) → pending decision (tool.update/tool.respond) → SessionManager call → `tool_result` injection including `session restarted — prior state lost` on `sessionRestarted`; shares the existing per-turn budget of 5 and inert-card disarm path
-- [ ] T019 [US1] Extend src/bun/llama/prompt.ts — script section in the tool instruction block listing each enabled script's name, description, and declared params (`name:type(req)` form) when script policy is active; `deny` mode leaves prompts byte-identical
-- [ ] T020 [US1] Wire run_script into src/bun/rpc/handlers.ts generate path — ScriptService + SessionManager injection into the tool loop, `tool.respond` reuse for pending script decisions, `chat.stop` termination of in-flight script + discard of pending calls (FR-015)
-- [ ] T021 [US1] Extend audit in src/bun/tools/audit.ts — record `script`, `initiator`, `exitStatus`, `durationMs`, `sessionRestarted` fields for `run_script` lines per data-model.md
-- [ ] T022 [P] [US1] Add the run_script variant to src/renderer/src/features/tools/ToolCallCard.tsx — script name, args summary, status, duration, output preview, produced-files list
-- [ ] T023 [US1] Write tests/tools run_script cases — parser arm (valid/invalid), loop verdict ordering (disabled, unknown-script, invalid-args, denied, executed, timeout), budget sharing with file tools, deny-mode prompt byte-identical
-- [ ] T024 [US1] Write tests/scripts/end-to-end case — fixture script + fake session + loop → tool_result carries script output into continuation prompt
+- [x] T017 [US1] Extend src/shared/tool-call.ts `parseCallBody` — `run_script` arm accepting `{"tool":"run_script","script":"<id>","args":{...}}` plus `"input"` raw-text form for paramless scripts, per contracts/tool-call.md; unknown/malformed stays `malformed`
+- [x] T018 [US1] Add the run_script verdict branch to src/bun/tools/loop.ts — order per contracts/tool-call.md: parse → policy inactive (`disabled`) → registry miss/disabled (`unknown-script`) → arg validation (`invalid-args`) → pending decision (tool.update/tool.respond) → SessionManager call → `tool_result` injection including `session restarted — prior state lost` on `sessionRestarted`; shares the existing per-turn budget of 5 and inert-card disarm path
+- [x] T019 [US1] Extend src/bun/llama/prompt.ts — script section in the tool instruction block listing each enabled script's name, description, and declared params (`name:type(req)` form) when script policy is active; `deny` mode leaves prompts byte-identical
+- [x] T020 [US1] Wire run_script into src/bun/rpc/handlers.ts generate path — ScriptService + SessionManager injection into the tool loop, `tool.respond` reuse for pending script decisions, `chat.stop` termination of in-flight script + discard of pending calls (FR-015)
+- [x] T021 [US1] Extend audit in src/bun/tools/audit.ts — record `script`, `initiator`, `exitStatus`, `durationMs`, `sessionRestarted` fields for `run_script` lines per data-model.md
+- [x] T022 [P] [US1] Add the run_script variant to src/renderer/src/features/tools/ToolCallCard.tsx — script name, args summary, status, duration, output preview, produced-files list
+- [x] T023 [US1] Write tests/tools run_script cases — parser arm (valid/invalid), loop verdict ordering (disabled, unknown-script, invalid-args, denied, executed, timeout), budget sharing with file tools, deny-mode prompt byte-identical
+- [x] T024 [US1] Write tests/scripts/end-to-end case — fixture script + fake session + loop → tool_result carries script output into continuation prompt
 
 **Checkpoint**: model-initiated script calls work end-to-end with consent + audit; manual run UI may not exist yet (register via test fixtures/handler)
 
@@ -75,14 +75,14 @@ description: "Task list for feature 023 — Python & R script calling"
 
 **Independent test**: create `add-one` in the library, run it manually with `input_value=41`, see `42` — no conversation involved (quickstart S1)
 
-- [ ] T025 [US2] Implement script.* CRUD handlers in src/bun/rpc/handlers.ts — `script.list`, `script.upsert` (slug from name, uniqueness → INVALID_PARAMS, stored-source write, external-path validation), `script.delete` (entry + stored source removal; in-flight calls finish on snapshot), `script.enable`
-- [ ] T026 [US2] Implement `script.run` handler + `script.run` progress event in src/bun/rpc/handlers.ts — manual runs skip the consent prompt (initiator `"user"`) but share validation/timeout/workdir/capture; emits `queued|running|done|error` phases per contracts/rpc.md
-- [ ] T027 [P] [US2] Create src/renderer/src/features/scripts/use-scripts.ts — RPC hooks for list/upsert/delete/run + `script.run` event subscription
-- [ ] T028 [US2] Create src/renderer/src/features/scripts/ScriptsPage.tsx — library list with name, runtime badge + health, enabled toggle, description; empty state
-- [ ] T029 [US2] Create src/renderer/src/features/scripts/ScriptEditor.tsx — name, runtime select (python/r), source editor or file import, params table (name/type/required/description), timeout override field
-- [ ] T030 [US2] Create src/renderer/src/features/scripts/RunForm.tsx — declared-params input form, run button, captured result view (stdout/stderr/exit/duration), produced-files list with attach action
-- [ ] T031 [US2] Register the `"scripts"` surface in src/renderer/src/features/workspace/tab-model.ts (follows personas/models wiring)
-- [ ] T032 [US2] Write tests/rpc script.* handler cases — upsert validation, slug collision, delete cascade, manual-run result shape, source-unavailable for missing external paths
+- [x] T025 [US2] Implement script.* CRUD handlers in src/bun/rpc/handlers.ts — `script.list`, `script.upsert` (slug from name, uniqueness → INVALID_PARAMS, stored-source write, external-path validation), `script.delete` (entry + stored source removal; in-flight calls finish on snapshot), `script.enable`
+- [x] T026 [US2] Implement `script.run` handler + `script.run` progress event in src/bun/rpc/handlers.ts — manual runs skip the consent prompt (initiator `"user"`) but share validation/timeout/workdir/capture; emits `queued|running|done|error` phases per contracts/rpc.md
+- [x] T027 [P] [US2] Create src/renderer/src/features/scripts/use-scripts.ts — RPC hooks for list/upsert/delete/run + `script.run` event subscription
+- [x] T028 [US2] Create src/renderer/src/features/scripts/ScriptsPage.tsx — library list with name, runtime badge + health, enabled toggle, description; empty state
+- [x] T029 [US2] Create src/renderer/src/features/scripts/ScriptEditor.tsx — name, runtime select (python/r), source editor or file import, params table (name/type/required/description), timeout override field
+- [x] T030 [US2] Create src/renderer/src/features/scripts/RunForm.tsx — declared-params input form, run button, captured result view (stdout/stderr/exit/duration), produced-files list with attach action
+- [x] T031 [US2] Register the `"scripts"` surface in src/renderer/src/features/workspace/tab-model.ts (follows personas/models wiring)
+- [x] T032 [US2] Write tests/rpc script.* handler cases — upsert validation, slug collision, delete cascade, manual-run result shape, source-unavailable for missing external paths
 
 **Checkpoint**: library is fully usable standalone — user can register, run, and iterate on scripts with zero model involvement
 
@@ -94,11 +94,11 @@ description: "Task list for feature 023 — Python & R script calling"
 
 **Independent test**: point Python at a valid interpreter → python runs work; simulate missing Rscript → R entries badge `missing` and calls error `runtime-unavailable` while Python is unaffected (quickstart S4)
 
-- [ ] T033 [US3] Implement runtime.* handlers in src/bun/rpc/handlers.ts — `runtime.list` (configuredPath, detectedPath, status, session state/restartCount), `runtime.detect`, `runtime.reset` (kills session; in-flight call → `interrupted` verdict)
-- [ ] T034 [US3] Wire `session.state` event emission in src/bun/scripts/session.ts — emit on cold→starting→live→dead transitions and restartCount bumps so badges update live
-- [ ] T035 [US3] Create src/renderer/src/features/settings/ScriptsSettings.tsx — policy mode select (ask/allow-session/deny), per-runtime interpreter path field + auto-detect button + status badge, backend selector (auto/subprocess/embedded), per-runtime session reset buttons with state display
-- [ ] T036 [US3] Surface runtime health on ScriptsPage — per-runtime status badge row fed by `session.state` + `runtime.list` (missing interpreter → entries marked unavailable)
-- [ ] T037 [US3] Write tests/scripts runtime cases — detection precedence (user path > detected), missing-runtime refusal, reset while in-flight → interrupted, session.state event sequence
+- [x] T033 [US3] Implement runtime.* handlers in src/bun/rpc/handlers.ts — `runtime.list` (configuredPath, detectedPath, status, session state/restartCount), `runtime.detect`, `runtime.reset` (kills session; in-flight call → `interrupted` verdict)
+- [x] T034 [US3] Wire `session.state` event emission in src/bun/scripts/session.ts — emit on cold→starting→live→dead transitions and restartCount bumps so badges update live
+- [x] T035 [US3] Create src/renderer/src/features/settings/ScriptsSettings.tsx — policy mode select (ask/allow-session/deny), per-runtime interpreter path field + auto-detect button + status badge, backend selector (auto/subprocess/embedded), per-runtime session reset buttons with state display
+- [x] T036 [US3] Surface runtime health on ScriptsPage — per-runtime status badge row fed by `session.state` + `runtime.list` (missing interpreter → entries marked unavailable)
+- [x] T037 [US3] Write tests/scripts runtime cases — detection precedence (user path > detected), missing-runtime refusal, reset while in-flight → interrupted, session.state event sequence
 
 **Checkpoint**: interpreters configurable, health visible, sessions resettable — all three runtimes states demonstrated
 
@@ -124,11 +124,11 @@ description: "Task list for feature 023 — Python & R script calling"
 
 **Purpose**: benchmark decision, production default, validation sweep
 
-- [ ] T043 Run `bun scripts/bench-script-backends.ts` on the dev box; write specs/023-python-r-scripts/benchmark.md; apply the selection rule from contracts/backend.md (crash containment hard-gates; then latency/memory; ties → subprocess) and set the `"auto"` default accordingly in src/bun/scripts/service.ts
-- [ ] T044 Decide the embedded path's shipping status — if selected, extend scripts/stage-native.ts + artifact verification for libpython/libR discovery; if not, keep the prototype dev-gated (backend `"embedded"` rejected in packaged builds) and record the decision in benchmark.md
-- [ ] T045 Verify deny-mode prompt parity — snapshot test in tests/llama/plan-prompt.test.ts (or a new tests/llama/prompt.test.ts) asserting the injected block is absent/byte-identical when `settings.scripts.mode === "deny"` (mirrors FR-012 precedent)
-- [ ] T046 Walk quickstart.md scenarios S1–S7 against the dev app with real python3 (+ Rscript where available); file follow-ups for anything off-spec
-- [ ] T047 Update AGENTS.md with the scripts feature entry (surfaces, settings key, audit file, runner location)
+- [x] T043 Run `bun scripts/bench-script-backends.ts` on the dev box; write specs/023-python-r-scripts/benchmark.md; apply the selection rule from contracts/backend.md (crash containment hard-gates; then latency/memory; ties → subprocess) and set the `"auto"` default accordingly in src/bun/scripts/service.ts
+- [x] T044 Decide the embedded path's shipping status — if selected, extend scripts/stage-native.ts + artifact verification for libpython/libR discovery; if not, keep the prototype dev-gated (backend `"embedded"` rejected in packaged builds) and record the decision in benchmark.md
+- [x] T045 Verify deny-mode prompt parity — snapshot test in tests/llama/plan-prompt.test.ts (or a new tests/llama/prompt.test.ts) asserting the injected block is absent/byte-identical when `settings.scripts.mode === "deny"` (mirrors FR-012 precedent)
+- [x] T046 Walk quickstart.md scenarios S1–S7 against the dev app with real python3 (+ Rscript where available); file follow-ups for anything off-spec
+- [x] T047 Update AGENTS.md with the scripts feature entry (surfaces, settings key, audit file, runner location)
 
 ---
 

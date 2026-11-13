@@ -488,3 +488,38 @@ draft-side; `MessageList` renders `Message.attachments` chips (`·trunc` /
 - Renderer: `features/update/UpdateBanner.tsx` (notice+progress+restart,
   hidden while generating), `features/settings/UpdatesSection.tsx`.
 - Docs: `docs/updates.md` (network surface, disable, feed layout).
+
+## Feature 023 — Python & R script calling
+
+- `bun/scripts/` — `store.ts` (registry, slug ids, stored
+  `dataDir()/scripts/<slug>.<ext>` or external absolute source),
+  `runtimes.ts` (configured-path > `Bun.which` detection; missing →
+  `status:"missing"`, never throws), `session.ts` (per-runtime
+  serialized lazy sessions, restart flags, `session.state` events),
+  `service.ts` (policy `ask|allow-session|deny`, in-memory grants per
+  consent ns = conversationId|runId, arg validation, audit to
+  `tool-audit.jsonl`), `backends/subprocess.ts` (NDJSON stdio runners
+  `runners/python_runner.py`/`r_runner.R`, per-run workdirs under
+  `dataDir()/script-runs/<runId>/`, env allowlist — never `process.env`).
+- `backends/embedded.ts` + `embedded-worker.ts` + `native/shim/script_shim.c`
+  = mechanism-(a) prototype (FR-024, contract-identical). Benchmark
+  verdict in `specs/023-python-r-scripts/benchmark.md`: **subprocess is
+  production** — embedded Python SIGSEGVs the host on faults, embedded R
+  can't init on a worker thread. `backend:"auto"` → subprocess; the shim
+  isn't staged by `scripts/stage-native.ts` so embedded fails closed in
+  packaged builds.
+- Chat: ```` ```tool_call ```` `{"tool":"run_script","script","args"|"input"}`;
+  same pending→`tool.update`/`tool.respond` consent as file tools
+  (initiator `"model"`, ns = conversationId). Prompt listing via
+  `scriptInstructions()` gated on `scriptsActive()` — deny = byte-identical.
+- Fabric: SKILL.md `runtime: script` + `script: <slug>`; pack must declare
+  `scripts.run` capability (enable-time `CAPABILITY_DENIED`). Step
+  inputs/params → args, initiator `"pipeline"`, ns = runId, consent via
+  same `tool.update` keyed on runId; JSON stdout → outputs else `{output}`.
+- RPC: `script.list/upsert/delete/enable/run`, `runtime.list/detect/reset`;
+  events `script.run` (queued|running|done|error), `session.state`.
+  `settings.scripts` = `{mode, backend, runtimes.{python,r}.path}`.
+- Renderer: `features/scripts/` (ScriptsPage + ScriptEditor + RunForm +
+  use-scripts), `features/settings/ScriptsSettings.tsx`, `"scripts"`
+  workspace surface. `text-warning`/`text-destructive` tokens, no palette
+  literals (ui-audit).
