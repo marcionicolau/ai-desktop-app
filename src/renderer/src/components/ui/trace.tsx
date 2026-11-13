@@ -92,7 +92,7 @@ function TraceCollapsible({
         >
           {icon ?? <span className="h-2 w-2 rounded-full bg-muted-foreground" />}
         </span>
-        <CollapsibleTrigger className="group flex w-full items-center justify-between gap-2 rounded-sm text-left text-sm outline-none focus-visible:ring-1 focus-visible:ring-ring">
+        <CollapsibleTrigger className="group flex w-full items-center justify-between gap-2 rounded-sm text-left text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <span className="flex min-w-0 items-center gap-2">
             <IconChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=closed]:-rotate-90" />
             <span className="truncate">{title}</span>

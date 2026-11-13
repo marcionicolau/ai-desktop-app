@@ -161,6 +161,14 @@
     color-scheme: light;
   }
 
+  /* feature 026 (FR-011): every focusable element shows a visible focus
+     ring, including raw elements that don't use a shadcn component. shadcn
+     controls set their own ring classes and win by specificity order. */
+  :where(a, button, summary, select, input, textarea, [tabindex]):focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
   /* native widgets (selects, inputs, scrollbars) follow the resolved theme */
   html.dark {
     color-scheme: dark;

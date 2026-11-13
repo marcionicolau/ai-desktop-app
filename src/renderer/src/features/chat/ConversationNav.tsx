@@ -1,3 +1,5 @@
+import { Kbd } from "@/components/ui/kbd";
+import { isMacPlatform, shortcutLabel } from "@/lib/actions";
 import { EmptyState } from "@/components/empty-state";
 import { useEffect, useRef, useState } from "react";
 import { IconDelete, IconDownload, IconNewChat, IconSearch, IconUpload } from "@/components/icons";
@@ -107,6 +109,9 @@ export function ConversationNav({
           onClick={onNew}
         >
           <IconNewChat /> New chat
+          <Kbd className="ml-auto">
+            {shortcutLabel({ key: "n", mod: true }, isMacPlatform())}
+          </Kbd>
         </Button>
         <Button
           variant="ghost"

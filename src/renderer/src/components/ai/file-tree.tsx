@@ -31,7 +31,7 @@ export function FileTreeFolder({
 }) {
   return (
     <Collapsible defaultOpen={defaultOpen} className={className}>
-      <CollapsibleTrigger className="group flex w-full items-center gap-1.5 rounded px-1 py-0.5 text-left outline-none hover:bg-accent focus-visible:ring-1 focus-visible:ring-ring">
+      <CollapsibleTrigger className="group flex w-full items-center gap-1.5 rounded px-1 py-0.5 text-left outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring">
         <IconChevronRight className="size-3.5 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-90" />
         <IconFolder className="size-3.5 shrink-0 text-muted-foreground" />
         <span className="truncate">{name}</span>
@@ -57,7 +57,7 @@ export function FileTreeFile({
       type="button"
       role="treeitem"
       className={cn(
-        "flex w-full items-center gap-1.5 rounded px-1 py-0.5 text-left outline-none hover:bg-accent focus-visible:ring-1 focus-visible:ring-ring",
+        "flex w-full items-center gap-1.5 rounded px-1 py-0.5 text-left outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring",
         active && "bg-accent text-accent-foreground",
         className,
       )}

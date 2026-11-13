@@ -46,7 +46,7 @@ export function ModelSelector({
           type="button"
           disabled={disabled}
           className={cn(
-            "inline-flex h-7 items-center gap-1.5 rounded-md border border-border bg-card px-2 text-xs outline-none transition-colors hover:bg-accent focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50",
+            "inline-flex h-7 items-center gap-1.5 rounded-md border border-border bg-card px-2 text-xs outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50",
             className,
           )}
         >

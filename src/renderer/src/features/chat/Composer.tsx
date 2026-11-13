@@ -254,7 +254,7 @@ export function Composer({
               hasText: value.trim().length > 0,
             })}
           >
-            <Button size="icon" onClick={submit} disabled={!canSend} aria-label="Send message">
+            <Button size="icon" onClick={submit} disabled={!canSend} aria-label="Send message" title="Send (Enter)">
               <IconSend />
             </Button>
           </WithReason>

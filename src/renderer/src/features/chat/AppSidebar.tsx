@@ -1,8 +1,11 @@
 // feature 021 (US4): sidebar-05 app shell — collapsible nav groups for
 // conversations and extensions, plus a footer for app-level surfaces.
 // The conversation list itself lives in ConversationNav (ex-Sidebar).
+import { Button } from "@/components/ui/button";
+import { Kbd } from "@/components/ui/kbd";
+import { isMacPlatform, shortcutLabel } from "@/lib/actions";
 import type { ConversationSummary, WorkspaceTab } from "@shared/types";
-import { IconChat, IconChevronDown, IconExtension, IconFileCode, IconLibrary, IconSettings, IconTags, IconUsers } from "@/components/icons";
+import { IconChat, IconChevronDown, IconExtension, IconFileCode, IconLibrary, IconSettings, IconTags, IconUsers, IconSearch } from "@/components/icons";
 import {
   Collapsible,
   CollapsibleContent,
@@ -28,6 +31,7 @@ interface Props {
   activeId: string | null;
   onSelect: (id: string) => void;
   onNew: () => void;
+  onOpenPalette: () => void;
   onRename: (id: string, title: string) => void;
   onDelete: (id: string) => void;
   onExport: (id: string, format: "markdown" | "json") => Promise<string | null>;
@@ -61,7 +65,7 @@ function NavGroup({
   return (
     <Collapsible defaultOpen={defaultOpen} className="group/navgroup">
       <SidebarGroup className="p-0">
-        <CollapsibleTrigger className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-xs font-medium text-sidebar-foreground/70 outline-none hover:bg-sidebar-accent focus-visible:ring-1 focus-visible:ring-sidebar-ring group-data-[state=collapsed]:hidden">
+        <CollapsibleTrigger className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-xs font-medium text-sidebar-foreground/70 outline-none hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring group-data-[state=collapsed]:hidden">
           {label}
           <IconChevronDown className="size-3.5 transition-transform duration-200 group-data-[state=closed]/navgroup:-rotate-90" />
         </CollapsibleTrigger>
@@ -78,6 +82,7 @@ export function AppSidebar({
   activeId,
   onSelect,
   onNew,
+  onOpenPalette,
   onRename,
   onDelete,
   onExport,
@@ -104,6 +109,18 @@ export function AppSidebar({
         <span className="px-1 text-sm font-semibold group-data-[state=collapsed]:hidden">
           AI Desktop
         </span>
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full justify-start gap-2 text-muted-foreground group-data-[state=collapsed]:hidden"
+          onClick={onOpenPalette}
+          aria-label="Open command palette"
+        >
+          <IconSearch aria-hidden="true" /> Search &amp; commands
+          <Kbd className="ml-auto">
+            {shortcutLabel({ key: "k", mod: true }, isMacPlatform())}
+          </Kbd>
+        </Button>
       </SidebarHeader>
       <SidebarContent>
         <NavGroup label="Chats" defaultOpen>

@@ -81,14 +81,14 @@
 
 **Independent Test**: keyboard only — open a conversation by name, new chat, switch model, open settings, return to chat.
 
-- [ ] T037 [US3] Create `src/renderer/src/lib/actions.ts` with the `ActionEntry` registry and `shortcutLabel()` per `contracts/actions.md` and data-model.md, plus `tests/renderer/actions.test.ts` (unique ids, `available()` reasons) (FR-010)
-- [ ] T038 [US3] Create `src/renderer/src/features/command/CommandPalette.tsx` on shadcn `Command` (groups: Conversations via `search.query` / title filter ≥ 3 chars, Navigate, Actions; arrow/Enter/Esc; focus returns on close) (FR-010, FR-011)
-- [ ] T039 [US3] Add `src/renderer/src/lib/shortcuts.ts` global key handling (`Ctrl/Cmd+K`, `+N`, `+M`, `+,`; existing `+B`) with a conflict check against OS/webview defaults, and confirm or adjust the defaults in `contracts/actions.md` (FR-010)
-- [ ] T040 [US3] Mount the palette in `features/chat/ChatPage.tsx` and add a trigger with `Kbd` hint to `features/chat/AppSidebar.tsx` (FR-010)
-- [ ] T041 [P] [US3] Show the shortcut with `Kbd` beside every action that has one (menus, buttons, tooltips) in `features/chat/{Composer,AppSidebar,MessageList}.tsx` (FR-010)
-- [ ] T042 [P] [US3] Add a shortcuts reference list in `features/settings/ShortcutsSection.tsx` fed by the registry (FR-010)
-- [ ] T043 [US3] Show location (title or breadcrumb) on every workspace surface in `features/chat/ChatPage.tsx` header and `features/workspace/WorkspacePanels.tsx` (FR-012)
-- [ ] T044 [US3] Audit focus order and the visible focus ring on every surface; ensure dialogs trap and restore focus and no keyboard trap exists (`features/**`, `components/ui/dialog.tsx`, `alert-dialog.tsx`) (FR-011)
+- [X] T037 [US3] Create `src/renderer/src/lib/actions.ts` with the `ActionEntry` registry and `shortcutLabel()` per `contracts/actions.md` and data-model.md, plus `tests/renderer/actions.test.ts` (unique ids, `available()` reasons) (FR-010) — *`ACTION_DEFS` + `buildActions(ctx)` (the registry needs live app state, so it is a builder, not a constant)*
+- [X] T038 [US3] Create `src/renderer/src/features/command/CommandPalette.tsx` on shadcn `Command` (groups: Conversations via `search.query` / title filter ≥ 3 chars, Navigate, Actions; arrow/Enter/Esc; focus returns on close) (FR-010, FR-011)
+- [X] T039 [US3] Add `src/renderer/src/lib/shortcuts.ts` global key handling (`Ctrl/Cmd+K`, `+N`, `+M`, `+,`; existing `+B`) with a conflict check against OS/webview defaults, and confirm or adjust the defaults in `contracts/actions.md` (FR-010)
+- [X] T040 [US3] Mount the palette in `features/chat/ChatPage.tsx` and add a trigger with `Kbd` hint to `features/chat/AppSidebar.tsx` (FR-010)
+- [X] T041 [P] [US3] Show the shortcut with `Kbd` beside every action that has one (menus, buttons, tooltips) in `features/chat/{Composer,AppSidebar,MessageList}.tsx` (FR-010)
+- [X] T042 [P] [US3] Add a shortcuts reference list in `features/settings/ShortcutsSection.tsx` fed by the registry (FR-010)
+- [X] T043 [US3] Show location (title or breadcrumb) on every workspace surface in `features/chat/ChatPage.tsx` header and `features/workspace/WorkspacePanels.tsx` (FR-012)
+- [X] T044 [US3] Audit focus order and the visible focus ring on every surface; ensure dialogs trap and restore focus and no keyboard trap exists (`features/**`, `components/ui/dialog.tsx`, `alert-dialog.tsx`) (FR-011) — *code-level audit: global `:focus-visible` ring for raw elements, all `ring-1`/`ring-accent` focus styles raised to `ring-2 ring-ring`; Radix dialogs trap and restore focus; a hands-on keyboard walkthrough is still part of T065*
 
 **Checkpoint**: V4 passes; SC-003 measured in T065.
 

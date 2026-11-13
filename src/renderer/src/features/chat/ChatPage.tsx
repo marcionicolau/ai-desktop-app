@@ -1,8 +1,21 @@
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
+import { breadcrumbFor } from "../workspace/breadcrumb";
+import { ShortcutsSection } from "../settings/ShortcutsSection";
+import { CommandPalette } from "../command/CommandPalette";
+import { buildActions } from "@/lib/actions";
+import { useGlobalShortcuts } from "@/lib/shortcuts";
+import { setThemeMode, useTheme } from "@/lib/theme";
 import { confirm } from "@/lib/confirm";
 import { notify } from "@/lib/notify";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { IconError } from "@/components/icons";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { IconBranch } from "@/components/icons";
 import { useChat } from "./use-chat";
 import { MessageList } from "./MessageList";
@@ -146,6 +159,36 @@ export function ChatPage() {
     setMetricsOpen(v);
     await invoke("settings.set", { outputPanel: v });
   };
+  // feature 026: command palette + global shortcuts over one action registry
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [paletteQuery, setPaletteQuery] = useState("");
+  const openPalette = (q = "") => {
+    setPaletteQuery(q);
+    setPaletteOpen(true);
+  };
+  const { resolved: resolvedTheme } = useTheme();
+  const actions = useMemo(
+    () =>
+      buildActions({
+        select,
+        newChat: () => {
+          select("chat");
+          newConversation();
+        },
+        toggleTheme: () => setThemeMode(resolvedTheme === "dark" ? "light" : "dark"),
+        openPalette,
+        generating: state.generatingId !== null,
+      }),
+    [select, newConversation, resolvedTheme, state.generatingId],
+  );
+  useGlobalShortcuts(actions, (reason) => notify.info(reason));
+
+  const crumbs = breadcrumbFor({
+    selectedId,
+    tabTitle: tabs.find((t) => t.id === selectedId)?.title,
+    conversationTitle: state.conversations.find((c) => c.id === state.conversationId)?.title,
+  });
+
   const { personas, snippets } = usePersonas();
 
   const onPersona = async (name: string | null) => {
@@ -194,6 +237,7 @@ export function ChatPage() {
           select("chat");
           newConversation();
         }}
+        onOpenPalette={() => openPalette()}
         onRename={(id, t) => void renameConversation(id, t)}
         onDelete={(id) => {
           const c = state.conversations.find((x) => x.id === id);
@@ -259,13 +303,40 @@ export function ChatPage() {
         onOpenSettings={() => select("surface:settings")}
         onManageExtensions={() => select("surface:extensions")}
       />
+      <CommandPalette
+        open={paletteOpen}
+        onOpenChange={setPaletteOpen}
+        initialQuery={paletteQuery}
+        actions={actions}
+        conversations={state.conversations}
+        models={boundTags}
+        onUseModel={(tag) =>
+          void (state.mode === "fusion"
+            ? setMode("fusion", state.plannerTag, tag)
+            : applyTag(tag))
+        }
+        onSelectConversation={(id, mid) => {
+          select("chat");
+          void selectConversation(id, mid);
+        }}
+      />
       <SidebarInset>
         <header className="flex flex-wrap items-center justify-between gap-x-4 border-b border-border px-4 py-2">
           <div className="flex min-w-0 items-center gap-2">
             <SidebarTrigger />
-            <h1 className="text-sm font-semibold">
-              {tabs.find((t) => t.id === selectedId)?.title ?? "Chat"}
-            </h1>
+            <Breadcrumb>
+              <BreadcrumbList className="flex-nowrap text-sm">
+                <BreadcrumbItem className="hidden sm:inline-flex">{crumbs.parent}</BreadcrumbItem>
+                <BreadcrumbSeparator className="hidden sm:block" />
+                <BreadcrumbItem className="min-w-0">
+                  <h1 className="contents">
+                    <BreadcrumbPage className="max-w-[16rem] truncate font-semibold" title={crumbs.current}>
+                      {crumbs.current}
+                    </BreadcrumbPage>
+                  </h1>
+                </BreadcrumbItem>
+              </BreadcrumbList>
+            </Breadcrumb>
             {/* feature 006 (FR-006): per-conversation persona badge/select */}
             <select
               value={state.personaName ?? ""}
@@ -494,6 +565,7 @@ export function ChatPage() {
           <ScriptsSettings />
           <UpdatesSection />
           <DataPanel />
+          <ShortcutsSection />
         </div>
         <div
           className="flex min-h-0 flex-1 flex-col overflow-y-auto"
