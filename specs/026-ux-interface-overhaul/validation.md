@@ -13,7 +13,7 @@ feature branch (T065).
 | --- | ---------- | ------------------------ | -------- | ------------------- | ---- | ----------------------- |
 | 1   | 13-11-2026 | baseline                 | 10.5s    | 1                   | Ok   |                         |
 | 2   | 13-11-2026 | baseline                 | 9.4s     | 4                   | Ok   | Wrong Characters showed |
-| 3–6 | —          | baseline                 | —        | —                   | —    | *owner: complete baseline* |
+| 3–6 | —          | baseline                 | —        | —                   | —    | *skipped — owner decision 2026-11-13; steps 1–2 recorded before the merge window remain the reference* |
 | 1–6 | —          | final                    | —        | —                   | —    | *owner: T065*           |
 
 ## Success-criteria evidence map
