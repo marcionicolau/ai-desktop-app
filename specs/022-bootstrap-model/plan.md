@@ -38,3 +38,18 @@ no new deps ✓ · `.part` protocol ✓ · tests via injected deps ✓.
 
 See tasks.md — 10 tasks: extract download core → SetupService →
 contract → handlers+wiring → renderer panel → tests.
+
+## Constitution Check
+
+- I Local-first inference: network is used only to fetch a GGUF file
+  (FR-009); all inference stays local via llama.cpp FFI. PASS.
+- II Process boundaries: `setup.status`/`setup.retry` and the
+  `setup.status` event go through the shared typed RPC contract. PASS.
+- III Strict TS: `SetupState`/`SetupPhase` typed in `shared/types.ts`. PASS.
+- IV/V Renderer: `SetupPanel` uses existing shadcn components; no build
+  pipeline changes. PASS.
+- VI Minimal deps: reuses the extracted `models/download.ts`; no new
+  packages. PASS.
+
+Known gap: FR-009 (no network use beyond the model file) has no dedicated
+test; it holds by construction (single `downloadGguf` call site).
