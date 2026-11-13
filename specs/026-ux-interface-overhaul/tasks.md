@@ -154,7 +154,7 @@
 - [X] T067 Write `specs/026-ux-interface-overhaul/validation.md` mapping SC-001…SC-009 to evidence (SC-007: checklist of all user-initiated actions with progress and recovery) (SC-001–SC-009) — *map covers SC-001…SC-011; automated criteria cite the passing test/measurement evidence, owner-run criteria (walkthrough, axe, screen reader, resize matrix, leftovers) are staged with pending tables*
 - [X] T068 Add the feature 026 section to `AGENTS.md` (tokens, `icons.ts`, `notify.ts`, `confirm.tsx`, `actions.ts`, density, audit rules) and update the 021 note on the superseded visual identity
 - [X] T069 Run all gates: `bun run typecheck`, `bun run lint`, `bun test ./tests`, `bun run build:renderer` (SC-008); remove the superseded icon/font dependencies and note it in the PR — *all green 2026-11-13: tsc clean, oxlint warnings only, 592/592 tests, vite build 819 ms; lucide/old fontsource already absent from package.json*
-- [ ] T070 Open the PR with `.github/pull_request_template.md`, listing slices merged and the added dependencies (`sonner`, `cmdk`) with justification
+- [X] T070 Open the PR with `.github/pull_request_template.md`, listing slices merged and the added dependencies (`sonner`, `cmdk`) with justification — *PR #40: https://github.com/marcionicolau/causerie/pull/40*
 
 ## Dependencies & Execution Order
 
