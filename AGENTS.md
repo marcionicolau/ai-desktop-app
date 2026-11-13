@@ -99,7 +99,7 @@ events `chat.phase`, `chat.token{phase}`, `chat.done.stats{plan,answer,total}`,
 `role.changed`.
 
 Renderer additions: `features/roles/` (`use-roles`, `RolesPanel`,
-`TagEditor`, `FusionControls`); `use-chat` reducer is phase-aware
+`TagEditor`; fusion mode/model choice moved to `features/chat/ChatSetup` in feature 026); `use-chat` reducer is phase-aware
 (plan tokens → `phases.plan.content`, `servedBy` badges).
 
 Gotchas:
@@ -239,10 +239,12 @@ draft-side; `MessageList` renders `Message.attachments` chips (`·trunc` /
   matches surface as `{titleMatched, hits:[]}`.
 - Index freshness depends on `updatedAt` — every mutation (incl.
   `chat.done`/`chat.error` persists) must bump it.
-- Renderer: Sidebar search box (≥3 chars flips to results, 250 ms
-  debounce, seq-guard for stale responses, `<3` = title filter); hit
-  click → `selectConversation(cid, mid)` → `scrollTarget` →
-  `MessageList` `scrollIntoView` + 2 s ring flash.
+- Renderer: search lives in the command palette (feature 026, `Ctrl/Cmd+K`;
+  `features/command/CommandPalette.tsx`): titles filter instantly, ≥3 chars
+  also queries `search.query` (250 ms debounce, seq-guard for stale
+  responses) and shows highlighted snippets; selecting a hit →
+  `selectConversation(cid, mid)` → `scrollTarget` → `MessageList`
+  `scrollIntoView` + 2 s ring flash. The old sidebar search box was removed.
 
 ## Feature 010 — KV-state persistence
 
@@ -439,8 +441,10 @@ draft-side; `MessageList` renders `Message.attachments` chips (`·trunc` /
   `settings.set` param — validated, not persisted) so main can
   `pushTheme` to extension views. Tokens live in `index.css` `:root`/
   `.dark` + `@theme inline`; semantic `--success/--warning/--info`.
-  Fontsource variable fonts (Public Sans/Geist/JetBrains Mono) +
   `typeset.css` (shadcn typeset, `.typeset` scope, `.not-typeset` opt-out).
+  **Visual identity superseded by feature 026** — palette, fonts and
+  icon family below are stale; see the 026 section for the "Midnight"
+  tokens, DM Sans/Fira Code and Remix.
 - Shell: `SidebarProvider` > `AppSidebar` (Chats/Extensions/
   Configurations NavGroups + footer ThemeSettings) + `SidebarInset`
   (header w/ `SidebarTrigger` + panel title + `ModelSelector` pair in
@@ -523,3 +527,51 @@ draft-side; `MessageList` renders `Message.attachments` chips (`·trunc` /
   use-scripts), `features/settings/ScriptsSettings.tsx`, `"scripts"`
   workspace surface. `text-warning`/`text-destructive` tokens, no palette
   literals (ui-audit).
+
+## Feature 026 — interface usability overhaul ("Midnight")
+
+- Visual direction (Gate G0, `specs/026/research.md` R1): blue-slate
+  neutrals + violet accent, DM Sans (UI/reading) + Fira Code variable,
+  `@remixicon/react`. Supersedes 021's identity.
+- `components/icons.ts` is the ONLY icon import site — one named export
+  per concept; `ICON_SIZE` = sm 3.5 / md 4 / lg 5. Feature code imports
+  `IconX` from `@/components/icons`, never the package.
+- Design tokens in `index.css`: `--control-h-{sm,md,lg}` (≥32 px primary),
+  `--hit-min` (≥24 px), `--row-pad` (list-row padding), semantic
+  `--success/--warning/--info` + `-foreground` roles.
+  `[data-density="compact"]` overrides the same tokens —
+  `Settings.density` ("comfortable"|"compact", absent ⇒ comfortable)
+  persists via `settings.set`; `lib/density.ts` mirrors `lib/theme.ts`.
+  OS prefs: `prefers-reduced-motion` zeroes all durations,
+  `prefers-contrast: more` swaps a stronger token set, `forced-colors`
+  maps border/ring to system colors.
+- Feedback layer: `lib/notify.ts` (success/error/progress over Sonner —
+  the only transient-feedback path; error toasts persist, long
+  descriptions clamp to 3 lines w/ full text on `title`);
+  `lib/confirm.tsx` (`confirm({title,itemName,consequence})` over
+  AlertDialog — required for every destructive action);
+  `Empty`/`Spinner`/`Alert`/`Field` primitives; live region in
+  `MessageList` announces reply completion.
+- Navigation: `lib/actions.ts` `buildActions(ctx)` registry →
+  `features/command/CommandPalette.tsx` (Ctrl/Cmd+K; Actions / Models /
+  Go to / Conversations / message-content hits via `search.query`,
+  250 ms debounce + seq-guard); `lib/shortcuts.ts` global keys
+  (+N new chat, +M switch model, +, settings, +B sidebar);
+  `features/settings/ShortcutsSection.tsx` lists them.
+- Header de-duplication (US6): `features/chat/ChatSetup.tsx` is the only
+  place mode/model(s)/persona are chosen (`FusionControls.tsx` deleted);
+  fit status is a compact badge.
+- Resizable layout: `lib/layout.ts` (per-panel size/collapse specs,
+  clamped reads, reset event); sidebar drag handle in `ui/sidebar.tsx`
+  (208–480 px, arrows/Home/End/Enter); `ChatColumn` = vertical
+  resizable group (messages/composer/metrics) via
+  `react-resizable-panels` shadcn `Resizable`; sidebar auto-collapses
+  to the icon rail once per `matchMedia("(max-width: 896px)")` crossing.
+- `tests/ui-audit.test.ts` enforces five feature-026 rules as errors:
+  no `text-[Npx]`, no `size-3`, icons only via `icons.ts`, no native
+  select/checkbox/radio/range outside `ui/`, no `fixed inset`/`role=
+  dialog` overlays. `tests/ui-contrast.test.ts` asserts WCAG AA on every
+  token pair in light/dark/`prefers-contrast`; `tests/ui-tokens.test.ts`
+  asserts control/hit minimums + reduced-motion collapse.
+- 800 × 600 is a tested floor, not enforced — Electrobun has no
+  min-window-size API (`docs/window-size.md`, R7).

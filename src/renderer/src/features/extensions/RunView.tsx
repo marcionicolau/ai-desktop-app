@@ -2,6 +2,7 @@
 // live run.event/run.status updates and cancellation (FR-010/FR-011).
 // T050: per-step input/output rendering and artifact values.
 // feature 021: steps rendered via ai-elements Task/Queue/Subagent recipes.
+import { EmptyState } from "@/components/empty-state";
 import { useEffect, useState } from "react";
 import type { RunRecord, RunSummary } from "@shared/types";
 import { invoke, on } from "@/lib/rpc";
@@ -75,7 +76,9 @@ export function RunView({ focusRunId }: { focusRunId: string | null }) {
       <div className="flex gap-3">
         <ul className="max-h-56 w-64 shrink-0 space-y-0.5 overflow-auto">
           {runs.length === 0 && (
-            <li className="text-xs text-muted-foreground">No runs yet.</li>
+            <li>
+              <EmptyState compact title="No runs yet" description="Start a run from the workspace." />
+            </li>
           )}
           {runs.toReversed().map((r) => (
             <li key={r.id}>
@@ -116,7 +119,7 @@ export function RunView({ focusRunId }: { focusRunId: string | null }) {
               )}
             </div>
             <Queue
-              className="max-h-56 overflow-auto rounded border border-border bg-card p-2 text-[11px]"
+              className="max-h-56 overflow-auto rounded border border-border bg-card p-2 text-2xs"
               data-testid="trace-view"
             >
               <Subagent
@@ -144,7 +147,7 @@ export function RunView({ focusRunId }: { focusRunId: string | null }) {
                     status={STEP_STATUS[t.status] ?? "queued"}
                   >
                     {(t.input !== undefined || t.output !== undefined) && (
-                      <div className="mt-0.5 space-y-0.5 font-mono text-[10px]">
+                      <div className="mt-0.5 space-y-0.5 font-mono text-2xs">
                         {t.input !== undefined && (
                           <div className="text-muted-foreground">
                             in: {JSON.stringify(t.input).slice(0, 200)}

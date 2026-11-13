@@ -1,4 +1,5 @@
-import { Monitor, Moon, Sun } from "lucide-react";
+import { DENSITIES, setDensity, useDensity } from "@/lib/density";
+import { IconDark, IconLight, IconSystem } from "@/components/icons";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -11,16 +12,17 @@ import {
 import { setThemeMode, useTheme } from "@/lib/theme";
 import type { ThemeMode } from "../../../../shared/types";
 
-const MODES: { id: ThemeMode; label: string; icon: typeof Sun }[] = [
-  { id: "light", label: "Light", icon: Sun },
-  { id: "dark", label: "Dark", icon: Moon },
-  { id: "system", label: "System", icon: Monitor },
+const MODES: { id: ThemeMode; label: string; icon: typeof IconLight }[] = [
+  { id: "light", label: "Light", icon: IconLight },
+  { id: "dark", label: "Dark", icon: IconDark },
+  { id: "system", label: "System", icon: IconSystem },
 ];
 
 // feature 021 (FR-009): persisted theme control — light/dark/system.
 // Rendered as a compact icon button (sidebar footer) or a labeled row.
 export function ThemeSettings({ compact }: { compact?: boolean }) {
   const { themeMode } = useTheme();
+  const density = useDensity();
   const Current = MODES.find((m) => m.id === themeMode) ?? MODES[2]!;
   return (
     <DropdownMenu>
@@ -28,7 +30,7 @@ export function ThemeSettings({ compact }: { compact?: boolean }) {
         <button
           type="button"
           className={cn(
-            "flex items-center gap-2 rounded-md p-2 text-sm outline-none hover:bg-sidebar-accent focus-visible:ring-1 focus-visible:ring-ring",
+            "flex items-center gap-2 rounded-md p-2 text-sm outline-none hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-ring",
             compact ? "justify-center" : "w-full text-left group-data-[state=collapsed]:justify-center",
           )}
           aria-label="Theme"
@@ -42,7 +44,7 @@ export function ThemeSettings({ compact }: { compact?: boolean }) {
           )}
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent side="right" align="end" className="w-36">
+      <DropdownMenuContent side="right" align="end" className="w-40">
         <DropdownMenuLabel className="text-xs">Theme</DropdownMenuLabel>
         <DropdownMenuSeparator />
         {MODES.map((m) => (
@@ -53,6 +55,17 @@ export function ThemeSettings({ compact }: { compact?: boolean }) {
           >
             <m.icon className="size-4" />
             {m.label}
+          </DropdownMenuItem>
+        ))}
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel className="text-xs">Density</DropdownMenuLabel>
+        {DENSITIES.map((d) => (
+          <DropdownMenuItem
+            key={d}
+            onSelect={() => setDensity(d)}
+            className={cn(density === d && "bg-accent")}
+          >
+            {d === "compact" ? "Compact" : "Comfortable"}
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>

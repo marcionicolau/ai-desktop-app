@@ -1,6 +1,8 @@
 // feature 015 (T020): local tool policy — sandbox root picker plus
 // approval mode. "Allow reads this session" grants are per-conversation,
 // memory-only (FR-004); switching conversations prompts again.
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useEffect, useState } from "react";
 import type { ToolPolicy } from "@shared/types";
 import { invoke } from "@/lib/rpc";
@@ -45,11 +47,11 @@ export function ToolSettings() {
   };
 
   return (
-    <div className="border-b border-border bg-muted/40 px-4 py-3">
+    <section id="settings-tools" aria-labelledby="tools-heading" className="border-b border-border bg-muted/40 px-4 py-3">
       <div className="mx-auto flex max-w-2xl flex-col gap-2">
-        <span className="text-xs font-medium text-muted-foreground">
+        <h2 id="tools-heading" className="text-xs font-medium text-muted-foreground">
           Local tools — model may read files inside the sandbox root
-        </span>
+        </h2>
         <div className="flex items-center gap-2">
           <span
             className="min-w-0 flex-1 truncate font-mono text-xs"
@@ -76,26 +78,27 @@ export function ToolSettings() {
             </Button>
           )}
         </div>
-        <div className="flex flex-wrap items-center gap-3">
+        <RadioGroup
+          aria-label="When the model asks to read a file"
+          value={policy.mode}
+          disabled={busy}
+          onValueChange={(v) => void save({ mode: v as typeof policy.mode })}
+          className="flex flex-wrap items-center gap-x-4 gap-y-1.5"
+        >
           {MODES.map((m) => (
-            <label
-              key={m.value}
-              className="flex items-center gap-1.5 text-xs"
-            >
-              <input
-                type="radio"
-                name="tool-mode"
-                checked={policy.mode === m.value}
-                disabled={busy}
-                onChange={() => void save({ mode: m.value })}
-              />
+            <label key={m.value} className="flex items-center gap-1.5 text-xs">
+              <RadioGroupItem value={m.value} />
               {m.label}
               <span className="text-muted-foreground">({m.hint})</span>
             </label>
           ))}
-        </div>
-        {error && <span className="text-xs text-destructive">{error}</span>}
+        </RadioGroup>
+        {error && (
+          <Alert variant="destructive" className="px-3 py-2 text-xs">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
       </div>
-    </div>
+    </section>
   );
 }

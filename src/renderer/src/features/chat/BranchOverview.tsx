@@ -1,5 +1,5 @@
 import type { Message } from "@shared/types";
-import { Undo2 } from "lucide-react";
+import { IconUndo } from "@/components/icons";
 import {
   Checkpoint,
   CheckpointIcon,
@@ -42,7 +42,7 @@ export function BranchOverview({ branches, pathIds, onSelect, onClose }: Props) 
             key={b.parentId ?? "root"}
             className="rounded border border-border bg-background px-2 py-1"
           >
-            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+            <div className="text-2xs uppercase tracking-wide text-muted-foreground">
               {b.variants.length} variants
             </div>
             <div className="mt-1 flex flex-col gap-1">
@@ -75,7 +75,7 @@ export function BranchOverview({ branches, pathIds, onSelect, onClose }: Props) 
                       title="Return to this checkpoint"
                       onClick={() => onSelect(v.id)}
                     >
-                      <Undo2 className="h-3.5 w-3.5" />
+                      <IconUndo className="h-3.5 w-3.5" />
                     </CheckpointTrigger>
                   </Checkpoint>
                 );

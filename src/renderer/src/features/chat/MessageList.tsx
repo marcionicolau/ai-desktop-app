@@ -1,5 +1,7 @@
+import { EmptyState } from "@/components/empty-state";
+import { IconChat } from "@/components/icons";
 import { useEffect, useRef, useState } from "react";
-import { Paperclip } from "lucide-react";
+import { IconAttach } from "@/components/icons";
 import type { Message as Msg } from "@shared/types";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
@@ -45,6 +47,25 @@ export function MessageList({
   const [draft, setDraft] = useState("");
   const [flashId, setFlashId] = useState<string | null>(null);
 
+  // FR-022: announce when a reply finishes or is stopped, via a polite live
+  // region. The streamed text itself is not announced token by token.
+  const [announcement, setAnnouncement] = useState("");
+  const wasGenerating = useRef(false);
+  useEffect(() => {
+    if (wasGenerating.current && !generating) {
+      const last = [...messages].reverse().find((m) => m.role === "assistant");
+      setAnnouncement(
+        last?.status === "failed"
+          ? "The reply failed."
+          : last?.status === "partial"
+            ? "The reply was stopped."
+            : "Reply complete.",
+      );
+    }
+    if (generating) setAnnouncement("");
+    wasGenerating.current = generating;
+  }, [generating, messages]);
+
   // scroll anchoring (ai-elements chat recipe): follow the tail only
   // while the user is pinned near the bottom; reading earlier turns
   // while streaming must not yank the view
@@ -79,11 +100,16 @@ export function MessageList({
 
   return (
     <ScrollArea className="flex-1" ref={rootRef} onScrollCapture={trackPin}>
+      <div role="status" aria-live="polite" className="sr-only">
+        {announcement}
+      </div>
       <div className="mx-auto flex max-w-2xl flex-col gap-4 px-4 py-6">
         {messages.length === 0 && (
-          <p className="text-center text-sm text-muted-foreground">
-            Send a message to start the conversation.
-          </p>
+          <EmptyState
+            icon={IconChat}
+            title="No messages yet"
+            description="Send a message to start the conversation."
+          />
         )}
         {messages.map((m, i) => {
           const isLast = i === messages.length - 1;
@@ -104,12 +130,12 @@ export function MessageList({
                       <span
                         key={a.id}
                         className={cn(
-                          "inline-flex items-center gap-1 rounded bg-background/40 px-1.5 py-0.5 text-[11px]",
+                          "inline-flex items-center gap-1 rounded bg-background/40 px-1.5 py-0.5 text-2xs",
                           a.status === "excluded" && "opacity-50 line-through",
                         )}
                         title={`${a.fileName} · ${a.status}`}
                       >
-                        <Paperclip className="size-3" />
+                        <IconAttach className="size-3.5" />
                         <span className="max-w-28 truncate">{a.fileName}</span>
                         {a.status === "truncated" && "·trunc"}
                         {a.status === "excluded" && "·skipped"}

@@ -1,6 +1,9 @@
 // feature 013 (US2): update preferences — enabled toggle, channel
 // select, manual check, current version/channel. dev builds surface
 // the disabled state (updates are a packaged-build feature).
+import { SelectField } from "@/components/select-field";
+import { Switch } from "@/components/ui/switch";
+import { WithReason } from "@/components/with-reason";
 import { useEffect, useState } from "react";
 import { invoke } from "@/lib/rpc";
 import { Button } from "@/components/ui/button";
@@ -54,10 +57,10 @@ export function UpdatesSection() {
     view != null && channel !== view.current.channel && !isDev;
 
   return (
-    <div className="border-b border-border bg-muted/40 px-4 py-3">
+    <section id="settings-updates" aria-labelledby="updates-heading" className="border-b border-border bg-muted/40 px-4 py-3">
       <div className="mx-auto flex max-w-2xl flex-col gap-2">
         <div className="flex items-center justify-between">
-          <span className="text-xs text-muted-foreground">Updates</span>
+          <h2 id="updates-heading" className="text-xs font-medium text-muted-foreground">Updates</h2>
           <span className="text-xs text-muted-foreground">
             v{view?.current.version ?? "…"} · {view?.current.channel ?? "…"}
             {view?.lastCheckedAt &&
@@ -65,37 +68,36 @@ export function UpdatesSection() {
           </span>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <label className="flex items-center gap-1.5 text-xs">
-            <input
-              type="checkbox"
-              checked={enabled}
-              disabled={isDev}
-              onChange={(e) => {
-                setEnabled(e.target.checked);
-                void save({ enabled: e.target.checked });
-              }}
-            />
-            Automatic checks
-          </label>
-          <label className="flex items-center gap-1.5 text-xs">
-            Channel
-            <select
-              className="rounded border border-border bg-background px-1.5 py-0.5 text-xs"
-              value={channel}
-              disabled={isDev}
-              onChange={(e) => {
-                const c = e.target.value as UpdateChannel;
-                setChannel(c);
-                void save({ channel: c });
-              }}
-            >
-              {CHANNELS.map((c) => (
-                <option key={c.value} value={c.value}>
-                  {c.label}
-                </option>
-              ))}
-            </select>
-          </label>
+          <WithReason reason={isDev ? "Updates are disabled on dev builds" : undefined}>
+            <label className="flex items-center gap-2 text-xs">
+              <Switch
+                checked={enabled}
+                disabled={isDev}
+                onCheckedChange={(v) => {
+                  setEnabled(v);
+                  void save({ enabled: v });
+                }}
+              />
+              Automatic checks
+            </label>
+          </WithReason>
+          <WithReason reason={isDev ? "Updates are disabled on dev builds" : undefined}>
+            <div className="flex items-center gap-1.5 text-xs">
+              <span id="update-channel-label">Channel</span>
+              <SelectField
+                aria-label="Update channel"
+                className="w-32"
+                value={channel}
+                disabled={isDev}
+                options={CHANNELS.map((c) => ({ value: c.value, label: c.label }))}
+                onValueChange={(v) => {
+                  const c = v as UpdateChannel;
+                  setChannel(c);
+                  void save({ channel: c });
+                }}
+              />
+            </div>
+          </WithReason>
           <Button
             size="sm"
             variant="secondary"
@@ -119,6 +121,6 @@ export function UpdatesSection() {
         )}
         {note && <p className="text-xs text-muted-foreground/80">{note}</p>}
       </div>
-    </div>
+    </section>
   );
 }

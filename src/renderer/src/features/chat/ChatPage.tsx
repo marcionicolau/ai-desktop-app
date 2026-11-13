@@ -1,5 +1,27 @@
-import { useEffect, useRef, useState } from "react";
-import { GitBranch } from "lucide-react";
+import { toggleDensity, useDensity } from "@/lib/density";
+import { SettingsPage } from "../settings/SettingsPage";
+import { LayoutSection } from "../settings/LayoutSection";
+import { resetLayout } from "@/lib/layout";
+import { ChatColumn } from "./ChatColumn";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
+import { breadcrumbFor } from "../workspace/breadcrumb";
+import { ShortcutsSection } from "../settings/ShortcutsSection";
+import { CommandPalette } from "../command/CommandPalette";
+import { buildActions } from "@/lib/actions";
+import { useGlobalShortcuts } from "@/lib/shortcuts";
+import { setThemeMode, useTheme } from "@/lib/theme";
+import { confirm } from "@/lib/confirm";
+import { notify } from "@/lib/notify";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { IconError, IconWarning } from "@/components/icons";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { IconBranch } from "@/components/icons";
 import { useChat } from "./use-chat";
 import { MessageList } from "./MessageList";
 import { BranchOverview } from "./BranchOverview";
@@ -10,7 +32,6 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-import { ModelSelector } from "@/components/ai/model-selector";
 import { useRoles } from "../roles/use-roles";
 import { ModelLibrary } from "../models/ModelLibrary";
 import { SetupPanel } from "../setup/SetupPanel";
@@ -22,7 +43,9 @@ import { UpdatesSection } from "../settings/UpdatesSection";
 import { UpdateBanner } from "../update/UpdateBanner";
 import { DataPanel } from "../settings/DataPanel";
 import { RolesPanel } from "../roles/RolesPanel";
-import { FusionControls } from "../roles/FusionControls";
+import { ChatSetup } from "./ChatSetup";
+import { unboundRoles } from "./chat-setup";
+import { Switch } from "@/components/ui/switch";
 import { PersonasPanel } from "../personas/PersonasPanel";
 import { ScriptsPage } from "../scripts/ScriptsPage";
 import { ScriptsSettings } from "../settings/ScriptsSettings";
@@ -59,6 +82,8 @@ export function ChatPage() {
     selectVariant,
   } = useChat();
   const modelReady = state.modelStatus === "ready";
+  // recovery target for the "last message failed" alert (FR-002)
+  const lastAssistant = [...path].reverse().find((m) => m.role === "assistant");
   // feature 021: header model selectors list bound role tags; single mode
   // applies via role.resolve → loadModel, fusion re-picks via setMode
   const { tags: roleTags } = useRoles();
@@ -79,6 +104,15 @@ export function ChatPage() {
     await loadModel(r.resolved.path);
   };
   const [branchesOpen, setBranchesOpen] = useState(false);
+  // errors from changing mode/models are shown as one inline alert (FR-023)
+  const [setupError, setSetupError] = useState<string | null>(null);
+  useEffect(() => setSetupError(null), [state.mode, state.plannerTag, state.executorTag]);
+  const unbound = unboundRoles(
+    state.mode,
+    state.plannerTag,
+    state.executorTag,
+    boundTags.map((t) => t.id),
+  );
   // feature 006: preferred-tag offer from conversation.setPersona —
   // suggestion only; the user applies or dismisses
   const [tagOffer, setTagOffer] = useState<string | null>(null);
@@ -140,6 +174,42 @@ export function ChatPage() {
     setMetricsOpen(v);
     await invoke("settings.set", { outputPanel: v });
   };
+  // feature 026: command palette + global shortcuts over one action registry
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [paletteQuery, setPaletteQuery] = useState("");
+  const openPalette = (q = "") => {
+    setPaletteQuery(q);
+    setPaletteOpen(true);
+  };
+  const { resolved: resolvedTheme } = useTheme();
+  useDensity(); // applies the saved density at startup
+  const actions = useMemo(
+    () =>
+      buildActions({
+        select,
+        newChat: () => {
+          select("chat");
+          newConversation();
+        },
+        toggleTheme: () => setThemeMode(resolvedTheme === "dark" ? "light" : "dark"),
+        toggleDensity,
+        resetLayout: () => {
+          resetLayout();
+          notify.success("Panel layout reset");
+        },
+        openPalette,
+        generating: state.generatingId !== null,
+      }),
+    [select, newConversation, resolvedTheme, state.generatingId],
+  );
+  useGlobalShortcuts(actions, (reason) => notify.info(reason));
+
+  const crumbs = breadcrumbFor({
+    selectedId,
+    tabTitle: tabs.find((t) => t.id === selectedId)?.title,
+    conversationTitle: state.conversations.find((c) => c.id === state.conversationId)?.title,
+  });
+
   const { personas, snippets } = usePersonas();
 
   const onPersona = async (name: string | null) => {
@@ -188,17 +258,55 @@ export function ChatPage() {
           select("chat");
           newConversation();
         }}
+        onOpenPalette={() => openPalette()}
         onRename={(id, t) => void renameConversation(id, t)}
-        onDelete={(id) => void deleteConversation(id)}
-        onExport={(id, f) => exportConversation(id, f)}
-        onImport={async () => {
-          const r = await importConversation();
-          if (r) select("chat");
-          return r;
+        onDelete={(id) => {
+          const c = state.conversations.find((x) => x.id === id);
+          void (async () => {
+            const ok = await confirm({
+              title: "Delete conversation",
+              itemName: c?.title || "Untitled chat",
+              consequence: "Its messages and attachments are removed permanently.",
+            });
+            if (!ok) return;
+            try {
+              await deleteConversation(id);
+              notify.success("Conversation deleted");
+            } catch (e) {
+              notify.error("Could not delete the conversation", {
+                description: e instanceof Error ? e.message : String(e),
+                action: { label: "Retry", run: () => void deleteConversation(id) },
+              });
+            }
+          })();
         }}
-        onSelectHit={(cid, mid) => {
-          select("chat");
-          void selectConversation(cid, mid);
+        onExport={async (id, f) => {
+          try {
+            const path = await exportConversation(id, f);
+            if (path) notify.success("Conversation exported", { description: path });
+            return path;
+          } catch (e) {
+            notify.error("Export failed", {
+              description: e instanceof Error ? e.message : String(e),
+              action: { label: "Retry", run: () => void exportConversation(id, f) },
+            });
+            return null;
+          }
+        }}
+        onImport={async () => {
+          try {
+            const r = await importConversation();
+            if (r) {
+              select("chat");
+              notify.success("Conversation imported");
+            }
+            return r;
+          } catch (e) {
+            notify.error("Import failed", {
+              description: e instanceof Error ? e.message : String(e),
+            });
+            return null;
+          }
         }}
         workspaceTabs={tabs}
         selectedTabId={selectedId}
@@ -212,59 +320,60 @@ export function ChatPage() {
         onOpenSettings={() => select("surface:settings")}
         onManageExtensions={() => select("surface:extensions")}
       />
+      <CommandPalette
+        open={paletteOpen}
+        onOpenChange={setPaletteOpen}
+        initialQuery={paletteQuery}
+        actions={actions}
+        conversations={state.conversations}
+        models={boundTags}
+        onUseModel={(tag) =>
+          void (state.mode === "fusion"
+            ? setMode("fusion", state.plannerTag, tag)
+            : applyTag(tag))
+        }
+        onSelectConversation={(id, mid) => {
+          select("chat");
+          void selectConversation(id, mid);
+        }}
+      />
       <SidebarInset>
-        <header className="flex flex-wrap items-center justify-between gap-x-4 border-b border-border px-4 py-2">
+        <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5 border-b border-border px-4 py-2">
           <div className="flex min-w-0 items-center gap-2">
             <SidebarTrigger />
-            <h1 className="text-sm font-semibold">
-              {tabs.find((t) => t.id === selectedId)?.title ?? "Chat"}
-            </h1>
-            {/* feature 006 (FR-006): per-conversation persona badge/select */}
-            <select
-              value={state.personaName ?? ""}
-              onChange={(e) => void onPersona(e.target.value || null)}
-              className="h-7 max-w-36 rounded border border-border bg-background px-1.5 text-xs"
-              title="Persona for this conversation"
-              aria-label="Persona"
-            >
-              <option value="">No persona</option>
-              {personas.map((p) => (
-                <option key={p.name} value={p.name}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
+            <Breadcrumb>
+              <BreadcrumbList className="flex-nowrap text-sm">
+                <BreadcrumbItem className="hidden sm:inline-flex">{crumbs.parent}</BreadcrumbItem>
+                <BreadcrumbSeparator className="hidden sm:block" />
+                <BreadcrumbItem className="min-w-0">
+                  <h1 className="contents">
+                    <BreadcrumbPage className="max-w-[16rem] truncate font-semibold" title={crumbs.current}>
+                      {crumbs.current}
+                    </BreadcrumbPage>
+                  </h1>
+                </BreadcrumbItem>
+              </BreadcrumbList>
+            </Breadcrumb>
           </div>
-          <div className="flex min-w-0 items-center gap-1">
-            {state.mode === "fusion" ? (
-              <>
-                <ModelSelector
-                  label="Planner"
-                  value={state.plannerTag}
-                  options={boundTags}
-                  onSelect={(t) => void setMode("fusion", t, state.executorTag)}
-                  onManage={() => select("surface:roles")}
-                  disabled={state.generatingId !== null}
-                />
-                <ModelSelector
-                  label="Executor"
-                  value={state.executorTag}
-                  options={boundTags}
-                  onSelect={(t) => void setMode("fusion", state.plannerTag, t)}
-                  onManage={() => select("surface:roles")}
-                  disabled={state.generatingId !== null}
-                />
-              </>
-            ) : (
-              <ModelSelector
-                label="Model"
-                value={modelTagName}
-                options={boundTags}
-                onSelect={(t) => void applyTag(t)}
-                onManage={() => select("surface:models")}
-                disabled={state.generatingId !== null}
-              />
-            )}
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            {/* feature 026 (FR-023): mode, models and persona live here only */}
+            <ChatSetup
+              mode={state.mode}
+              plannerTag={state.plannerTag}
+              executorTag={state.executorTag}
+              modelTagName={modelTagName}
+              boundTags={boundTags}
+              personas={personas}
+              personaName={state.personaName ?? null}
+              generating={state.generatingId !== null}
+              onSetMode={setMode}
+              onApplyTag={applyTag}
+              onPersona={onPersona}
+              onManageRoles={() => select("surface:roles")}
+              onManageModels={() => select("surface:models")}
+              onError={setSetupError}
+              onUnbound={() => select("surface:roles")}
+            />
             <Button
               variant="ghost"
               size="icon"
@@ -273,17 +382,13 @@ export function ChatPage() {
               disabled={branches.length === 0}
               onClick={() => setBranchesOpen((v) => !v)}
             >
-              <GitBranch className="h-4 w-4" />
+              <IconBranch className="h-4 w-4" />
             </Button>
-            <label
-              className="flex cursor-pointer items-center gap-1 px-1 text-xs"
-              title="Output metrics panel"
-            >
-              <input
-                type="checkbox"
+            <label htmlFor="metrics-switch" className="flex cursor-pointer items-center gap-1.5 text-xs">
+              <Switch
+                id="metrics-switch"
                 checked={metricsOpen}
-                onChange={(e) => void toggleMetrics(e.target.checked)}
-                aria-label="Output metrics panel"
+                onCheckedChange={(v) => void toggleMetrics(v)}
               />
               Metrics
             </label>
@@ -304,7 +409,7 @@ export function ChatPage() {
           onCrash={markCrashed}
           onRecovered={clearCrashed}
           chat={
-            <>
+            <ChatColumn metricsOpen={metricsOpen} metrics={<OutputPanel open />}>
               <UpdateBanner generating={state.generatingId !== null} />
               {tagOffer && (
                 <div className="flex items-center justify-center gap-2 border-b border-border bg-muted px-4 py-2 text-xs">
@@ -334,28 +439,56 @@ export function ChatPage() {
                 </button>
               )}
               {state.modelStatus === "error" && (
-                <div className="border-b border-border bg-destructive px-4 py-2 text-center text-sm text-destructive">
-                  Model failed to load
-                  {state.modelError ? `: ${state.modelError}` : ""}
-                </div>
+                <Alert variant="destructive" className="rounded-none border-x-0 border-t-0">
+                  <IconError aria-hidden="true" />
+                  <AlertTitle>Model failed to load</AlertTitle>
+                  <AlertDescription className="flex flex-wrap items-center gap-2">
+                    {state.modelError ?? "The model could not be started."}
+                    <Button size="sm" variant="outline" onClick={() => select("surface:models")}>
+                      Open Models
+                    </Button>
+                  </AlertDescription>
+                </Alert>
               )}
-              <FusionControls
-                mode={state.mode}
-                plannerTag={state.plannerTag}
-                executorTag={state.executorTag}
-                generating={state.generatingId !== null}
-                onSetMode={setMode}
-                onUnbound={() => select("surface:roles")}
-              />
+              {(setupError || unbound.length > 0) && (
+                <Alert
+                  variant={setupError ? "destructive" : "default"}
+                  className="rounded-none border-x-0 border-t-0"
+                >
+                  {setupError ? <IconError aria-hidden="true" /> : <IconWarning aria-hidden="true" />}
+                  <AlertTitle>
+                    {setupError ? "The change could not be applied" : "Fusion needs both roles bound"}
+                  </AlertTitle>
+                  <AlertDescription className="flex flex-wrap items-center gap-2">
+                    {setupError ??
+                      `Bind ${unbound.join(" and ")} to a model in the Roles panel to use planner + executor.`}
+                    <Button size="sm" variant="outline" onClick={() => select("surface:roles")}>
+                      Open Roles
+                    </Button>
+                  </AlertDescription>
+                </Alert>
+              )}
               {state.notice && (
                 <div className="border-b border-border bg-warning/15 px-4 py-2 text-center text-sm text-warning">
                   {state.notice}
                 </div>
               )}
               {state.lastError && (
-                <div className="border-b border-border bg-destructive px-4 py-2 text-center text-sm text-destructive">
-                  {state.lastError.code}: {state.lastError.message}
-                </div>
+                <Alert variant="destructive" className="rounded-none border-x-0 border-t-0">
+                  <IconError aria-hidden="true" />
+                  <AlertTitle>The last message failed</AlertTitle>
+                  <AlertDescription className="flex flex-wrap items-center gap-2">
+                    <span>
+                      {state.lastError.message}{" "}
+                      <span className="text-xs opacity-80">({state.lastError.code})</span>
+                    </span>
+                    {lastAssistant && state.generatingId === null && (
+                      <Button size="sm" variant="outline" onClick={() => void regenerate(lastAssistant.id)}>
+                        Retry
+                      </Button>
+                    )}
+                  </AlertDescription>
+                </Alert>
               )}
               {branchesOpen && (
                 <BranchOverview
@@ -382,9 +515,7 @@ export function ChatPage() {
                 onStop={stop}
                 onPickModel={() => select("surface:models")}
               />
-              {/* feature 016: bottom dock — sibling shrinks the message area */}
-              <OutputPanel open={metricsOpen} />
-            </>
+            </ChatColumn>
           }
         />
         </div>
@@ -422,13 +553,17 @@ export function ChatPage() {
           <ScriptsPage />
         </div>
         <div
-          className="flex min-h-0 flex-1 flex-col overflow-y-auto"
+          className="flex min-h-0 flex-1 flex-col"
           hidden={selectedId !== "surface:settings"}
         >
-          <ToolSettings />
-          <ScriptsSettings />
-          <UpdatesSection />
-          <DataPanel />
+          <SettingsPage>
+            <ToolSettings />
+            <ScriptsSettings />
+            <DataPanel />
+            <UpdatesSection />
+            <LayoutSection />
+            <ShortcutsSection />
+          </SettingsPage>
         </div>
         <div
           className="flex min-h-0 flex-1 flex-col overflow-y-auto"

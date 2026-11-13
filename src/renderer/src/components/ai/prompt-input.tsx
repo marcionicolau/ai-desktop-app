@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Sparkles } from "lucide-react";
+import { IconSparkle } from "@/components/icons";
 import { cn } from "@/lib/utils";
 
 // ai-elements "Prompt Input" recipe: a contained input group — actions
@@ -58,7 +58,7 @@ export function SuggestionChips({
           title={s.text}
           className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
         >
-          <Sparkles className="size-3" />
+          <IconSparkle className="size-3.5" />
           /{s.name}
         </button>
       ))}

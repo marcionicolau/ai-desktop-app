@@ -1,6 +1,9 @@
 // feature 023 (T028/T036): script library — list with runtime badges,
 // enabled toggles, editor + manual run form. Runtime health row sits
 // on top (T035 settings live in the settings surface).
+import { confirm } from "@/lib/confirm";
+import { EmptyState } from "@/components/empty-state";
+import { IconTerminal } from "@/components/icons";
 import { useState } from "react";
 import type { ScriptListItem, ScriptRuntimeKind } from "@shared/types";
 import { Badge } from "@/components/ui/badge";
@@ -43,7 +46,7 @@ export function ScriptsPage() {
       </div>
 
       {/* runtime health row (T036) */}
-      <div className="flex gap-3">
+      <div className="flex flex-wrap gap-3">
         {runtimes.map((r) => (
           <div
             key={r.kind}
@@ -73,9 +76,12 @@ export function ScriptsPage() {
           onClose={() => setEditing(null)}
         />
       ) : scripts.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          No scripts yet — create one to let the model run local Python or R.
-        </p>
+        <EmptyState
+          icon={IconTerminal}
+          title="No scripts yet"
+          description="Create a script to let the model run local Python or R."
+          action={{ label: "New script", onClick: () => setEditing("new") }}
+        />
       ) : (
         <ul className="space-y-2">
           {scripts.map((s) => (
@@ -85,7 +91,7 @@ export function ScriptsPage() {
             >
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="font-mono text-sm">{s.id}</span>
+                  <span className="truncate font-mono text-sm" title={s.id}>{s.id}</span>
                   <RuntimeBadge item={s} />
                   {!s.enabled && <Badge variant="outline">disabled</Badge>}
                 </div>
@@ -114,7 +120,16 @@ export function ScriptsPage() {
                   size="sm"
                   variant="ghost"
                   className="text-destructive"
-                  onClick={() => void remove(s.id)}
+                  onClick={() =>
+                    void (async () => {
+                      const ok = await confirm({
+                        title: "Delete script",
+                        itemName: s.id,
+                        consequence: "The script is unregistered; a stored copy is deleted.",
+                      });
+                      if (ok) await remove(s.id);
+                    })()
+                  }
                 >
                   Delete
                 </Button>

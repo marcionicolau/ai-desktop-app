@@ -2,6 +2,7 @@
 // message area inside ChatPage's flex-col — it pushes messages up,
 // never overlays (FR-005). The same persisted switch gates recording
 // on the bun side (US2); calls while off never arrive.
+import { EmptyState } from "@/components/empty-state";
 import { useEffect, useMemo, useState } from "react";
 import type { MetricEntry } from "@shared/types";
 import { invoke, on } from "@/lib/rpc";
@@ -65,7 +66,7 @@ export function OutputPanel({ open }: { open: boolean }) {
 
   if (!open) return null;
   return (
-    <div className="shrink-0 border-t border-border">
+    <div className="flex h-full min-h-0 flex-col border-t border-border">
       <div className="flex items-center gap-2 px-4 py-1.5">
         <span className="text-xs font-medium">Metrics</span>
         <ContextChip used={ctxUsed} total={ctxTotal} />
@@ -75,7 +76,7 @@ export function OutputPanel({ open }: { open: boolean }) {
               <button
                 key={m}
                 onClick={() => setTab(m)}
-                className={`rounded px-1.5 py-0.5 text-[10px] ${
+                className={`rounded px-1.5 py-0.5 text-2xs ${
                   tab === m
                     ? "bg-primary text-primary-foreground"
                     : "bg-muted text-muted-foreground"
@@ -86,13 +87,13 @@ export function OutputPanel({ open }: { open: boolean }) {
             ))}
           </div>
         )}
-        <span className="ml-auto text-[10px] text-muted-foreground">
+        <span className="ml-auto text-2xs text-muted-foreground">
           {visible.length} call{visible.length === 1 ? "" : "s"}
         </span>
         <Button
           variant="ghost"
           size="sm"
-          className="h-6 px-2 text-[10px]"
+          className="h-6 px-2 text-2xs"
           onClick={() => {
             void invoke("metrics.clear", {});
             setEntries([]);
@@ -101,27 +102,29 @@ export function OutputPanel({ open }: { open: boolean }) {
           Clear
         </Button>
       </div>
-      <ScrollArea className="h-56">
+      <ScrollArea className="min-h-0 flex-1">
         <div className="flex flex-col gap-1 px-4 pb-2">
           {visible.length === 0 && (
-            <p className="py-4 text-center text-xs text-muted-foreground">
-              No calls recorded yet.
-            </p>
+            <EmptyState
+              compact
+              title="No calls recorded yet"
+              description="Each generation appears here as it completes."
+            />
           )}
           {[...groups].map(([role, personas]) => (
             <div key={role}>
-              <div className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+              <div className="mt-1 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
                 {role}
               </div>
               {[...personas].map(([persona, list]) => (
                 <div key={persona}>
-                  <div className="pl-2 text-[10px] italic text-muted-foreground">
+                  <div className="pl-2 text-2xs italic text-muted-foreground">
                     {persona}
                   </div>
                   {list.map((e) => (
                     <div
                       key={e.id}
-                      className="flex items-baseline gap-2 py-0.5 pl-4 text-[11px]"
+                      className="flex items-baseline gap-2 py-0.5 pl-4 text-2xs"
                     >
                       <span className="shrink-0 text-muted-foreground">
                         {fmtTime(e.ts)}
@@ -130,12 +133,12 @@ export function OutputPanel({ open }: { open: boolean }) {
                         {e.modelFile.replace(/\.gguf$/, "")}
                       </span>
                       {e.tag && (
-                        <span className="shrink-0 rounded bg-muted px-1 text-[10px]">
+                        <span className="shrink-0 rounded bg-muted px-1 text-2xs">
                           {e.tag}
                         </span>
                       )}
                       {e.fallback && (
-                        <span className="shrink-0 rounded bg-warning/15 px-1 text-[10px] text-warning">
+                        <span className="shrink-0 rounded bg-warning/15 px-1 text-2xs text-warning">
                           fallback
                         </span>
                       )}

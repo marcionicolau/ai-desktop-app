@@ -8,6 +8,7 @@ import type { RpcErrorCode } from "../../shared/rpc-contract";
 import type { GenerationParams } from "../../shared/types";
 import { loadLlamaShim, newErrSlot, readErr, type LlamaShim } from "./ffi";
 import { packParams } from "./params";
+import { Utf8Stream } from "./utf8";
 import { entryKey, type SnapshotStore } from "../kv/store";
 import { modelFingerprint } from "../models/library";
 
@@ -199,9 +200,17 @@ export class LlamaEngine {
     let tokens = 0;
     this.generating = true;
     this.stopRequested = false;
+    // one stateful decoder per generation so multi-byte characters split
+    // across tokens never turn into U+FFFD
+    const utf8 = new Utf8Stream();
+    const flushUtf8 = () => {
+      const tail = utf8.flush();
+      if (tail) onToken(tail);
+    };
     try {
       for (;;) {
         if (this.stopRequested) {
+          flushUtf8();
           return {
             status: "partial",
             tokens,
@@ -213,6 +222,7 @@ export class LlamaEngine {
         this.outLen[0] = 0n;
         const r = symbols.lls_step(this.ctx, ptr(this.tokenBuf), TOKEN_BUF_CAP, ptr(this.outLen));
         if (r === 0) {
+          flushUtf8();
           return {
             status: "complete",
             tokens,
@@ -227,7 +237,8 @@ export class LlamaEngine {
         tokens += 1;
         const n = Number(this.outLen[0]);
         if (n > 0) {
-          onToken(new TextDecoder().decode(this.tokenBuf.subarray(0, n)));
+          const text = utf8.push(this.tokenBuf.subarray(0, n));
+          if (text) onToken(text);
         }
         // macrotask yield: keeps the event loop responsive for RPC
         // oxlint-disable-next-line no-await-in-loop -- sequential pull/step decode is required

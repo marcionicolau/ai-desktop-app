@@ -1,5 +1,5 @@
 import * as React from "react";
-import { ChevronRight, File, Folder } from "lucide-react";
+import { IconChevronRight, IconFile, IconFolder } from "@/components/icons";
 import { cn } from "@/lib/utils";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
@@ -31,9 +31,9 @@ export function FileTreeFolder({
 }) {
   return (
     <Collapsible defaultOpen={defaultOpen} className={className}>
-      <CollapsibleTrigger className="group flex w-full items-center gap-1.5 rounded px-1 py-0.5 text-left outline-none hover:bg-accent focus-visible:ring-1 focus-visible:ring-ring">
-        <ChevronRight className="size-3.5 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-90" />
-        <Folder className="size-3.5 shrink-0 text-muted-foreground" />
+      <CollapsibleTrigger className="group flex w-full items-center gap-1.5 rounded px-1 py-0.5 text-left outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring">
+        <IconChevronRight className="size-3.5 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-90" />
+        <IconFolder className="size-3.5 shrink-0 text-muted-foreground" />
         <span className="truncate">{name}</span>
       </CollapsibleTrigger>
       <CollapsibleContent className="ml-3 border-l border-border/60 pl-2">
@@ -57,14 +57,14 @@ export function FileTreeFile({
       type="button"
       role="treeitem"
       className={cn(
-        "flex w-full items-center gap-1.5 rounded px-1 py-0.5 text-left outline-none hover:bg-accent focus-visible:ring-1 focus-visible:ring-ring",
+        "flex w-full items-center gap-1.5 rounded px-1 py-0.5 text-left outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring",
         active && "bg-accent text-accent-foreground",
         className,
       )}
       {...props}
     >
       <span className="w-3.5 shrink-0" />
-      <File className="size-3.5 shrink-0 text-muted-foreground" />
+      <IconFile className="size-3.5 shrink-0 text-muted-foreground" />
       <span className="truncate">{name}</span>
     </button>
   );

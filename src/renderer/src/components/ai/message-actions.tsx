@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, Copy, Pencil, RefreshCw } from "lucide-react";
+import { IconCheck, IconCopy, IconEdit, IconRefresh } from "@/components/icons";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -36,9 +36,9 @@ export function MessageActions({
         aria-label="Copy message"
       >
         {copied ? (
-          <Check className="h-3.5 w-3.5" />
+          <IconCheck className="h-3.5 w-3.5" />
         ) : (
-          <Copy className="h-3.5 w-3.5" />
+          <IconCopy className="h-3.5 w-3.5" />
         )}
       </button>
       {canRegenerate && onRegenerate && (
@@ -48,7 +48,7 @@ export function MessageActions({
           className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
           aria-label="Regenerate reply"
         >
-          <RefreshCw className="h-3.5 w-3.5" />
+          <IconRefresh className="h-3.5 w-3.5" />
         </button>
       )}
       {canEdit && onEdit && (
@@ -58,7 +58,7 @@ export function MessageActions({
           className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
           aria-label="Edit message"
         >
-          <Pencil className="h-3.5 w-3.5" />
+          <IconEdit className="h-3.5 w-3.5" />
         </button>
       )}
     </div>

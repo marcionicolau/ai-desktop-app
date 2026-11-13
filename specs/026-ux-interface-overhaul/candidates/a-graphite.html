@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Candidate A · Graphite</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+<style>
+:root{--bg:0.985 0.002 286;--fg:0.21 0.01 286;--card:1 0 0;--mut:0.964 0.003 286;--mfg:0.47 0.015 286;--bd:0.91 0.005 286;--pri:0.5 0.1 192;--prf:0.99 0 0;--dst:0.52 0.2 27;--ok:0.5 0.12 150;--wn:0.5 0.12 75;--radius:.5rem;--ui:'Inter', system-ui, sans-serif;--read:'Inter', system-ui, sans-serif;--mono:'Geist Mono', ui-monospace, monospace;color-scheme:light}
+:root[data-theme="dark"]{--bg:0.16 0.006 286;--fg:0.96 0.003 286;--card:0.2 0.007 286;--mut:0.25 0.008 286;--mfg:0.74 0.015 286;--bd:0.32 0.01 286;--pri:0.76 0.12 190;--prf:0.17 0.03 190;--dst:0.72 0.17 25;--ok:0.76 0.15 150;--wn:0.8 0.14 80;color-scheme:dark}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:0.16 0.006 286;--fg:0.96 0.003 286;--card:0.2 0.007 286;--mut:0.25 0.008 286;--mfg:0.74 0.015 286;--bd:0.32 0.01 286;--pri:0.76 0.12 190;--prf:0.17 0.03 190;--dst:0.72 0.17 25;--ok:0.76 0.15 150;--wn:0.8 0.14 80;color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:oklch(var(--bg));color:oklch(var(--fg));font:400 14px/1.5 var(--ui)}
+.wrap{max-width:1040px;margin:0 auto;padding:24px 16px 64px}
+header.top{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:8px}
+h1{font-size:22px;margin:0;font-weight:600}h2{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:oklch(var(--mfg));margin:32px 0 10px;font-weight:600}
+p.blurb{color:oklch(var(--mfg));margin:4px 0 0}
+.grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+.card{background:oklch(var(--card));border:1px solid oklch(var(--bd));border-radius:calc(var(--radius) + 2px);padding:16px}
+button,.btn{font:500 14px var(--ui);height:32px;padding:0 12px;border-radius:var(--radius);border:1px solid oklch(var(--bd));background:oklch(var(--card));color:oklch(var(--fg));display:inline-flex;gap:6px;align-items:center;cursor:pointer}
+.btn.pri{background:oklch(var(--pri));color:oklch(var(--prf));border-color:transparent}
+.btn.dst{background:oklch(var(--dst));color:oklch(var(--prf));border-color:transparent}
+.btn.ghost{background:transparent;border-color:transparent}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+:focus-visible{outline:2px solid oklch(var(--pri));outline-offset:2px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.msg{display:flex;gap:10px;margin:10px 0}
+.msg .av{width:28px;height:28px;border-radius:50%;background:oklch(var(--mut));display:grid;place-items:center;flex:none}
+.msg.user .bub{background:oklch(var(--pri));color:oklch(var(--prf));padding:8px 12px;border-radius:var(--radius);max-width:80%}
+.msg.ai .bub{font-family:var(--read);font-size:15px;line-height:1.65;max-width:68ch}
+pre{font:400 13px/1.5 var(--mono);background:oklch(var(--mut));padding:10px 12px;border-radius:var(--radius);overflow:auto;margin:8px 0}
+.trace{border-left:2px solid oklch(var(--bd));padding-left:12px;margin:8px 0;color:oklch(var(--mfg));font-size:13px}
+.comp{display:flex;gap:8px;align-items:center;border:1px solid oklch(var(--bd));border-radius:var(--radius);padding:6px 8px;background:oklch(var(--card));margin-top:12px}
+.comp input{flex:1;border:0;background:transparent;color:inherit;font:inherit;height:32px;outline:none}
+label{font-weight:500;display:block;margin-bottom:4px}.help{color:oklch(var(--mfg));font-size:12px;margin-top:4px}
+.field{margin-bottom:14px}
+input[type=text],select{width:100%;height:32px;border:1px solid oklch(var(--bd));border-radius:var(--radius);background:oklch(var(--card));color:inherit;padding:0 10px;font:inherit}
+input[type=range]{width:100%;accent-color:oklch(var(--pri))}
+.sw{display:inline-block;width:36px;height:20px;border-radius:99px;background:oklch(var(--pri));position:relative;vertical-align:middle}
+.sw::after{content:"";position:absolute;right:2px;top:2px;width:16px;height:16px;border-radius:50%;background:oklch(var(--prf))}
+.empty{text-align:center;padding:24px 8px;color:oklch(var(--mfg))}.empty i{font-size:28px;display:block;margin-bottom:6px}
+.empty b{display:block;color:oklch(var(--fg));margin-bottom:4px}
+.toast{display:flex;gap:10px;align-items:flex-start;border:1px solid oklch(var(--bd));background:oklch(var(--card));border-radius:var(--radius);padding:10px 12px;margin-bottom:8px;box-shadow:0 4px 14px oklch(0 0 0/.12)}
+.toast.err i{color:oklch(var(--dst))}.toast.ok i{color:oklch(var(--ok))}
+.pal{border:1px solid oklch(var(--bd));border-radius:calc(var(--radius) + 2px);background:oklch(var(--card));box-shadow:0 8px 24px oklch(0 0 0/.16);overflow:hidden}
+.pal .q{display:flex;gap:8px;align-items:center;padding:10px 12px;border-bottom:1px solid oklch(var(--bd))}
+.pal .it{display:flex;gap:8px;align-items:center;padding:8px 12px}.pal .it.sel{background:oklch(var(--mut))}.pal .grp{padding:6px 12px;font-size:11px;color:oklch(var(--mfg));text-transform:uppercase;letter-spacing:.06em}
+kbd{font:500 11px var(--mono);margin-left:auto;border:1px solid oklch(var(--bd));border-bottom-width:2px;border-radius:4px;padding:1px 5px;background:oklch(var(--mut));color:oklch(var(--mfg))}
+.sw8{display:flex;gap:6px;flex-wrap:wrap}.sw8 span{width:84px;height:36px;border-radius:6px;border:1px solid oklch(var(--bd));font-size:10px;display:grid;place-items:end start;padding:2px 4px}
+.icons{display:flex;gap:14px;flex-wrap:wrap;font-size:20px}
+.scale div{margin:2px 0}.mut{color:oklch(var(--mfg))}
+.bdg{display:inline-flex;gap:4px;align-items:center;border-radius:99px;padding:1px 8px;font-size:12px;font-weight:500;border:1px solid oklch(var(--bd))}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="top"><div><h1>A · Graphite</h1><p class="blurb">Neutral zinc, teal accent. Inter + Geist Mono. Phosphor icons. Neutral, tool-like.</p></div>
+<div class="row"><button class="btn" id="t" type="button">Toggle theme</button></div></header>
+<p class="mut">Candidate sample for Gate G0 (feature 026, T003–T005). Values are proposals; final tokens are verified by <code>ui-contrast.test.ts</code>. Fonts and icons load from public CDNs when this file is opened.</p>
+
+<h2>Chat</h2>
+<div class="card">
+ <div class="msg user"><div class="bub">Summarize this file and list the risks.</div></div>
+ <div class="msg ai"><div class="av"><i class="ph ph-chat-circle" aria-hidden="true"></i></div><div>
+  <div class="trace"><i class="ph ph-check-circle" aria-hidden="true"></i> Plan · 3 steps done</div>
+  <div class="bub">The file configures the release pipeline. Two risks stand out: the unsigned macOS build and the missing Windows verification.</div>
+  <pre>bun run package
+verify-artifact: PASS</pre>
+  <div class="row"><button class="btn ghost" type="button"><i class="ph ph-copy" aria-hidden="true"></i> Copy</button><span class="bdg">12.4 tok/s</span></div></div></div>
+ <div class="comp"><i class="ph ph-paperclip" aria-hidden="true"></i><input type="text" aria-label="Message" placeholder="Message the model…"><button class="btn pri" type="button"><i class="ph ph-paper-plane-tilt" aria-hidden="true"></i> Send</button></div>
+</div>
+
+<h2>Controls &amp; states</h2>
+<div class="card row">
+ <button class="btn pri" type="button"><i class="ph ph-plus" aria-hidden="true"></i> New chat</button><button class="btn" type="button"><i class="ph ph-download-simple" aria-hidden="true"></i> Export</button><button class="btn dst" type="button"><i class="ph ph-trash" aria-hidden="true"></i> Delete</button><button class="btn ghost" type="button">Ghost</button><button class="btn" disabled>Disabled</button>
+ <button class="btn" type="button" style="outline:2px solid oklch(var(--pri));outline-offset:2px">Focus ring</button>
+</div>
+
+<div class="grid">
+<div><h2>Settings form</h2><div class="card">
+ <div class="field"><label for="tm">Temperature</label><input id="tm" type="range" min="0" max="2" step=".1" value=".7"><div class="help">0.7 · range 0–2 · higher is more varied</div></div>
+ <div class="field"><label for="md">Default model</label><select id="md"><option>SmolLM2-360M-Instruct</option></select></div>
+ <div class="field"><label>Allow file reads <span class="sw" role="img" aria-label="on"></span></label><div class="help">Applies to the chosen sandbox folder only.</div></div>
+ <div class="row"><button class="btn pri" type="button">Save</button><span class="mut">Unsaved changes</span></div></div></div>
+<div><h2>Empty state</h2><div class="card empty"><i class="ph ph-tray" aria-hidden="true"></i><b>No personas yet</b>Personas change how the model answers.<div style="margin-top:10px"><button class="btn pri" type="button"><i class="ph ph-plus" aria-hidden="true"></i> New persona</button></div></div>
+ <h2>Feedback</h2>
+ <div class="toast ok"><i class="ph ph-check-circle" aria-hidden="true"></i><div><b>Model loaded</b><div class="help">SmolLM2-360M is ready.</div></div></div>
+ <div class="toast err"><i class="ph ph-warning-circle" aria-hidden="true"></i><div><b>Download failed</b><div class="help">Connection lost after 2.1 GB.</div><div style="margin-top:6px"><button class="btn" type="button">Retry</button></div></div></div></div>
+</div>
+
+<h2>Command palette</h2>
+<div class="pal" style="max-width:520px"><div class="q"><i class="ph ph-magnifying-glass" aria-hidden="true"></i><span class="mut">Search chats, models, actions…</span><kbd>Esc</kbd></div>
+ <div class="grp">Actions</div><div class="it sel"><i class="ph ph-plus" aria-hidden="true"></i> New chat<kbd>Ctrl N</kbd></div><div class="it"><i class="ph ph-gear" aria-hidden="true"></i> Open settings<kbd>Ctrl ,</kbd></div><div class="it"><i class="ph ph-sidebar-simple" aria-hidden="true"></i> Toggle sidebar<kbd>Ctrl B</kbd></div>
+ <div class="grp">Conversations</div><div class="it"><i class="ph ph-chat-circle" aria-hidden="true"></i> Release pipeline review</div></div>
+
+<h2>Palette &amp; type</h2>
+<div class="sw8">
+ <span style="background:oklch(var(--bg))">bg</span><span style="background:oklch(var(--card))">card</span><span style="background:oklch(var(--mut))">muted</span>
+ <span style="background:oklch(var(--pri));color:oklch(var(--prf))">primary</span><span style="background:oklch(var(--dst));color:oklch(var(--prf))">destructive</span>
+ <span style="background:oklch(var(--ok));color:oklch(var(--prf))">success</span><span style="background:oklch(var(--wn));color:oklch(var(--prf))">warning</span></div>
+<div class="card scale" style="margin-top:12px">
+ <div style="font-size:24px;font-weight:600">Heading 24 / 600</div><div style="font-size:18px;font-weight:600">Section 18 / 600</div>
+ <div style="font-size:14px">Body 14 / 400 — The quick brown fox jumps over the lazy dog.</div>
+ <div style="font-size:12px" class="mut">Caption 12 / 400 — secondary text</div>
+ <div style="font-family:var(--read);font-size:15px">Reading 15 — assistant answers use the reading face.</div>
+ <div style="font-family:var(--mono);font-size:13px">mono 13 — const x = 42;</div></div>
+<h2>Icon family</h2>
+<div class="card icons"><i class="ph ph-chat-circle" aria-hidden="true"></i><i class="ph ph-gear" aria-hidden="true"></i><i class="ph ph-magnifying-glass" aria-hidden="true"></i><i class="ph ph-plus" aria-hidden="true"></i><i class="ph ph-trash" aria-hidden="true"></i><i class="ph ph-download-simple" aria-hidden="true"></i><i class="ph ph-paperclip" aria-hidden="true"></i><i class="ph ph-paper-plane-tilt" aria-hidden="true"></i><i class="ph ph-check-circle" aria-hidden="true"></i><i class="ph ph-warning-circle" aria-hidden="true"></i><i class="ph ph-copy" aria-hidden="true"></i><i class="ph ph-command" aria-hidden="true"></i><i class="ph ph-sidebar-simple" aria-hidden="true"></i><i class="ph ph-tray" aria-hidden="true"></i></div>
+</div>
+<script>
+var r=document.documentElement;document.getElementById('t').addEventListener('click',function(){
+ var d=r.getAttribute('data-theme')||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');
+ r.setAttribute('data-theme',d==='dark'?'light':'dark');});
+</script>
+</body>
+</html>

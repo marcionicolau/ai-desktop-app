@@ -1,4 +1,4 @@
-import { Check, ChevronsUpDown } from "lucide-react";
+import { IconCheck, IconExpand } from "@/components/icons";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -46,7 +46,7 @@ export function ModelSelector({
           type="button"
           disabled={disabled}
           className={cn(
-            "inline-flex h-7 items-center gap-1.5 rounded-md border border-border bg-card px-2 text-xs outline-none transition-colors hover:bg-accent focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50",
+            "inline-flex h-7 items-center gap-1.5 rounded-md border border-border bg-card px-2 text-xs outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50",
             className,
           )}
         >
@@ -54,7 +54,7 @@ export function ModelSelector({
           <span className="max-w-40 truncate font-medium">
             {current?.label ?? "pick…"}
           </span>
-          <ChevronsUpDown className="size-3 text-muted-foreground" />
+          <IconExpand className="size-3.5 text-muted-foreground" />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-56">
@@ -65,7 +65,7 @@ export function ModelSelector({
         )}
         {options.map((o) => (
           <DropdownMenuItem key={o.id} onSelect={() => onSelect(o.id)}>
-            <Check
+            <IconCheck
               className={cn(
                 "size-3.5",
                 o.id === value ? "opacity-100" : "opacity-0",

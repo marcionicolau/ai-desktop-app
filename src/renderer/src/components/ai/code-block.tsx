@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, Copy } from "lucide-react";
+import { IconCheck, IconCopy } from "@/components/icons";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -28,9 +28,9 @@ export function CodeBlock({ language, code, className }: Props) {
           aria-label="Copy code"
         >
           {copied ? (
-            <Check className="h-3.5 w-3.5" />
+            <IconCheck className="h-3.5 w-3.5" />
           ) : (
-            <Copy className="h-3.5 w-3.5" />
+            <IconCopy className="h-3.5 w-3.5" />
           )}
         </button>
       </div>

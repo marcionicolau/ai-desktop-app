@@ -28,7 +28,7 @@ type Selection =
 
 function JsonBlock({ value }: { value: unknown }) {
   return (
-    <pre className="max-h-32 overflow-auto rounded bg-muted p-1.5 font-mono text-[10px]">
+    <pre className="max-h-32 overflow-auto rounded bg-muted p-1.5 font-mono text-2xs">
       {JSON.stringify(value, null, 2)}
     </pre>
   );
@@ -37,7 +37,7 @@ function JsonBlock({ value }: { value: unknown }) {
 const ports = (label: string, rec: Record<string, { type?: string; description?: string }>) =>
   Object.keys(rec).length > 0 ? (
     <div>
-      <div className="text-[10px] font-medium uppercase text-muted-foreground">{label}</div>
+      <div className="text-2xs font-medium uppercase text-muted-foreground">{label}</div>
       <ul className="space-y-0.5">
         {Object.entries(rec).map(([name, d]) => (
           <li key={name} className="text-xs">
@@ -70,13 +70,13 @@ function SkillDetail({ skill }: { skill: SkillView }) {
       {ports("Outputs", skill.outputs)}
       {Object.keys(skill.params).length > 0 && (
         <div>
-          <div className="text-[10px] font-medium uppercase text-muted-foreground">Params</div>
+          <div className="text-2xs font-medium uppercase text-muted-foreground">Params</div>
           <JsonBlock value={skill.params} />
         </div>
       )}
       {(skill.guidance.whenToUse || skill.guidance.interpreting || skill.guidance.mistakes) && (
         <div className="space-y-0.5">
-          <div className="text-[10px] font-medium uppercase text-muted-foreground">Guidance</div>
+          <div className="text-2xs font-medium uppercase text-muted-foreground">Guidance</div>
           {skill.guidance.whenToUse && (
             <p className="text-xs"><span className="text-muted-foreground">When: </span>{skill.guidance.whenToUse}</p>
           )}
@@ -90,8 +90,8 @@ function SkillDetail({ skill }: { skill: SkillView }) {
       )}
       {body && (
         <div>
-          <div className="text-[10px] font-medium uppercase text-muted-foreground">Spec body</div>
-          <pre className="max-h-48 overflow-auto rounded bg-muted p-1.5 font-mono text-[10px]">
+          <div className="text-2xs font-medium uppercase text-muted-foreground">Spec body</div>
+          <pre className="max-h-48 overflow-auto rounded bg-muted p-1.5 font-mono text-2xs">
             {body}
           </pre>
         </div>
@@ -113,7 +113,7 @@ function PipelineDetail({ pipeline }: { pipeline: PipelineView }) {
             key={s.id}
             last={i === pipeline.steps.length - 1}
             status="queued"
-            statusNode={<span className="font-mono text-[10px] text-muted-foreground">→ {s.uses}</span>}
+            statusNode={<span className="font-mono text-2xs text-muted-foreground">→ {s.uses}</span>}
             title={
               <>
                 <span className="text-muted-foreground">{i + 1}.</span>{" "}
@@ -122,7 +122,7 @@ function PipelineDetail({ pipeline }: { pipeline: PipelineView }) {
             }
           >
             {(s.inputs || s.params) && (
-              <div className="mt-0.5 space-y-0.5 font-mono text-[10px] text-muted-foreground">
+              <div className="mt-0.5 space-y-0.5 font-mono text-2xs text-muted-foreground">
                 {s.inputs && <div>in: {JSON.stringify(s.inputs)}</div>}
                 {s.params && <div>params: {JSON.stringify(s.params)}</div>}
               </div>

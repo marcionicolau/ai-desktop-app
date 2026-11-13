@@ -1,8 +1,12 @@
 // feature 021 (US4): sidebar-05 app shell — collapsible nav groups for
 // conversations and extensions, plus a footer for app-level surfaces.
 // The conversation list itself lives in ConversationNav (ex-Sidebar).
+import { useEffect, useRef } from "react";
+import { Button } from "@/components/ui/button";
+import { Kbd } from "@/components/ui/kbd";
+import { isMacPlatform, shortcutLabel } from "@/lib/actions";
 import type { ConversationSummary, WorkspaceTab } from "@shared/types";
-import { MessageSquare, Puzzle } from "lucide-react";
+import { IconChat, IconChevronDown, IconExtension, IconFileCode, IconLibrary, IconSettings, IconTags, IconUsers, IconSearch } from "@/components/icons";
 import {
   Collapsible,
   CollapsibleContent,
@@ -18,22 +22,22 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { ConversationNav } from "./ConversationNav";
 import { ThemeSettings } from "../settings/ThemeSettings";
 import { cn } from "@/lib/utils";
-import { ChevronDown, FileCode2, Library, Settings2, Tags, Users } from "lucide-react";
 
 interface Props {
   conversations: ConversationSummary[];
   activeId: string | null;
   onSelect: (id: string) => void;
   onNew: () => void;
+  onOpenPalette: () => void;
   onRename: (id: string, title: string) => void;
   onDelete: (id: string) => void;
   onExport: (id: string, format: "markdown" | "json") => Promise<string | null>;
   onImport: () => Promise<string | null>;
-  onSelectHit: (conversationId: string, messageId: string) => void;
   // workspace panel items beyond the Chat entry (ext views + packs)
   workspaceTabs: WorkspaceTab[];
   selectedTabId: string;
@@ -62,9 +66,9 @@ function NavGroup({
   return (
     <Collapsible defaultOpen={defaultOpen} className="group/navgroup">
       <SidebarGroup className="p-0">
-        <CollapsibleTrigger className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-xs font-medium text-sidebar-foreground/70 outline-none hover:bg-sidebar-accent focus-visible:ring-1 focus-visible:ring-sidebar-ring group-data-[state=collapsed]:hidden">
+        <CollapsibleTrigger className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-xs font-medium text-sidebar-foreground/70 outline-none hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring group-data-[state=collapsed]:hidden">
           {label}
-          <ChevronDown className="size-3.5 transition-transform duration-200 group-data-[state=closed]/navgroup:-rotate-90" />
+          <IconChevronDown className="size-3.5 transition-transform duration-200 group-data-[state=closed]/navgroup:-rotate-90" />
         </CollapsibleTrigger>
         <CollapsibleContent>
           <SidebarGroupContent>{children}</SidebarGroupContent>
@@ -79,11 +83,11 @@ export function AppSidebar({
   activeId,
   onSelect,
   onNew,
+  onOpenPalette,
   onRename,
   onDelete,
   onExport,
   onImport,
-  onSelectHit,
   workspaceTabs,
   selectedTabId,
   onSelectTab,
@@ -99,12 +103,47 @@ export function AppSidebar({
   const extTabs = workspaceTabs.filter(
     (t) => t.kind === "ext" || t.kind === "pack",
   );
+
+  // FR-015: fold to the icon rail on compact windows. The collapse applies
+  // once per crossing, so a manual re-expand at the same width is kept
+  // until the window is widened and narrowed again.
+  const { setOpen } = useSidebar();
+  const autoRail = useRef(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 896px)");
+    const apply = () => {
+      if (mq.matches) {
+        if (!autoRail.current) {
+          autoRail.current = true;
+          setOpen(false);
+        }
+      } else {
+        autoRail.current = false;
+      }
+    };
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, [setOpen]);
+
   return (
     <Sidebar>
       <SidebarHeader>
         <span className="px-1 text-sm font-semibold group-data-[state=collapsed]:hidden">
           AI Desktop
         </span>
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full justify-start gap-2 text-muted-foreground group-data-[state=collapsed]:hidden"
+          onClick={onOpenPalette}
+          aria-label="Open command palette"
+        >
+          <IconSearch aria-hidden="true" /> Search &amp; commands
+          <Kbd className="ml-auto">
+            {shortcutLabel({ key: "k", mod: true }, isMacPlatform())}
+          </Kbd>
+        </Button>
       </SidebarHeader>
       <SidebarContent>
         <NavGroup label="Chats" defaultOpen>
@@ -117,7 +156,6 @@ export function AppSidebar({
             onDelete={onDelete}
             onExport={onExport}
             onImport={onImport}
-            onSelectHit={onSelectHit}
           />
         </NavGroup>
         <NavGroup label="Extensions" defaultOpen>
@@ -135,9 +173,9 @@ export function AppSidebar({
                     {isCrashed ? (
                       <span className="size-1.5 shrink-0 rounded-full bg-warning" />
                     ) : t.kind === "pack" ? (
-                      <Puzzle className="size-4" />
+                      <IconExtension className="size-4" />
                     ) : (
-                      <MessageSquare className="size-4" />
+                      <IconChat className="size-4" />
                     )}
                     <span className="truncate">{t.title}</span>
                   </SidebarMenuButton>
@@ -164,7 +202,7 @@ export function AppSidebar({
                 onClick={onManageExtensions}
                 className={cn("h-8", extTabs.length === 0 ? "" : "text-muted-foreground")}
               >
-                <Settings2 className="size-4" />
+                <IconSettings className="size-4" />
                 <span>Manage…</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
@@ -179,7 +217,7 @@ export function AppSidebar({
                 onClick={onOpenLibrary}
                 className="h-8"
               >
-                <Library className="size-4" />
+                <IconLibrary className="size-4" />
                 <span>Models</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
@@ -190,7 +228,7 @@ export function AppSidebar({
                 onClick={onOpenPersonas}
                 className="h-8"
               >
-                <Users className="size-4" />
+                <IconUsers className="size-4" />
                 <span>Personas</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
@@ -201,7 +239,7 @@ export function AppSidebar({
                 onClick={onOpenRoles}
                 className="h-8"
               >
-                <Tags className="size-4" />
+                <IconTags className="size-4" />
                 <span>Roles</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
@@ -212,7 +250,7 @@ export function AppSidebar({
                 onClick={onOpenScripts}
                 className="h-8"
               >
-                <FileCode2 className="size-4" />
+                <IconFileCode className="size-4" />
                 <span>Scripts</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
@@ -223,7 +261,7 @@ export function AppSidebar({
                 onClick={onOpenSettings}
                 className="h-8"
               >
-                <Settings2 className="size-4" />
+                <IconSettings className="size-4" />
                 <span>Settings</span>
               </SidebarMenuButton>
             </SidebarMenuItem>

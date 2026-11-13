@@ -1,5 +1,6 @@
+import { confirm } from "@/lib/confirm";
 import { useCallback, useEffect, useState } from "react";
-import { Plus, Tags, Trash2 } from "lucide-react";
+import { IconAdd, IconDelete, IconTags } from "@/components/icons";
 import type { ModelMeta, RoleView } from "@shared/types";
 import { invoke } from "@/lib/rpc";
 import { Button } from "@/components/ui/button";
@@ -50,12 +51,26 @@ export function RolesPanel() {
 
   const del = async (name: string) => {
     setError(null);
+    const ok = await confirm({
+      title: "Delete role",
+      itemName: name,
+      consequence: "Its model binding and fallback chain are removed.",
+    });
+    if (!ok) return;
     try {
       await remove(name);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       // ROLE_IN_USE: offer detach-with-confirmation as a second click path
-      if (msg.includes("referenced by") && window.confirm(`${msg}\n\nDetach and delete anyway?`)) {
+      if (
+        msg.includes("referenced by") &&
+        (await confirm({
+          title: "Detach and delete role",
+          itemName: name,
+          consequence: `${msg} Detach it and delete anyway?`,
+          confirmLabel: "Detach and delete",
+        }))
+      ) {
         try {
           await remove(name, true);
         } catch (e2) {
@@ -78,7 +93,7 @@ export function RolesPanel() {
     <div className="border-b border-border bg-muted/40 px-4 py-3">
       <div className="mx-auto max-w-2xl space-y-3">
         <div className="flex items-center gap-2">
-          <Tags className="size-4 text-muted-foreground" />
+          <IconTags className="size-4 text-muted-foreground" />
           <h2 className="text-xs font-semibold">Model roles</h2>
         </div>
         {pressure && (
@@ -90,13 +105,13 @@ export function RolesPanel() {
         {error && <p className="text-xs text-destructive">{error}</p>}
         <div className="divide-y divide-border text-xs">
           {tags.map((t) => (
-            <div key={t.name} className="py-2">
+            <div key={t.name} className="py-(--row-pad)">
               <div className="flex items-center gap-2">
                 <span className="font-medium">{t.label ?? t.name}</span>
                 <span className="text-muted-foreground">{t.name}</span>
                 <span
                   className={cn(
-                    "rounded px-1.5 py-0.5 text-[10px] uppercase",
+                    "rounded px-1.5 py-0.5 text-2xs uppercase",
                     STATE_STYLE[t.state],
                   )}
                 >
@@ -123,7 +138,7 @@ export function RolesPanel() {
                     title="Delete tag"
                     onClick={() => void del(t.name)}
                   >
-                    <Trash2 className="size-3.5" />
+                    <IconDelete className="size-3.5" />
                   </Button>
                 )}
               </div>
@@ -141,7 +156,7 @@ export function RolesPanel() {
             className="h-8 w-48 text-xs"
           />
           <Button size="sm" disabled={!newName.trim()} onClick={() => void add()}>
-            <Plus className="size-3.5" /> Add tag
+            <IconAdd className="size-3.5" /> Add tag
           </Button>
         </div>
       </div>

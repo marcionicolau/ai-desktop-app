@@ -1,7 +1,18 @@
+import { SelectField } from "@/components/select-field";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
+import { defaultFileName, validateDownload } from "./download-rules";
+import { confirmLeave } from "../settings/use-unsaved-guard";
+import { OverrideEditor } from "./OverrideEditor";
+import { WithReason } from "@/components/with-reason";
+import { confirm } from "@/lib/confirm";
+import { notify } from "@/lib/notify";
+import { EmptyState } from "@/components/empty-state";
+import { IconLibrary } from "@/components/icons";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ModelAdvise, RoleView } from "@shared/types";
-import { Download, Gauge, Loader2, RefreshCw, SlidersHorizontal } from "lucide-react";
-import type { DownloadState, GenerationParams, ModelMeta } from "@shared/types";
+import { IconBenchmark, IconDownload, IconRefresh, IconSliders, IconSpinner } from "@/components/icons";
+import type { DownloadState, ModelMeta } from "@shared/types";
 import { invoke, on } from "@/lib/rpc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,17 +26,6 @@ interface Props {
   autoLoadOnDownload?: boolean;
 }
 
-const OVERRIDE_FIELDS: { key: keyof GenerationParams; label: string }[] = [
-  { key: "temperature", label: "Temp" },
-  { key: "topP", label: "Top-p" },
-  { key: "topK", label: "Top-k" },
-  { key: "repeatPenalty", label: "Penalty" },
-  { key: "seed", label: "Seed" },
-  { key: "maxTokens", label: "Max tok" },
-  { key: "nThreads", label: "Threads" },
-  { key: "nGpuLayers", label: "GPU layers" },
-];
-
 function fmtBytes(n: number): string {
   if (n >= 1e9) return `${(n / 1e9).toFixed(1)} GB`;
   if (n >= 1e6) return `${(n / 1e6).toFixed(0)} MB`;
@@ -37,15 +37,6 @@ const VERDICT: Record<ModelAdvise["verdict"], { label: string; cls: string }> = 
   tight: { label: "tight", cls: "text-warning" },
   wontfit: { label: "won't fit", cls: "text-destructive" },
 };
-
-function defaultFileName(url: string): string {
-  try {
-    const tail = new URL(url).pathname.split("/").pop() ?? "";
-    return tail.endsWith(".gguf") ? tail : "";
-  } catch {
-    return "";
-  }
-}
 
 export function ModelLibrary({ activeName, onLoad, autoLoadOnDownload }: Props) {
   // refs so the one-shot download subscription sees current props
@@ -59,7 +50,6 @@ export function ModelLibrary({ activeName, onLoad, autoLoadOnDownload }: Props) 
   const [fileName, setFileName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [overrideFor, setOverrideFor] = useState<string | null>(null);
-  const [draft, setDraft] = useState<Partial<GenerationParams>>({});
   const [tags, setTags] = useState<RoleView[]>([]);
   const [assignTag, setAssignTag] = useState("");
   // feature 011: live verdicts keyed by fileName; null = not fetched yet
@@ -142,62 +132,104 @@ export function ModelLibrary({ activeName, onLoad, autoLoadOnDownload }: Props) 
       setUrl("");
       setFileName("");
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    }
-  };
-
-  const saveOverride = async (file: string, params: Partial<GenerationParams> | null) => {
-    setError(null);
-    try {
-      await invoke("model.setOverride", { fileName: file, params });
-      setOverrideFor(null);
-      setDraft({});
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      const msg = e instanceof Error ? e.message : String(e);
+      setError(msg);
+      notify.error("Download failed", {
+        description: `${name}: ${msg}`,
+        action: { label: "Retry", run: () => void download() },
+      });
     }
   };
 
   return (
     <div className="border-b border-border bg-muted/40 px-4 py-3">
       <div className="mx-auto max-w-2xl space-y-3">
-        <div className="flex items-center gap-2">
-          <Input
-            placeholder="https://huggingface.co/org/repo/resolve/rev/model.gguf"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            className="h-8 flex-1 text-xs"
-          />
-          <Input
-            placeholder="file.gguf (optional)"
-            value={fileName}
-            onChange={(e) => setFileName(e.target.value)}
-            className="h-8 w-44 text-xs"
-          />
-          <select
-            className="h-8 w-36 rounded border border-border bg-background px-1 text-xs"
-            value={assignTag}
-            onChange={(e) => setAssignTag(e.target.value)}
-            title="Bind the downloaded file to a role tag"
-          >
-            <option value="">no tag</option>
-            {tags.map((t) => (
-              <option key={t.name} value={t.name}>
-                → {t.label ?? t.name}
-              </option>
-            ))}
-          </select>
-          <Button
-            size="sm"
-            disabled={!url.trim() || !(fileName.trim() || defaultFileName(url))}
-            onClick={() => void download()}
-          >
-            <Download className="size-3.5" /> Download
-          </Button>
-          <Button size="sm" variant="ghost" onClick={() => void refresh()}>
-            <RefreshCw className="size-3.5" />
-          </Button>
-        </div>
-        {error && <p className="text-xs text-destructive">{error}</p>}
+        {(() => {
+          const errs = validateDownload(url, fileName);
+          const canDownload =
+            url.trim() !== "" &&
+            !errs.url &&
+            !errs.fileName &&
+            (fileName.trim() !== "" || defaultFileName(url) !== "");
+          return (
+            <form
+              className="space-y-3"
+              aria-label="Download a model"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (canDownload) void download();
+              }}
+            >
+              <Field data-invalid={errs.url ? true : undefined}>
+                <FieldLabel htmlFor="dl-url">Model link</FieldLabel>
+                <Input
+                  id="dl-url"
+                  placeholder="https://huggingface.co/org/repo/resolve/main/model.gguf"
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  aria-invalid={errs.url ? true : undefined}
+                  className="text-sm"
+                />
+                {errs.url ? (
+                  <FieldError>{errs.url}</FieldError>
+                ) : (
+                  <FieldDescription>A Hugging Face link to a .gguf file.</FieldDescription>
+                )}
+              </Field>
+              <div className="flex flex-wrap items-start gap-3">
+                <Field className="w-56" data-invalid={errs.fileName ? true : undefined}>
+                  <FieldLabel htmlFor="dl-file">File name</FieldLabel>
+                  <Input
+                    id="dl-file"
+                    placeholder={defaultFileName(url) || "model.gguf"}
+                    value={fileName}
+                    onChange={(e) => setFileName(e.target.value)}
+                    aria-invalid={errs.fileName ? true : undefined}
+                    className="text-sm"
+                  />
+                  {errs.fileName ? (
+                    <FieldError>{errs.fileName}</FieldError>
+                  ) : (
+                    <FieldDescription>Optional — taken from the link.</FieldDescription>
+                  )}
+                </Field>
+                <Field className="w-44">
+                  <FieldLabel htmlFor="dl-tag">Use for role</FieldLabel>
+                  <SelectField
+                    id="dl-tag"
+                    value={assignTag}
+                    onValueChange={setAssignTag}
+                    options={[
+                      { value: "", label: "No role" },
+                      ...tags.map((t) => ({ value: t.name, label: `→ ${t.label ?? t.name}` })),
+                    ]}
+                  />
+                  <FieldDescription>Bind the file when it lands.</FieldDescription>
+                </Field>
+                <div className="mt-6 flex items-center gap-1">
+                  <Button type="submit" size="sm" disabled={!canDownload}>
+                    <IconDownload className="size-3.5" /> Download
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    aria-label="Refresh model list"
+                    title="Refresh model list"
+                    onClick={() => void refresh()}
+                  >
+                    <IconRefresh className="size-3.5" />
+                  </Button>
+                </div>
+              </div>
+            </form>
+          );
+        })()}
+        {error && (
+          <Alert variant="destructive" className="px-3 py-2 text-xs">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
         {Object.values(downloads).map((d) => (
           <div key={d.fileName} className="text-xs">
             {d.phase === "progress" && (
@@ -218,16 +250,17 @@ export function ModelLibrary({ activeName, onLoad, autoLoadOnDownload }: Props) 
         ))}
         <div className="divide-y divide-border text-xs">
           {models.length === 0 && (
-            <p className="py-2 text-muted-foreground">
-              No .gguf files in the models folder yet — download one above or
-              use Model → browse.
-            </p>
+            <EmptyState
+              icon={IconLibrary}
+              title="No models yet"
+              description="Download a .gguf model with the form above, or pick one from your disk."
+            />
           )}
           {models.map((m) => {
             const dl = downloads[m.fileName];
             const active = activeName === m.fileName;
             return (
-              <div key={m.fileName} className="py-2">
+              <div key={m.fileName} className="py-(--row-pad)">
                 <div className="flex items-center gap-2">
                   <span
                     className={cn(
@@ -268,95 +301,72 @@ export function ModelLibrary({ activeName, onLoad, autoLoadOnDownload }: Props) 
                     );
                   })()}
                   {dl?.phase === "progress" ? (
-                    <Loader2 className="size-3.5 animate-spin text-warning" />
+                    <span
+                      className="flex items-center gap-1.5 text-warning"
+                      role="status"
+                      aria-label="Downloading"
+                    >
+                      <IconSpinner className="size-3.5 animate-spin" aria-hidden="true" />
+                      {dl.totalBytes
+                        ? `${Math.round((dl.downloadedBytes / dl.totalBytes) * 100)}%`
+                        : fmtBytes(dl.downloadedBytes)}
+                    </span>
                   ) : (
                     <>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        disabled={active}
-                        onClick={() => onLoad(m.path)}
+                      <WithReason reason={active ? "This model is already loaded" : undefined}>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={active}
+                          onClick={() => onLoad(m.path)}
+                        >
+                          Load
+                        </Button>
+                      </WithReason>
+                      <WithReason
+                        reason={
+                          benching !== null && benching !== m.fileName
+                            ? "Another benchmark is running"
+                            : undefined
+                        }
                       >
-                        Load
-                      </Button>
                       <Button
                         size="sm"
                         variant="ghost"
                         disabled={benching !== null}
+                        aria-busy={benching === m.fileName}
+                        aria-label={`Run benchmark for ${m.name ?? m.fileName}`}
                         title="Run bounded benchmark (≤30 s)"
                         onClick={() => void benchmark(m)}
                       >
                         {benching === m.fileName ? (
-                          <Loader2 className="size-3.5 animate-spin" />
+                          <IconSpinner className="size-3.5 animate-spin" />
                         ) : (
-                          <Gauge className="size-3.5" />
+                          <IconBenchmark className="size-3.5" />
                         )}
                       </Button>
+                      </WithReason>
                       <Button
                         size="sm"
                         variant="ghost"
+                        aria-label={`Generation overrides for ${m.name ?? m.fileName}`}
                         title="Per-model generation overrides"
+                        aria-expanded={overrideFor === m.fileName}
                         onClick={() =>
-                          setOverrideFor(
-                            overrideFor === m.fileName ? null : m.fileName,
-                          )
+                          void (async () => {
+                            // closing an editor with unsaved edits asks first
+                            if (overrideFor === m.fileName && !(await confirmLeave())) return;
+                            setOverrideFor(overrideFor === m.fileName ? null : m.fileName);
+                          })()
                         }
                       >
-                        <SlidersHorizontal className="size-3.5" />
+                        <IconSliders className="size-3.5" />
                       </Button>
                     </>
                   )}
                 </div>
                 {overrideFor === m.fileName && (
-                  <div className="mt-2 space-y-2 rounded-md border border-border p-2">
-                    <p className="text-muted-foreground">
-                      Overrides for {m.fileName} — only changed fields apply;
-                      empty fields use global settings.
-                    </p>
-                    <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
-                      {OVERRIDE_FIELDS.map((f) => (
-                        <label key={f.key} className="flex flex-col gap-1">
-                          <span className="text-muted-foreground">{f.label}</span>
-                          <Input
-                            type="number"
-                            step="any"
-                            placeholder="—"
-                            value={draft[f.key] ?? ""}
-                            onChange={(e) => {
-                              const v = e.target.value;
-                              setDraft((d) => ({
-                                ...d,
-                                [f.key]: v === "" ? undefined : Number(v),
-                              }));
-                            }}
-                            className="h-7 text-xs"
-                          />
-                        </label>
-                      ))}
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        onClick={() => {
-                          const params = Object.fromEntries(
-                            Object.entries(draft).filter(
-                              ([, v]) => v !== undefined && Number.isFinite(v),
-                            ),
-                          );
-                          void saveOverride(m.fileName, params);
-                        }}
-                      >
-                        Save override
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => void saveOverride(m.fileName, null)}
-                      >
-                        Clear
-                      </Button>
-                    </div>
-                  </div>
+                  <OverrideEditor fileName={m.fileName} onClose={() => setOverrideFor(null)} />
                 )}
               </div>
             );
@@ -373,13 +383,21 @@ export function ModelLibrary({ activeName, onLoad, autoLoadOnDownload }: Props) 
               size="sm"
               variant="secondary"
               disabled={snapStats.count === 0}
-              onClick={() => {
-                void invoke("snapshot.clear", {}).then(() =>
-                  setSnapStats((s) =>
-                    s ? { ...s, count: 0, usedBytes: 0 } : s,
-                  ),
-                );
-              }}
+              onClick={() =>
+                void (async () => {
+                  const ok = await confirm({
+                    title: "Clear saved conversation state",
+                    itemName: `${snapStats.count} snapshot${snapStats.count === 1 ? "" : "s"}`,
+                    consequence:
+                      "Chats re-read their history the next time you continue them, which is slower once.",
+                    confirmLabel: "Clear",
+                  });
+                  if (!ok) return;
+                  await invoke("snapshot.clear", {});
+                  setSnapStats((s) => (s ? { ...s, count: 0, usedBytes: 0 } : s));
+                  notify.success("Snapshots cleared");
+                })()
+              }
             >
               Clear snapshots
             </Button>

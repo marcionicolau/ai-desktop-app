@@ -1386,6 +1386,8 @@ export function createRequestHandlers(deps: HandlerDeps) {
         scripts: s.scripts ?? { mode: "deny", backend: "auto" },
         // feature 021: absent → "system"
         themeMode: s.themeMode ?? "system",
+        // feature 026: absent → "comfortable"
+        density: s.density ?? "comfortable",
         // feature 013: reports the stored pref (env kill-switch affects
         // behavior, not this field); channel default = installed channel
         updates: {
@@ -1402,6 +1404,7 @@ export function createRequestHandlers(deps: HandlerDeps) {
       tools: toolsPatch,
       scripts: scriptsPatch,
       themeMode,
+      density,
       resolvedTheme: resolvedPatch,
       updates: updatesPatch,
     }: {
@@ -1414,6 +1417,7 @@ export function createRequestHandlers(deps: HandlerDeps) {
       tools?: Partial<import("../../shared/types").ToolPolicy>;
       scripts?: Partial<import("../../shared/types").ScriptPolicy>;
       themeMode?: import("../../shared/types").ThemeMode;
+      density?: import("../../shared/types").Density;
       resolvedTheme?: "light" | "dark";
       updates?: { enabled?: boolean; channel?: UpdateChannel };
     }) => {
@@ -1432,6 +1436,12 @@ export function createRequestHandlers(deps: HandlerDeps) {
           fail("INVALID_PARAMS", `unknown theme mode: ${themeMode}`);
         }
         next.themeMode = themeMode;
+      }
+      if (density !== undefined) {
+        if (density !== "comfortable" && density !== "compact") {
+          fail("INVALID_PARAMS", `unknown density: ${density}`);
+        }
+        next.density = density;
       }
       if (
         resolvedPatch !== undefined &&

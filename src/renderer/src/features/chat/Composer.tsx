@@ -1,5 +1,6 @@
+import { WithReason, sendDisabledReason } from "@/components/with-reason";
 import { useRef, useState } from "react";
-import { Paperclip, Send, Square, X } from "lucide-react";
+import { IconAttach, IconClose, IconSend, IconStop } from "@/components/icons";
 import type { MessageAttachment, Snippet } from "@shared/types";
 import { invoke } from "@/lib/rpc";
 import { Button } from "@/components/ui/button";
@@ -137,7 +138,7 @@ export function Composer({
               className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-xs"
               title={d.fileName}
             >
-              <Paperclip className="size-3" />
+              <IconAttach className="size-3.5" />
               <span className="max-w-32 truncate">{d.fileName}</span>
               <span className="text-muted-foreground">{fmtSize(d.sizeBytes)}</span>
               <button
@@ -147,7 +148,7 @@ export function Composer({
                 }
                 title={`Remove ${d.fileName}`}
               >
-                <X className="size-3" />
+                <IconClose className="size-3.5" />
               </button>
             </span>
           ))}
@@ -184,7 +185,7 @@ export function Composer({
           disabled={!modelReady}
           title="Attach files"
         >
-          <Paperclip />
+          <IconAttach />
         </Button>
         <Textarea
           ref={areaRef}
@@ -241,18 +242,22 @@ export function Composer({
             size="icon"
             onClick={onStop}
             title="Stop generation"
+            aria-label="Stop generation"
           >
-            <Square />
+            <IconStop />
           </Button>
         ) : (
-          <Button
-            size="icon"
-            onClick={submit}
-            disabled={!canSend}
-            title={modelReady ? "Send" : "No model loaded"}
+          <WithReason
+            reason={sendDisabledReason({
+              modelReady,
+              generating,
+              hasText: value.trim().length > 0,
+            })}
           >
-            <Send />
-          </Button>
+            <Button size="icon" onClick={submit} disabled={!canSend} aria-label="Send message" title="Send (Enter)">
+              <IconSend />
+            </Button>
+          </WithReason>
         )}
       </PromptInputBody>
       {!modelReady && (

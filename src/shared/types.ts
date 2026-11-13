@@ -208,6 +208,8 @@ export interface Settings {
   scripts?: ScriptPolicy;
   // feature 021: theme preference; undefined/absent → "system"
   themeMode?: ThemeMode;
+  // feature 026: interface density; undefined/absent → "comfortable"
+  density?: Density;
   // feature 013: update preferences; undefined → {enabled:true,
   // channel:<installed>} — AI_DESKTOP_APP_UPDATE=off forces enabled=false
   updates?: UpdatesPrefs;
@@ -265,6 +267,9 @@ export interface UpdateView {
 }
 
 export type ThemeMode = "light" | "dark" | "system";
+
+// feature 026 (FR-016): interface density; absent ⇒ "comfortable"
+export type Density = "comfortable" | "compact";
 
 // ---- feature 015: sandboxed local tool use ----
 
