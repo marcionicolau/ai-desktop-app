@@ -10,6 +10,13 @@
 
 **Evidence**: [research.md](research.md) — code audit of the current shim, web research, and five reproducible experiments (`experiments/`).
 
+## Clarifications
+
+### Session 2026-11-13
+
+- Q: Should scripts execute inside a separate host process behind the native interface, rather than inside the app's own process via FFI? → A: Yes — a dedicated `script-host` child process per language, spoken to over the native interface; the app stays untouched by script faults.
+- Q: For the first release, should the new method cover Linux only or all three platforms at once? → A: Linux only — script-host becomes the default on Linux; macOS and Windows keep the existing subprocess method until verified.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Scripts run from their file, in place (Priority: P1)
@@ -138,7 +145,7 @@ As a developer, I want a conformance test suite and a benchmark that any impleme
 - **FR-007**: The native interface MUST be one language-neutral, versioned definition implemented by one separate module per language; no module may depend on another language's module or development files.
 - **FR-008**: The Python module MUST build and work without the Python development files being installed, using the installed interpreter's shared library.
 - **FR-009**: The modules and the interface version MUST be checked at start-up; a mismatch MUST be reported with a clear message and MUST NOT run scripts.
-- **FR-010**: Scripts MUST run outside the app's own process, so that a crash, hang or memory exhaustion in a script cannot terminate the app. [NEEDS CLARIFICATION: confirm the isolation boundary — scripts in a separate host process behind the native interface (recommended; measured contained, and faster than in-app embedding), or scripts inside the app process through direct FFI (host-fatal on any script fault, and R cannot run in a worker thread).]
+- **FR-010**: Scripts MUST run outside the app's own process, so that a crash, hang or memory exhaustion in a script cannot terminate the app. The isolation boundary is a dedicated `script-host` child process per language that embeds the interpreter through the native interface; the app communicates with it and is never in the fault's blast radius.
 - **FR-011**: A run MUST be cancellable; cancellation MUST interrupt a running script promptly and report an "interrupted" outcome, and a forced stop, including any processes the script started, MUST follow if it does not end within a grace period.
 - **FR-012**: Runs MUST be subject to limits on time, memory and output size; exceeding memory MUST end the script with the language's normal out-of-memory error, and exceeding output size MUST truncate the output and mark it.
 - **FR-013**: No script process may remain after the app exits or crashes.
@@ -151,7 +158,7 @@ As a developer, I want a conformance test suite and a benchmark that any impleme
 - **FR-020**: Execution policy, consent, argument validation, timeouts, per-run folders and the audit trail from feature 023 MUST be unchanged; the audit record MUST additionally state the method used (host or fallback).
 - **FR-021**: The scripts feature MUST pass its existing tests unchanged, and a shared conformance suite MUST run against every language module covering run by path, structured result, state, cancellation, memory limit, crash containment, content fingerprint, source-missing and virtual environment.
 - **FR-022**: A benchmark MUST report start-up, first-call and warm latency per language, and its results MUST be recorded next to feature 023's for comparison.
-- **FR-023**: The earlier in-process prototype and its worker MUST be removed once the new method is the default, so only one embedded-interpreter implementation remains. [NEEDS CLARIFICATION: first-release platform scope — Linux only with the existing method kept for macOS and Windows (recommended; only Linux is verified, and process limits differ per platform), or all three platforms at once.]
+- **FR-023**: The earlier in-process prototype and its worker MUST be removed once the new method is the default, so only one embedded-interpreter implementation remains. First-release platform scope is Linux only: on macOS and Windows the existing method stays in place until those platforms are verified.
 
 ### Key Entities
 
