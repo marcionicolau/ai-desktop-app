@@ -27,8 +27,12 @@ import { buildPrompt, composeSystem, type PromptTurn } from "../llama/prompt";
 import { runToolLoop } from "../tools/loop";
 import { ToolService } from "../tools/service";
 import { modelsDir, scanModels } from "../models/library";
-import { downloadGguf, validateGgufTarget } from "../models/download";
-import { DEFAULT_MODEL, SetupService } from "../setup/service";
+import {
+  downloadGguf,
+  downloadInFlight,
+  validateGgufTarget,
+} from "../models/download";
+import { SetupService } from "../setup/service";
 import { runBenchmark } from "../advisor/benchmark";
 import { fingerprint, loadBenchmarks } from "../advisor/store";
 import {
@@ -957,7 +961,10 @@ export function createRequestHandlers(deps: HandlerDeps) {
       }
       const dir = modelsDir();
       mkdirSync(dir, { recursive: true });
-      if (existsSync(join(dir, safeName)) || existsSync(join(dir, safeName + ".part"))) {
+      if (
+        existsSync(join(dir, safeName)) ||
+        downloadInFlight(join(dir, safeName + ".part"))
+      ) {
         fail("ALREADY_EXISTS", `${safeName} already exists`);
       }
       // feature 022: tell setup a user download is in flight so a
@@ -1986,12 +1993,14 @@ export function createRpc(getHost?: () => HostTarget | null) {
   // binds to the provisioned "default" role, loads via the same
   // bootstrapModel path as a configured model
   const setup = new SetupService({
-    hasUsableModel: () => {
-      const path = store.getSettings().activeModelPath;
-      return scanModels().length > 0 || (path !== null && existsSync(path));
-    },
-    download: (onEvent) =>
-      downloadGguf(DEFAULT_MODEL.url, DEFAULT_MODEL.fileName, modelsDir(), onEvent),
+    // a role bound to any existing file is ready — the binding is the
+    // user's choice and bootstrap never re-points it; unbound or broken
+    // (bound to a missing file) roles get their canonical model
+    roleReady: (role) =>
+      roles.list().find((t) => t.name === role)?.state === "bound",
+    fileExists: (fileName) => existsSync(join(modelsDir(), fileName)),
+    download: (m, onEvent) =>
+      downloadGguf(m.url, m.fileName, modelsDir(), onEvent),
     bindRole: (role, fileName) => {
       // provision semantic aliases (litellm-style): create the tag on
       // first run so planner/executor exist for fusion out of the box
@@ -2035,8 +2044,13 @@ export function createRpc(getHost?: () => HostTarget | null) {
     // is configured the download is what eventually binds+loads the
     // model; with a configured path setup short-circuits to "done" and
     // bootstrapModel still performs the load as before
-    void setup.run();
-    void bootstrapModel(emit);
+    // serialized: bootstrapModel's engine.loadModel is synchronous FFI
+    // that blocks the main thread — running it concurrently with a setup
+    // download froze setup.status emits (and double-loaded the model
+    // setup is about to rebind). When setup short-circuits to "done"
+    // bootstrapModel still performs the load as before; when setup ran
+    // its own deps.load() this resolves to a cheap registry hit.
+    void setup.run().then(() => bootstrapModel(emit));
     // feature 013: launch check — fire-and-forget, never blocks startup;
     // non-manual so failures degrade silently (FR-001/FR-007, SC-001)
     void updater.check(false).catch(() => {});
