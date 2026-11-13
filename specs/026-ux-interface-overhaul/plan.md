@@ -128,6 +128,7 @@ tests/
 | S3 | Shell: command palette, shortcuts, breadcrumbs/titles, focus order | FR-010–012 | yes |
 | S4 | Forms/settings: Field, Select, Switch, Slider, unsaved-changes guard, grouping | FR-013, 014 | yes |
 | S5 | Responsive 800 × 600, reading width, density setting, reduced motion/contrast, long-text handling | FR-015–018 | yes |
+| S5b | Chat header de-duplication (mode/model/persona once) and resizable panels with remembered, resettable layout | FR-023–027 | yes |
 | S6 | Flip remaining audit rules to errors (overlay and native-control rules flip earlier, as their last violations are converted), re-run walkthrough, axe pass, write `validation.md` | all SCs | closes feature |
 
 ## Complexity Tracking
@@ -136,4 +137,5 @@ tests/
 |---|---|---|
 | `sonner` dependency | shadcn's toast component wraps it; needed for non-blocking feedback (FR-002) | A hand-built toast stack would reimplement stacking, timers, a11y live regions and swipe-dismiss |
 | `radix-ui` dependency | shadcn's current registry imports every primitive from this one package (dialog, select, switch, slider, tabs, popover, checkbox, radio-group, label) | Nine separate `@radix-ui/*` packages would be more dependencies, not fewer |
+| `react-resizable-panels` dependency | shadcn's `Resizable` wraps it; needed for pointer- and keyboard-resizable panels (FR-025) | A hand-written drag handler means no dependency but re-implementing keyboard resizing, min/max handling and ARIA separator semantics |
 | `cmdk` dependency | shadcn's Command wraps it; needed for the palette (FR-010) | Hand-rolled fuzzy list loses keyboard/aria-combobox correctness |

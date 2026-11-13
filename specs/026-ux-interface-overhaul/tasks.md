@@ -92,6 +92,23 @@
 
 **Checkpoint**: V4 passes; SC-003 measured in T065.
 
+## Phase 5b: User Story 6 — A focused, adjustable workspace (P2) — slice S5b
+
+**Goal**: each chat choice has one control; panels can be resized and the layout is remembered.
+
+**Independent Test**: fusion chat at 1024 × 720 → mode, planner, executor and persona each change from one place; drag the Metrics and sidebar edges → they resize, persist across a restart, and Reset layout restores defaults.
+
+- [ ] T071 [US6] Merge the chat setup into one header cluster in `src/renderer/src/features/chat/ChatPage.tsx`: a Single | Fusion toggle, the model selectors (one in single mode, planner and executor in fusion) and the fit status; nothing is repeated below the header (FR-023, FR-024)
+- [ ] T072 [US6] Convert the header persona native `<select>` to the same dropdown pattern as the model selectors (`src/renderer/src/components/ai/model-selector.tsx` or a shared `ChoicePill`), keeping the offer-to-rebind flow (FR-023)
+- [ ] T073 [US6] Remove the second selector bar: reduce `src/renderer/src/features/roles/FusionControls.tsx` to the mode toggle and a fit badge with a tooltip, and move its error and unbound-role messages into an inline `Alert` under the header; keep the disabled-with-reason behavior (FR-023, FR-024, FR-019)
+- [ ] T074 [P] [US6] Add `tests/renderer/chat-setup.test.ts` for the pure pieces: which controls a mode shows (single → 1 model control; fusion → planner + executor), and the fit status text and severity from `fusionFit` figures (FR-023, FR-024)
+- [ ] T075 [US6] Vendor shadcn `resizable` into `src/renderer/src/components/ui/resizable.tsx` and add `react-resizable-panels` to `package.json` and `bun.lock`, with the justification from plan.md Complexity Tracking in the commit message (FR-025)
+- [ ] T076 [US6] Make the sidebar resizable: drag handle with minimum and maximum widths that keep the icon-rail collapse working, in `src/renderer/src/components/ui/sidebar.tsx` and `src/renderer/src/features/chat/AppSidebar.tsx` (FR-025)
+- [ ] T077 [US6] Make the Metrics panel resizable and collapsible: lay the chat column out as a vertical panel group (messages / composer / metrics) in `src/renderer/src/features/chat/ChatPage.tsx` and replace the fixed `h-56` in `src/renderer/src/features/metrics/OutputPanel.tsx` (FR-025, SC-010)
+- [ ] T078 [P] [US6] Add `src/renderer/src/lib/layout.ts` (remembered sizes and collapsed state per panel, every storage access in try/catch, values clamped on read) with `tests/renderer/layout.test.ts`, and a "Reset layout" action in `src/renderer/src/lib/actions.ts` plus a button in Settings (FR-026)
+- [ ] T079 [US6] Keep extension views positioned while panels resize: throttle `view.setBounds` during a drag in `src/renderer/src/features/extensions/ExtViewHost.tsx` and verify with a hosted view (FR-027)
+- [ ] T080 [US6] Check minimum sizes at 800 × 600 (sidebar, metrics, header cluster) and record the measured conversation-area share in `specs/026-ux-interface-overhaul/validation.md` (FR-025, SC-010, SC-011)
+
 ## Phase 6: User Story 4 — Forms and settings that are hard to get wrong (P2) — slice S4
 
 **Goal**: controls match data, explain themselves, validate inline, protect unsaved changes.
@@ -146,6 +163,7 @@
 - US3 (Phase 5) may run in parallel with US1 (the palette uses `Dialog` from T008); register the "Toggle density" action when T053 lands.
 - US4 (Phase 6) depends on `Field`/`Select`/`Slider` (T008) and `lib/notify.ts` (T024).
 - US5 (Phase 7) depends on `lib/actions.ts` (T037) for the density action and on US2's tokens.
+- Phase 5b (US6) may run in parallel with Phase 5; T071–T073 settle the header before T077 lays out the chat column; T075 precedes T076–T077.
 - Polish runs last; T062 requires every conversion task finished.
 
 ### Parallel opportunities
