@@ -156,7 +156,7 @@ jobs:
           shopt -s nullglob
           # notes sidecar per channel+platform manifest found in feed-src/
           channel=canary; [[ "${GITHUB_REF_NAME}" != *-* ]] && channel=stable
-          prev=$(git tag -l "v*-*" --sort=-v:refname | head -1)
+          prev=$(git tag -l "v*-*" --sort=-v:refname | grep -v "^${GITHUB_REF_NAME}$" | head -1)
           [ "$channel" = "stable" ] && prev=$(git tag -l "v*" --exclude="*-*" --sort=-v:refname | grep -v "^${GITHUB_REF_NAME}$" | head -1)
           for mf in feed-src/*-update-v2.json; do
             prefix=$(basename "$mf" -update-v2.json)
