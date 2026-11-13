@@ -3,7 +3,7 @@
 // that no other file imports the icon package directly. To change families,
 // edit this file only.
 import type { RemixiconComponentType } from "@remixicon/react";
-import { RiDraggable, RiAddLine, RiAlertLine, RiArrowDownSLine, RiArrowGoBackLine, RiArrowLeftSLine, RiArrowRightSLine, RiArrowUpSLine, RiAttachment2, RiBookShelfLine, RiChat3Line, RiChatNewLine, RiCheckLine, RiCheckboxCircleLine, RiCircleLine, RiCloseLine, RiComputerLine, RiDashboard3Line, RiDeleteBinLine, RiDownload2Line, RiEqualizerLine, RiErrorWarningLine, RiExpandUpDownLine, RiFileCodeLine, RiFileCopyLine, RiFileLine, RiFileTextLine, RiFlagLine, RiFolderLine, RiFolderOpenLine, RiGitBranchLine, RiGroupLine, RiInformationLine, RiLayoutLeftLine, RiLoader4Line, RiMoonLine, RiMoreLine, RiPencilLine, RiPriceTag3Line, RiPuzzleLine, RiRefreshLine, RiSearchLine, RiSendPlaneLine, RiSettings3Line, RiSparklingLine, RiStopLine, RiSunLine, RiTerminalBoxLine, RiUpload2Line } from "@remixicon/react";
+import { RiDraggable, RiAddLine, RiAlertLine, RiArrowDownSLine, RiArrowGoBackLine, RiArrowLeftSLine, RiArrowRightSLine, RiArrowUpSLine, RiAttachment2, RiBookShelfLine, RiChat3Line, RiChatNewLine, RiCheckLine, RiCheckboxCircleLine, RiCircleLine, RiCloseLine, RiComputerLine, RiDashboard3Line, RiDeleteBinLine, RiDownload2Line, RiEqualizerLine, RiErrorWarningLine, RiExpandUpDownLine, RiFileCodeLine, RiFileCopyLine, RiFileLine, RiFileTextLine, RiFlagLine, RiFolderLine, RiFolderOpenLine, RiGitBranchLine, RiGroupLine, RiInformationLine, RiLayoutLeftLine, RiLinkM, RiLoader4Line, RiMoonLine, RiMoreLine, RiPencilLine, RiPriceTag3Line, RiPuzzleLine, RiRefreshLine, RiSearchLine, RiSendPlaneLine, RiSettings3Line, RiSparklingLine, RiStopLine, RiSunLine, RiTerminalBoxLine, RiUpload2Line } from "@remixicon/react";
 
 export type IconComponent = RemixiconComponentType;
 
@@ -51,6 +51,7 @@ export const IconExtension: IconComponent = RiPuzzleLine;
 export const IconLibrary: IconComponent = RiBookShelfLine;
 export const IconTerminal: IconComponent = RiTerminalBoxLine;
 export const IconFile: IconComponent = RiFileLine;
+export const IconLink: IconComponent = RiLinkM;
 export const IconFileCode: IconComponent = RiFileCodeLine;
 export const IconFileText: IconComponent = RiFileTextLine;
 export const IconFolder: IconComponent = RiFolderLine;

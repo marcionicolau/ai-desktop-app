@@ -293,6 +293,8 @@ export type ToolRefuseReason =
   | "unknown-script"
   | "invalid-args"
   | "runtime-unavailable"
+  // feature 027 (FR-016): linked script's file is missing/unreadable
+  | "source-missing"
   | "interrupted";
 
 export interface ToolCallRecord {
@@ -315,6 +317,9 @@ export interface ToolCallRecord {
   durationMs?: number;
   files?: string[]; // produced inside the run workdir
   sessionRestarted?: boolean; // prior session state was lost
+  // feature 027: pending run_script of a linked script whose bytes differ
+  // from the last-approved fingerprint — renders the re-consent variant
+  contentChanged?: boolean;
 }
 
 export type ToolMode = "ask" | "allow-read-session" | "deny";
@@ -345,6 +350,9 @@ export interface AuditEntry {
   exitStatus?: number | null;
   durationMs?: number;
   sessionRestarted?: boolean;
+  // feature 027 (FR-022): script source origin + path at run time
+  origin?: "linked" | "stored";
+  sourcePath?: string;
 }
 
 // ---- feature 023: python & r script calling ----
@@ -373,11 +381,17 @@ export interface ScriptEntry {
   params: ScriptParam[];
   timeoutMs?: number; // per-script override within MAX_SCRIPT_TIMEOUT
   enabled: boolean;
+  // feature 027: sha256 of the linked source's last-approved bytes —
+  // baseline recorded at link/relink/typed-path + on consent; absent for
+  // stored sources and pre-027 linked entries
+  approvedFingerprint?: string;
 }
 
 // script.list view: entry + the entry's runtime health
 export interface ScriptListItem extends ScriptEntry {
   runtimeStatus: "ready" | "missing";
+  linked: boolean; // source.kind === "external"
+  sourceState: "ok" | "missing"; // external + unreadable ⇒ "missing"
 }
 
 export type ScriptInitiator = "model" | "user" | "pipeline";
@@ -459,6 +473,36 @@ export interface ScriptUpsertParams {
   params?: ScriptParam[];
   timeoutMs?: number;
   enabled?: boolean; // default true
+}
+
+// ---- feature 027: file-import + relink payloads (contracts/rpc.md) ----
+
+export type ScriptImportError =
+  | "unsupported-ext"
+  | "unreadable"
+  | "invalid-encoding"
+  | "too-large";
+
+// script.pickImport row — one per picked file
+export interface ScriptImportCandidate {
+  path: string; // normalized absolute path
+  fileName: string;
+  runtime: ScriptRuntimeKind; // inferred from extension
+  suggestedId: string; // slug of basename, deduped (-2, -3…)
+  duplicateOf?: string; // id of an existing entry on the same path
+  error?: { code: ScriptImportError; reason: string };
+}
+
+export interface ScriptImportParams {
+  mode: "link" | "copy"; // link = default
+  files: { path: string; id: string }[];
+}
+
+export interface ScriptImportResult {
+  path: string;
+  status: "imported" | "duplicate" | "failed";
+  id?: string; // script id when imported or the duplicate's id
+  reason?: string;
 }
 
 // feature 016: one metrics entry per generation call (session ring, FR-007)

@@ -40,6 +40,9 @@ import type {
   ScriptRunEvent,
   ScriptRunRecord,
   ScriptRuntimeKind,
+  ScriptImportCandidate,
+  ScriptImportParams,
+  ScriptImportResult,
   ScriptUpsertParams,
   RuntimeStatus,
   SessionStateEvent,
@@ -79,6 +82,7 @@ export const RPC_ERROR_CODES = [
   "UPDATE_DISABLED",
   // feature 023: script calling
   "SCRIPT_NOT_FOUND",
+  "SCRIPT_SOURCE_MISSING",
   "SCRIPT_INVALID_ARGS",
   "SCRIPT_TIMEOUT",
   "RUNTIME_NOT_FOUND",
@@ -212,7 +216,8 @@ export interface ChatRpcSchema extends ElectrobunRPCSchema {
       "tool.respond": {
         params: {
           callId: string;
-          decision: "approve" | "deny" | "allowSession";
+          // feature 027: "approveChangedSession" only resolves script calls
+          decision: "approve" | "deny" | "allowSession" | "approveChangedSession";
         };
         response: Record<string, never>;
       };
@@ -247,6 +252,25 @@ export interface ChatRpcSchema extends ElectrobunRPCSchema {
       "script.run": {
         params: { id: string; args?: Record<string, unknown>; timeoutMs?: number };
         response: ScriptRunRecord;
+      };
+      // feature 027: file-import preview → confirm, source read, relink
+      // (contracts/rpc.md). pickImport opens the native multi-select;
+      // cancelled/headless ⇒ empty candidates.
+      "script.pickImport": {
+        params: Record<string, never>;
+        response: { candidates: ScriptImportCandidate[] };
+      };
+      "script.import": {
+        params: ScriptImportParams;
+        response: { results: ScriptImportResult[] };
+      };
+      "script.read": {
+        params: { id: string };
+        response: { text: string | null };
+      };
+      "script.relink": {
+        params: { id: string };
+        response: { entry: ScriptListItem | null }; // null = picker cancelled
       };
       "runtime.list": {
         params: Record<string, never>;

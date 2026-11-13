@@ -25,6 +25,8 @@ const REFUSE_LABEL: Record<string, string> = {
   "unknown-script": "unknown script",
   "invalid-args": "invalid args",
   "runtime-unavailable": "runtime unavailable",
+  // feature 027 (FR-016)
+  "source-missing": "source missing — relink the file",
   interrupted: "interrupted",
 };
 
@@ -42,7 +44,7 @@ function Card({ record, block }: { record?: ToolCallRecord; block: ToolBlock }) 
       : "");
   const status = record?.status ?? "executed";
 
-  const respond = (decision: "approve" | "deny" | "allowSession") => {
+  const respond = (decision: "approve" | "deny" | "allowSession" | "approveChangedSession") => {
     if (!record) return;
     setBusy(true);
     void invoke("tool.respond", { callId: record.id, decision }).finally(() =>
@@ -70,8 +72,45 @@ function Card({ record, block }: { record?: ToolCallRecord; block: ToolBlock }) 
       }
       status={status}
     >
-      {/* Confirmation recipe: pending ask-mode decision */}
-      {status === "pending" && record && (
+      {/* Confirmation recipe: pending ask-mode decision.
+          feature 027 (FR-018): changed linked files get the re-consent
+          variant — per-script session grant, no blanket allow */}
+      {status === "pending" && record && record.contentChanged && (
+        <div className="mt-2 space-y-1.5">
+          <p className="text-xs text-warning">
+            Script changed on disk since you last approved it.
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            <Button
+              size="sm"
+              className="h-6 px-2 text-xs"
+              disabled={busy}
+              onClick={() => respond("approve")}
+            >
+              Approve once
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              className="h-6 px-2 text-xs"
+              disabled={busy}
+              onClick={() => respond("approveChangedSession")}
+            >
+              Approve changes to this script for this session
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-6 px-2 text-xs"
+              disabled={busy}
+              onClick={() => respond("deny")}
+            >
+              Deny
+            </Button>
+          </div>
+        </div>
+      )}
+      {status === "pending" && record && !record.contentChanged && (
         <div className="mt-2 flex flex-wrap gap-1.5">
           <Button
             size="sm"

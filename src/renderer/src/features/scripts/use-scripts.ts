@@ -3,6 +3,9 @@
 import { useCallback, useEffect, useState } from "react";
 import type {
   RuntimeStatus,
+  ScriptImportCandidate,
+  ScriptImportParams,
+  ScriptImportResult,
   ScriptListItem,
   ScriptRunRecord,
   ScriptRuntimeKind,
@@ -80,6 +83,35 @@ export function useScripts() {
     [],
   );
 
+  const readSource = useCallback(
+    async (id: string) =>
+      (await invoke("script.read", { id })).text as string | null,
+    [],
+  );
+
+  const pickImport = useCallback(async () => {
+    const r = await invoke("script.pickImport", {});
+    return r.candidates as ScriptImportCandidate[];
+  }, []);
+
+  const importFiles = useCallback(
+    async (params: ScriptImportParams) => {
+      const r = await invoke("script.import", params);
+      void refresh();
+      return r.results as ScriptImportResult[];
+    },
+    [refresh],
+  );
+
+  const relink = useCallback(
+    async (id: string) => {
+      const r = await invoke("script.relink", { id });
+      void refresh();
+      return r.entry as ScriptListItem | null;
+    },
+    [refresh],
+  );
+
   const resetRuntime = useCallback(
     async (kind: ScriptRuntimeKind) => {
       await invoke("runtime.reset", { kind });
@@ -105,6 +137,10 @@ export function useScripts() {
     remove,
     setEnabled,
     run,
+    readSource,
+    pickImport,
+    importFiles,
+    relink,
     resetRuntime,
     detectRuntime,
   };

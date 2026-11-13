@@ -231,7 +231,7 @@ describe("call: initiator + audit plumbing", () => {
     expect(line.conversationId).toBeUndefined();
   });
 
-  test("missing script source → SCRIPT_NOT_FOUND", async () => {
+  test("missing linked script source → SCRIPT_SOURCE_MISSING", async () => {
     const { svc } = mk(ask);
     const it = svc.upsert({
       name: "gone",
@@ -240,6 +240,6 @@ describe("call: initiator + audit plumbing", () => {
     });
     await expect(
       svc.call({ entry: svc.get(it.id)!, initiator: "user", ns: "manual" }),
-    ).rejects.toMatchObject({ code: "SCRIPT_NOT_FOUND" });
+    ).rejects.toMatchObject({ code: "SCRIPT_SOURCE_MISSING" });
   });
 });

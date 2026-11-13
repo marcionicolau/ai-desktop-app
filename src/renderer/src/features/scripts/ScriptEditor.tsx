@@ -14,6 +14,11 @@ import { SelectField } from "@/components/select-field";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { IconClose } from "@/components/icons";
 import { confirm } from "@/lib/confirm";
@@ -194,20 +199,26 @@ export function ScriptEditor({
               placeholder={runtime === "python" ? "print(ARGS['n'] + 1)" : "cat(ARGS$n + 1)"}
             />
           ) : (
-            <>
-              <Input
-                aria-label="Script file path"
-                value={path}
-                onChange={(e) => setPath(e.target.value)}
-                placeholder="/absolute/path/to/script.py"
-                aria-invalid={showPath ? true : undefined}
-              />
-              {showPath ? (
-                <FieldError>{showPath}</FieldError>
-              ) : (
-                <FieldDescription>The file is read each time the script runs.</FieldDescription>
-              )}
-            </>
+            // feature 027 (FR-020): typed absolute path lives under Advanced
+            <Collapsible className="group/adv">
+              <CollapsibleTrigger className="text-xs text-muted-foreground underline-offset-2 hover:underline">
+                Advanced
+              </CollapsibleTrigger>
+              <CollapsibleContent className="mt-2 space-y-1.5">
+                <Input
+                  aria-label="Script file path"
+                  value={path}
+                  onChange={(e) => setPath(e.target.value)}
+                  placeholder="/absolute/path/to/script.py"
+                  aria-invalid={showPath ? true : undefined}
+                />
+                {showPath ? (
+                  <FieldError>{showPath}</FieldError>
+                ) : (
+                  <FieldDescription>The file is read each time the script runs.</FieldDescription>
+                )}
+              </CollapsibleContent>
+            </Collapsible>
           )}
         </Field>
 

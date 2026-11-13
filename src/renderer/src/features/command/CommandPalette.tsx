@@ -34,6 +34,9 @@ interface Props {
   models: PaletteModel[];
   onUseModel: (id: string) => void;
   onSelectConversation: (id: string, messageId?: string) => void;
+  // feature 027 (FR-007): every script openable by name
+  scripts?: { id: string; runtime: "python" | "r" }[];
+  onSelectScript?: (id: string) => void;
 }
 
 export function CommandPalette({
@@ -45,6 +48,8 @@ export function CommandPalette({
   models,
   onUseModel,
   onSelectConversation,
+  scripts = [],
+  onSelectScript,
 }: Props) {
   const mac = isMacPlatform();
   const [query, setQuery] = useState(initialQuery);
@@ -126,6 +131,26 @@ export function CommandPalette({
             );
           })}
         </CommandGroup>
+
+        {scripts.length > 0 && onSelectScript && (
+          <CommandGroup heading="Scripts">
+            {scripts.map((s) => (
+              <CommandItem
+                key={s.id}
+                value={`${s.id} ${s.runtime} script`}
+                onSelect={() => {
+                  close();
+                  setTimeout(() => onSelectScript(s.id), 0);
+                }}
+              >
+                <span className="font-mono">{s.id}</span>
+                <span className="ml-2 text-xs text-muted-foreground">
+                  {s.runtime === "python" ? "Python" : "R"}
+                </span>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        )}
 
         {models.length > 0 && (
           <CommandGroup heading="Models">

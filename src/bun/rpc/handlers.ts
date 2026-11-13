@@ -18,6 +18,7 @@ import type {
   RoleRef,
   PackSource,
   ScriptRuntimeKind,
+  ScriptImportParams,
   ScriptUpsertParams,
   UpdateChannel,
   UpdateView,
@@ -1293,7 +1294,8 @@ export function createRequestHandlers(deps: HandlerDeps) {
       decision,
     }: {
       callId: string;
-      decision: "approve" | "deny" | "allowSession";
+      // feature 027: "approveChangedSession" only resolves script calls
+      decision: "approve" | "deny" | "allowSession" | "approveChangedSession";
     }) => {
       if (!tools().respond(callId, decision) && !scripts().respond(callId, decision)) {
         fail("NOT_FOUND", `no pending tool call ${callId}`);
@@ -1336,6 +1338,35 @@ export function createRequestHandlers(deps: HandlerDeps) {
         ns: "manual",
         emitRun: true,
       });
+    },
+    // feature 027: import flow — picker preview then confirm (contracts/rpc.md)
+    "script.pickImport": async () => {
+      const paths =
+        (await deps.dialogs?.pickFiles?.("py,PY,r,R")) ??
+        ((await deps.dialogs?.pickFile?.("py,PY,r,R")) as string | null);
+      const list = Array.isArray(paths) ? paths : paths ? [paths] : [];
+      if (list.length === 0) return { candidates: [] };
+      return { candidates: scripts().importCandidates(list) };
+    },
+    "script.import": (p: ScriptImportParams) => ({
+      results: scripts().importFiles(p),
+    }),
+    // feature 027: source text for the detail code pane (re-read each open)
+    "script.read": ({ id }: { id: string }) => {
+      const entry = scripts().get(id);
+      if (!entry) fail("SCRIPT_NOT_FOUND", `no script "${id}"`);
+      return { text: scripts().readSource(entry) };
+    },
+    "script.relink": async ({ id }: { id: string }) => {
+      const entry = scripts().get(id);
+      if (!entry) fail("SCRIPT_NOT_FOUND", `no script "${id}"`);
+      if (entry.source.kind !== "external") {
+        fail("INVALID_PARAMS", `script "${id}" is not linked`);
+      }
+      const filter = entry.runtime === "python" ? "py,PY" : "r,R";
+      const path = await deps.dialogs?.pickFile?.(filter);
+      if (!path) return { entry: null };
+      return { entry: scripts().relink(id, path) };
     },
     "runtime.list": () => ({ runtimes: scripts().runtimes() }),
     "runtime.detect": ({ kind }: { kind: ScriptRuntimeKind }) => {
