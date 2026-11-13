@@ -1992,9 +1992,14 @@ export function createRpc(getHost?: () => HostTarget | null) {
     },
     download: (onEvent) =>
       downloadGguf(DEFAULT_MODEL.url, DEFAULT_MODEL.fileName, modelsDir(), onEvent),
-    bindDefault: (fileName) => {
-      roles.bind("default", fileName);
-      emit("role.changed", { name: "default" });
+    bindRole: (role, fileName) => {
+      // provision semantic aliases (litellm-style): create the tag on
+      // first run so planner/executor exist for fusion out of the box
+      if (!roles.list().some((t) => t.name === role)) {
+        roles.create({ name: role });
+      }
+      roles.bind(role, fileName);
+      emit("role.changed", { name: role });
     },
     load: () => bootstrapModel(emit),
     emit: (s) => emit("setup.status", s),

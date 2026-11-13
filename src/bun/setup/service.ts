@@ -15,6 +15,12 @@ export const DEFAULT_MODEL = {
   fileName: "Qwen2.5-0.5B-Instruct-Q4_K_M.gguf",
 } as const;
 
+// Semantic role aliases the bootstrap provisions (litellm-style: code
+// knows the aliases, models are swappable). All bind to DEFAULT_MODEL —
+// like several aliases sharing one backend model — so fusion works out
+// of the box and users rebind to bigger files later.
+export const PROVISION_ROLES = ["default", "planner", "executor"] as const;
+
 export interface SetupDeps {
   // true when a usable chat model exists: any file in the models dir or
   // a configured activeModelPath that still resolves (spec: never
@@ -23,8 +29,9 @@ export interface SetupDeps {
   // downloads DEFAULT_MODEL via the shared core; resolves when the file
   // has landed (renamed off .part), rejects on failure
   download(onEvent: (s: DownloadState) => void): Promise<void>;
-  // binds the landed file to the "default" role → activeModelPath
-  bindDefault(fileName: string): void;
+  // binds the landed file to a provisioned role, creating the tag when
+  // missing; "default" also syncs activeModelPath
+  bindRole(role: string, fileName: string): void;
   // normal load path (emits model.progress loading/ready/error)
   load(): Promise<void>;
   emit(state: SetupState): void;
@@ -69,10 +76,10 @@ export class SetupService {
     this.deps.emit(this.status());
   }
 
-  private setTarget(status: SetupTarget["status"]): void {
+  private setTarget(role: string, status: SetupTarget["status"]): void {
     this.set({
       targets: this.state.targets.map((t) =>
-        t.role === "default" ? { ...t, status } : t,
+        t.role === role ? { ...t, status } : t,
       ),
     });
   }
@@ -81,8 +88,10 @@ export class SetupService {
     this.set({
       phase: "error",
       error: e instanceof Error ? e.message : String(e),
+      targets: this.state.targets.map((t) =>
+        t.status === "done" ? t : { ...t, status: "error" as const },
+      ),
     });
-    this.setTarget("error");
   }
 
   private async exec(): Promise<void> {
@@ -95,15 +104,13 @@ export class SetupService {
     this.set({
       phase: "downloading",
       fileName: DEFAULT_MODEL.fileName,
-      targets: [
-        {
-          role: "default",
-          fileName: DEFAULT_MODEL.fileName,
-          status: "downloading",
-          downloadedBytes: 0,
-          totalBytes: null,
-        },
-      ],
+      targets: PROVISION_ROLES.map((role) => ({
+        role,
+        fileName: DEFAULT_MODEL.fileName,
+        status: "downloading" as const,
+        downloadedBytes: 0,
+        totalBytes: null,
+      })),
     });
     try {
       await this.deps.download((s) => {
@@ -113,7 +120,7 @@ export class SetupService {
             downloadedBytes: s.downloadedBytes,
             totalBytes: s.totalBytes,
             targets: this.state.targets.map((t) =>
-              t.role === "default"
+              t.fileName === s.fileName
                 ? { ...t, downloadedBytes: s.downloadedBytes, totalBytes: s.totalBytes }
                 : t,
             ),
@@ -125,15 +132,17 @@ export class SetupService {
       return;
     }
     this.set({ phase: "loading" });
-    this.setTarget("loading");
     try {
-      this.deps.bindDefault(DEFAULT_MODEL.fileName);
+      for (const role of PROVISION_ROLES) {
+        this.setTarget(role, "loading");
+        this.deps.bindRole(role, DEFAULT_MODEL.fileName);
+        this.setTarget(role, "done");
+      }
       await this.deps.load();
     } catch (e) {
       this.fail(e);
       return;
     }
-    this.setTarget("done");
     this.set({ phase: "done" });
   }
 }
